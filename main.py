@@ -3,6 +3,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QGraphicsLineItem, QGraphicsItem, QGraphicsRectItem, QToolBar, QPushButton, QDialog, QVBoxLayout, QLineEdit, QDialogButtonBox, QComboBox, QWidget
 from PySide6.QtGui import QPen, QBrush, QColor, QIcon, QAction
 from devices import Router, Cable
+import db_handler
+
 
 class MainView(QGraphicsView):
     def __init__(self):
@@ -60,7 +62,7 @@ class MainWindow(QMainWindow):
     
     def addCable(self, device_1, device_2):
         cable = Cable(device_1, device_2)
-        cable.setZValue(-1)                     #move object "Cable" under all other objects (to the background)
+        cable.setZValue(-1) #All cables to the background
         self.view.scene.addItem(cable)
 
         return cable
@@ -121,4 +123,5 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     window.resize(800, 600)
+
     sys.exit(app.exec())
