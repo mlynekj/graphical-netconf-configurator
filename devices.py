@@ -15,7 +15,7 @@ class Router(QGraphicsPixmapItem):
         
         self.cables = []
 
-        #DEBUG: zobrazi ohraniceni kolem routeru
+        #DEBUG: Show border around router
         if __debug__:
             self.border = QGraphicsRectItem(self.boundingRect())
         
@@ -25,13 +25,10 @@ class Router(QGraphicsPixmapItem):
         for cable in self.cables:
             cable.updatePosition()
         
-        #DEBUG: zobrazi ohraniceni kolem routeru
+        #DEBUG: Show border around router
         if __debug__:
-            self.updateBorderPosition()
-
-    def updateBorderPosition(self):
-        self.border.setPos(self.scenePos())
-
+            self.border.setPos(self.scenePos())
+        
 class Cable(QGraphicsLineItem):
     def __init__(self, device_1, device_2):
         super().__init__()
