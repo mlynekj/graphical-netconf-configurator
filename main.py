@@ -1,5 +1,6 @@
 import sys
-from PySide6.QtWidgets import QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QGraphicsLineItem, QGraphicsItem, QGraphicsRectItem, QToolBar, QPushButton, QDialog, QVBoxLayout, QLineEdit, QDialogButtonBox, QComboBox
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QGraphicsLineItem, QGraphicsItem, QGraphicsRectItem, QToolBar, QPushButton, QDialog, QVBoxLayout, QLineEdit, QDialogButtonBox, QComboBox, QWidget
 from PySide6.QtGui import QPen, QBrush, QColor, QIcon, QAction
 from devices import Router, Cable
 
@@ -22,13 +23,13 @@ class MainWindow(QMainWindow):
 
         self.createToolBar()
 
-        router = self.addRouter(100, 100)
-        router2 = self.addRouter(300, 300)
-        router3 = self.addRouter(500, 500)
+        #router = self.addRouter(100, 100)
+        #router2 = self.addRouter(300, 300)
+        #router3 = self.addRouter(500, 500)
 
-        cable = self.addCable(router, router2)
-        cable2 = self.addCable(router2, router3)
-        cable3 = self.addCable(router3, router)
+        #cable = self.addCable(router, router2)
+        #cable2 = self.addCable(router2, router3)
+        #cable3 = self.addCable(router3, router)
 
     def createToolBar(self):
         toolbar = QToolBar("Toolbar", self)
@@ -36,47 +37,18 @@ class MainWindow(QMainWindow):
 
         action1_connectToDevice = QAction(QIcon(), "Connect to a device", self)
         toolbar.addAction(action1_connectToDevice)
-        action1_connectToDevice.triggered.connect(self.addDevicePopup)
+        action1_connectToDevice.triggered.connect(self.showDeviceConnectionDialog)
+
+        # TODO: udelat hezci - ikony, sirsi bar
 
         self.addToolBar(toolbar)
 
-    def addDevicePopup(self):
-        dialog = QDialog()
-        dialog.setWindowTitle("Connect to a device")
-        #dialog.setModal()
-        layout = QVBoxLayout()
+    def showDeviceConnectionDialog(self):
+        dialog = DeviceConnectionDialog(self.addRouter)
+        dialog.exec()
 
-        #Input fields
-        address_input = QLineEdit()
-        address_input.setPlaceholderText("IP address")
-        layout.addWidget(address_input)
-
-        username_input = QLineEdit()
-        username_input.setPlaceholderText("Username")
-        layout.addWidget(username_input)
-
-        password_input = QLineEdit()
-        password_input.setPlaceholderText("Password")
-        layout.addWidget(password_input)
-
-        deviceType_combo = QComboBox()
-        deviceType_combo.addItems(["Cisco IOS XE", "Juniper"])
-        layout.addWidget(deviceType_combo)
-        
-        #Buttons
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-
-        dialog.setLayout(layout)
-
-        if dialog.exec():
-            router_name = address_input.text()
-            
-
-    def addRouter(self, x, y):
-        router = Router(x, y)
+    def addRouter(self, device_parameters, x, y):
+        router = Router(device_parameters, x, y)
         self.view.scene.addItem(router)
         
         #DEBUG: Show border around router
@@ -92,6 +64,56 @@ class MainWindow(QMainWindow):
         self.view.scene.addItem(cable)
 
         return cable
+
+class DeviceConnectionDialog(QDialog):
+    device_parameters = {}
+
+    def __init__(self, addRouter_callback):
+        super().__init__()
+
+        self.setWindowTitle("Connect to a device")
+        self.addRouter_callback = addRouter_callback
+        self.setModal(True)
+        layout = QVBoxLayout()
+
+        #Input fields
+        self.address_input = QLineEdit()
+        self.address_input.setPlaceholderText("IP address")
+        layout.addWidget(self.address_input)
+
+        self.username_input = QLineEdit()
+        self.username_input.setPlaceholderText("Username")
+        layout.addWidget(self.username_input)
+
+        self.password_input = QLineEdit()
+        self.password_input.setPlaceholderText("Password")
+        layout.addWidget(self.password_input)
+
+        self.deviceType_combo = QComboBox()
+        self.deviceType_combo.addItems(["Cisco IOS XE", "Juniper"])
+        layout.addWidget(self.deviceType_combo)
+        
+
+        #Buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.acceptCustom)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        self.setLayout(layout)
+
+    def acceptCustom(self):
+        self.device_parameters["address"] = self.address_input.text()
+        self.device_parameters["username"] = self.username_input.text()
+        self.device_parameters["password"] = self.password_input.text()
+        if self.deviceType_combo.currentText() == "Cisco IOS XE":
+            self.device_parameters["device_params"] = "iosxe"
+        elif self.deviceType_combo.currentText() == "Juniper":
+            self.device_parameters["device_params"] = "junos"
+
+        self.addRouter_callback(device_parameters = self.device_parameters, x=0, y=0)
+        self.accept()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
