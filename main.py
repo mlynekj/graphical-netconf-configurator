@@ -24,7 +24,8 @@ from PySide6.QtGui import (
     QBrush, 
     QColor, 
     QIcon, 
-    QAction)
+    QAction,
+    QPixmap)
 
 # Custom
 from devices import Router, Cable
@@ -61,17 +62,30 @@ class MainWindow(QMainWindow):
     def createToolBar(self):
         toolbar = QToolBar("Toolbar", self)
         toolbar.setVisible(True)
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        toolbar.setMovable(False)
 
-        action1_connectToDevice = QAction(QIcon(), "Connect to a device", self)
-        toolbar.addAction(action1_connectToDevice)
+        #Connect to a device
+        plus_icon_img = QIcon(QPixmap("graphics/icons/plus.png")) #https://www.freepik.com/icon/add_1082378#fromView=family&page=1&position=1&uuid=d639dba2-0441-47bb-a400-3b47c2034665
+        action1_connectToDevice = QAction(plus_icon_img, "Connect to a device", self)
         action1_connectToDevice.triggered.connect(self.showDeviceConnectionDialog)
+        toolbar.addAction(action1_connectToDevice)
 
-        # TODO: udelat hezci - ikony, sirsi bar
+        #DEBUG BUTTON
+        if __debug__:
+            action99_debug = QAction("DEBUG", self)
+            action99_debug.triggered.connect(self.showDebugDialog)
+            toolbar.addAction(action99_debug)
 
         self.addToolBar(toolbar)
 
     def showDeviceConnectionDialog(self):
         dialog = DeviceConnectionDialog(self.addRouter)
+        dialog.exec()
+
+    #DEBUG:
+    def showDebugDialog(self):
+        dialog = DebugDialog(self.addCable)
         dialog.exec()
 
     def addRouter(self, device_parameters, x, y):
@@ -147,6 +161,46 @@ class DeviceConnectionDialog(QDialog):
         self.addRouter_callback(device_parameters = self.device_parameters, x=0, y=0)
         self.accept()
 
+
+class DebugDialog(QDialog):
+    device_parameters = {}
+
+    def __init__(self, addCable_callback):
+        super().__init__()
+
+        self.addCable_callback = addCable_callback
+
+        self.setWindowTitle("Debug")
+        layout = QVBoxLayout()
+
+        #Input fields
+        cursor = db_handler.connection.cursor()
+        cursor.execute("SELECT Name FROM Device")
+        devices = cursor.fetchall()
+        devices_processed = []
+        for device in devices:
+            devices_processed.append(device[0])
+
+        self.device1_combo = QComboBox()
+        self.device1_combo.addItems(devices_processed)
+        layout.addWidget(self.device1_combo)
+
+        self.device2_combo = QComboBox()
+        self.device2_combo.addItems(devices_processed)
+        layout.addWidget(self.device2_combo)
+
+        #Buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.acceptCustom)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        self.setLayout(layout)
+
+    def acceptCustom(self):
+        
+        self.addCable_callback()
+        self.accept()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

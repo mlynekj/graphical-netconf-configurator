@@ -29,8 +29,8 @@ class Device(QGraphicsPixmapItem):
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__()
 
-        general_image_file = QImage("graphics/icons/general.png") # TODO: CHANGE GENERAL ICON
-        self.setPixmap(QPixmap.fromImage(general_image_file))
+        device_icon_img = QImage("graphics/icons/general.png") # TODO: CHANGE GENERAL ICON
+        self.setPixmap(QPixmap.fromImage(device_icon_img))
 
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setTransformOriginPoint(self.boundingRect().center())
@@ -110,8 +110,8 @@ class Router(Device):
         super().__init__(device_parameters, x, y)
 
         #Router icon
-        router_image_file = QImage("graphics/icons/router.png")
-        self.setPixmap(QPixmap.fromImage(router_image_file))
+        router_icon_img = QImage("graphics/icons/router.png")
+        self.setPixmap(QPixmap.fromImage(router_icon_img))
 
         #ID
         Router._counter += 1
@@ -152,4 +152,5 @@ class Cable(QGraphicsLineItem):
         self.device_1_center = self.device_1.sceneBoundingRect().center()
         self.device_2_center = self.device_2.sceneBoundingRect().center()
 
+        #TODO: optimalizovat
         self.setLine(self.device_1_center.x(), self.device_1_center.y(), self.device_2_center.x(), self.device_2_center.y())

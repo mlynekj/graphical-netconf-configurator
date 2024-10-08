@@ -102,6 +102,18 @@ def deleteDevice(conn, name):
     if __debug__:
         print(f"Deleted device: {name}")
 
+def getDevice(conn, name):
+    # Delete a device from the Device table
+    # TODO: Zmenit nazev sloupce "name" na "id" (cpu tam R1, R2, atd...)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT FROM Device WHERE name = ?
+    """, (name,))
+    conn.commit()
+
+    if __debug__:
+        print(f"Retrieved device: {name}")
+
 def insertConnection(conn, device_a_id, device_b_id, cable_type):
     #Insert a new connection between two devices
     cursor = conn.cursor()
@@ -138,6 +150,7 @@ def resetTables(conn):
 
     if __debug__:
         print("All device-related data has been deleted.")
+
 
 
 # ---------------------------------------------- Initializing the database ----------------------------------------------
