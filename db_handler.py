@@ -8,7 +8,8 @@ def createConnection(db_file):
     conn = None
     try:
         conn = sqlite3.connect(db_file)
-        print("Connection established to SQLite DB")
+        if __debug__:
+            print("Connection established to SQLite DB")
         return conn
     except sqlite3.Error as e:
         print(e)
@@ -61,7 +62,9 @@ def createTables(conn):
     ''')
 
     conn.commit()
-    print("Tables created successfully.") # TODO: predelat do nejakeho logovaciho souboru
+
+    if __debug__:
+        print("Tables created successfully.") # TODO: predelat do nejakeho logovaciho souboru
 
 # ---------------------------------------------- Working with the contents of the DB ----------------------------------------------
 def insertDeviceType(conn, type_name):
@@ -69,7 +72,9 @@ def insertDeviceType(conn, type_name):
     cursor = conn.cursor()
     cursor.execute("INSERT INTO DeviceType (type_name) VALUES (?)", (type_name,))
     conn.commit()
-    print(f"Inserted device type: {type_name}")
+
+    if __debug__:
+        print(f"Inserted device type: {type_name}")
 
 def insertDevice(conn, name, device_type_id):
     #Insert a new device into the Device table
@@ -79,7 +84,21 @@ def insertDevice(conn, name, device_type_id):
         VALUES (?, ?)
     """, (name, device_type_id))
     conn.commit()
-    print(f"Inserted device: {name}")
+
+    if __debug__:
+        print(f"Inserted device: {name}")
+
+def deleteDevice(conn, name):
+    # Delete a device from the Device table
+    # TODO: Zmenit nazev sloupce "name" na "id" (cpu tam R1, R2, atd...)
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM Device WHERE name = ?
+    """, (name,))
+    conn.commit()
+
+    if __debug__:
+        print(f"Deleted device: {name}")
 
 def insertConnection(conn, device_a_id, device_b_id, cable_type):
     #Insert a new connection between two devices
@@ -89,7 +108,9 @@ def insertConnection(conn, device_a_id, device_b_id, cable_type):
         VALUES (?, ?, ?)
     """, (device_a_id, device_b_id, cable_type))
     conn.commit()
-    print(f"Inserted connection between device {device_a_id} and {device_b_id}")
+    
+    if __debug__:
+        print(f"Inserted connection between device {device_a_id} and {device_b_id}")
 
 
 def insertDeviceAttribute(conn, device_id, attribute_key, attribute_value):
@@ -100,7 +121,9 @@ def insertDeviceAttribute(conn, device_id, attribute_key, attribute_value):
         VALUES (?, ?, ?)
     """, (device_id, attribute_key, attribute_value))
     conn.commit()
-    print(f"Inserted attribute {attribute_key} for device {device_id}")
+
+    if __debug__:
+        print(f"Inserted attribute {attribute_key} for device {device_id}")
 
 def resetTables(conn):
     #Delete all rows in the tables related to devices and connections
@@ -110,7 +133,9 @@ def resetTables(conn):
     cursor.execute("DELETE FROM Device")
 
     conn.commit()
-    print("All device-related data has been deleted.")
+
+    if __debug__:
+        print("All device-related data has been deleted.")
 
 
 # ---------------------------------------------- Initializing the database ----------------------------------------------

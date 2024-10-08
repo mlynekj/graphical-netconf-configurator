@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
             router.border.setPos(router.scenePos())
             
         return router
+        
     
     def addCable(self, device_1, device_2):
         cable = Cable(device_1, device_2)
@@ -94,7 +95,12 @@ class DeviceConnectionDialog(QDialog):
         self.deviceType_combo = QComboBox()
         self.deviceType_combo.addItems(["Cisco IOS XE", "Juniper"])
         layout.addWidget(self.deviceType_combo)
-        
+
+        #DEBUG: Test connection for debugging
+        if __debug__:
+            self.address_input.setText("10.0.0.201")
+            self.username_input.setText("jakub")
+            self.password_input.setText("cisco")
 
         #Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
