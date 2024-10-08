@@ -1,3 +1,4 @@
+# Other
 import sqlite3, os
 
 # TODO: vsechny printy predelat do nejakeho logovaciho souboru
@@ -86,6 +87,7 @@ def insertDevice(conn, name, device_type_id):
     conn.commit()
 
     if __debug__:
+        print(name)
         print(f"Inserted device: {name}")
 
 def deleteDevice(conn, name):

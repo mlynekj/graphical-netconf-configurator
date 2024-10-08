@@ -1,7 +1,32 @@
+# Other
 import sys
+
+# QT
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QGraphicsLineItem, QGraphicsItem, QGraphicsRectItem, QToolBar, QPushButton, QDialog, QVBoxLayout, QLineEdit, QDialogButtonBox, QComboBox, QWidget
-from PySide6.QtGui import QPen, QBrush, QColor, QIcon, QAction
+from PySide6.QtWidgets import (
+    QApplication, 
+    QMainWindow, 
+    QGraphicsView, 
+    QGraphicsScene, 
+    QGraphicsLineItem, 
+    QGraphicsItem, 
+    QGraphicsRectItem, 
+    QToolBar, 
+    QPushButton, 
+    QDialog, 
+    QVBoxLayout, 
+    QLineEdit, 
+    QDialogButtonBox, 
+    QComboBox, 
+    QWidget)
+from PySide6.QtGui import (
+    QPen, 
+    QBrush, 
+    QColor, 
+    QIcon, 
+    QAction)
+
+# Custom
 from devices import Router, Cable
 import db_handler
 
@@ -96,7 +121,7 @@ class DeviceConnectionDialog(QDialog):
         self.deviceType_combo.addItems(["Cisco IOS XE", "Juniper"])
         layout.addWidget(self.deviceType_combo)
 
-        #DEBUG: Test connection for debugging
+        #DEBUG: Testing connection for debugging
         if __debug__:
             self.address_input.setText("10.0.0.201")
             self.username_input.setText("jakub")

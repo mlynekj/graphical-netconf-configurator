@@ -1,8 +1,28 @@
-from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsItem, QGraphicsLineItem, QGraphicsRectItem, QGraphicsSceneMouseEvent, QMenu
-from PySide6.QtGui import QImage, QPixmap, QPen, QColor, QAction
-from PySide6.QtCore import QLineF
+# Other
 from ncclient import manager
 import sqlite3
+
+# QT
+from PySide6.QtWidgets import (
+    QGraphicsPixmapItem, 
+    QGraphicsItem,
+    QGraphicsLineItem, 
+    QGraphicsRectItem, 
+    QGraphicsSceneMouseEvent, 
+    QMenu,
+    QGraphicsTextItem)
+from PySide6.QtGui import (
+    QImage, 
+    QPixmap,
+    QPen,
+    QColor,
+    QAction,
+    QFont)
+from PySide6.QtCore import (
+    QLineF,
+    QPointF)
+
+# Custom
 import db_handler
 
 class Device(QGraphicsPixmapItem):
@@ -68,19 +88,12 @@ class Device(QGraphicsPixmapItem):
         #removeItem -> doesnt remove the item from memory, but gives the ownership of the item back to the Python interpreter,
         #which decides when to remove it from the memory. It is not necessary to call the "del" function for deleting the object from memory.
 
-        if isinstance(self, Router):
-            Router._counter -= 1
-        #elif isinstance(self, Switch):
-        #   Switch._counter -= 1
-        #elif ...
-
         #Delete the device from DB
         #NEEDS TO BE IN THE APPROPRIATE SUBCLASS! (to keep track of the respective id's)
 
     def rename(self):
         print("rename")
-        # TODO: Rename Device + show names on canvas
-        # TODO: Pojmenovani zarizeni (R1, ...)
+        # TODO: Rename Device
 
     def showNetconfCapabilities(self):
         print("show caps")
@@ -99,15 +112,24 @@ class Router(Device):
         #Router icon
         router_image_file = QImage("graphics/icons/router.png")
         self.setPixmap(QPixmap.fromImage(router_image_file))
-        
+
         #ID
         Router._counter += 1
         self.id = f"R{Router._counter}"
+
+        #Label
+        self.label = QGraphicsTextItem(str(self.id), self)
+        self.label.setDefaultTextColor(QColor(0, 0, 0))
+        self.label.setFont(QFont('Arial', 10))
+        self.label.setPos(0, self.pixmap().height())
+        self.label_border = self.label.boundingRect()
+        self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
 
         #DB
         db_handler.insertDevice(db_handler.connection, self.id, 1) # 1 = device_type_id = Router
 
     def deleteDevice(self):
+        # Inherited from Device class
         db_handler.deleteDevice(db_handler.connection, self.id) #TODO: use one shared connection, or create and tear down one-shot connections? If one shared, there needs to be a fail-safe in db_handler.py
         super().deleteDevice()
 
