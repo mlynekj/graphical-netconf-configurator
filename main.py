@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (
     QLineEdit, 
     QDialogButtonBox, 
     QComboBox, 
-    QWidget)
+    QWidget,
+    QScrollArea)
 from PySide6.QtGui import (
     QPen, 
     QBrush, 
@@ -39,7 +40,7 @@ class MainView(QGraphicsView):
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
 
-        self.scene.setBackgroundBrush(QBrush(QColor(255, 255, 255))) #White background
+        self.scene.setBackgroundBrush(QBrush(QColor(255, 255, 255))) # White background
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -51,27 +52,19 @@ class MainWindow(QMainWindow):
 
         self.createToolBar()
 
-        #router = self.addRouter(100, 100)
-        #router2 = self.addRouter(300, 300)
-        #router3 = self.addRouter(500, 500)
-
-        #cable = self.addCable(router, router2)
-        #cable2 = self.addCable(router2, router3)
-        #cable3 = self.addCable(router3, router)
-
     def createToolBar(self):
         toolbar = QToolBar("Toolbar", self)
         toolbar.setVisible(True)
-        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         toolbar.setMovable(False)
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-        #Connect to a device
+        # Add a device button
         plus_icon_img = QIcon(QPixmap("graphics/icons/plus.png")) #https://www.freepik.com/icon/add_1082378#fromView=family&page=1&position=1&uuid=d639dba2-0441-47bb-a400-3b47c2034665
         action1_connectToDevice = QAction(plus_icon_img, "Connect to a device", self)
         action1_connectToDevice.triggered.connect(self.showDeviceConnectionDialog)
         toolbar.addAction(action1_connectToDevice)
 
-        #DEBUG BUTTON
+        #DEBUG: 
         if __debug__:
             action99_debug = QAction("DEBUG", self)
             action99_debug.triggered.connect(self.showDebugDialog)
@@ -80,12 +73,12 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
     def showDeviceConnectionDialog(self):
-        dialog = AddDeviceDialog(self.addRouter)
+        dialog = AddDeviceDialog(self.addRouter) # self.addRouter function callback
         dialog.exec()
 
     #DEBUG:
     def showDebugDialog(self):
-        dialog = DebugDialog(self.addCable, self.removeCable)
+        dialog = DebugDialog(self.addCable, self.removeCable) # self.addRouter and self.removeCable function callback
         dialog.exec()
 
     def addRouter(self, device_parameters, x, y):
@@ -96,7 +89,7 @@ class MainWindow(QMainWindow):
         if __debug__:
             self.view.scene.addItem(router.border)
             router.border.setPos(router.scenePos())
-            
+
         return router
         
     
@@ -121,7 +114,7 @@ class AddDeviceDialog(QDialog):
         self.setModal(True)
         layout = QVBoxLayout()
 
-        #Input fields
+        # Input fields
         self.address_input = QLineEdit()
         self.address_input.setPlaceholderText("IP address")
         layout.addWidget(self.address_input)
@@ -144,7 +137,7 @@ class AddDeviceDialog(QDialog):
             self.username_input.setText("jakub")
             self.password_input.setText("cisco")
 
-        #Buttons
+        # Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.confirmConnection)
         buttons.rejected.connect(self.reject)
@@ -164,7 +157,7 @@ class AddDeviceDialog(QDialog):
         self.addRouter_callback(device_parameters = self.device_parameters, x=0, y=0)
         self.accept()
 
-
+#DEBUG:
 class DebugDialog(QDialog):
     def __init__(self, addCable_callback, removeCable_callback):
         super().__init__()
@@ -177,7 +170,7 @@ class DebugDialog(QDialog):
 
         #Input fields
         cursor = db_handler.connection.cursor()
-        cursor.execute("SELECT Name FROM Device")
+        cursor.execute("SELECT device_id FROM Device") # TODO: does this need to be from a DB? Does this project need a DB at all?
         devices = cursor.fetchall()
         devices_processed = []
         for device in devices:
@@ -193,14 +186,16 @@ class DebugDialog(QDialog):
 
         #Buttons
         self.button_box = QDialogButtonBox()
-        button1_addCable = QPushButton("ADD CABLE")
-        button2_removeCable = QPushButton("REMOVE CABLE")
-        self.button_box.addButton(button1_addCable, QDialogButtonBox.AcceptRole)
-        self.button_box.addButton(button2_removeCable, QDialogButtonBox.AcceptRole)
-        button1_addCable.clicked.connect(self.addCableDebug)
-        button2_removeCable.clicked.connect(self.removeCableDebug)
-        layout.addWidget(self.button_box)
 
+        button1_addCable = QPushButton("ADD CABLE")
+        button1_addCable.clicked.connect(self.addCableDebug)
+        self.button_box.addButton(button1_addCable, QDialogButtonBox.AcceptRole)
+
+        button2_removeCable = QPushButton("REMOVE CABLE")
+        button2_removeCable.clicked.connect(self.removeCableDebug)
+        self.button_box.addButton(button2_removeCable, QDialogButtonBox.AcceptRole)        
+        
+        layout.addWidget(self.button_box)
         self.setLayout(layout)
 
     def addCableDebug(self):
@@ -210,6 +205,8 @@ class DebugDialog(QDialog):
     def removeCableDebug(self):
         self.removeCable_callback(Router.getRouterInstance(self.device1_combo.currentText()), Router.getRouterInstance(self.device2_combo.currentText()))
         self.accept()
+
+        
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

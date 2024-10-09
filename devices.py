@@ -24,6 +24,10 @@ from PySide6.QtCore import (
 
 # Custom
 import db_handler
+from netconf_functions import *
+from dialogs import *
+
+from PySide6.QtWidgets import QMessageBox
 
 class Device(QGraphicsPixmapItem):
     def __init__(self, device_parameters, x=0, y=0):
@@ -38,7 +42,7 @@ class Device(QGraphicsPixmapItem):
         
         self.cables = []
 
-        self.establishNetconfConnection(device_parameters)
+        self.mngr = establishNetconfConnection(device_parameters)
         
         #DEBUG: Show border around device
         if __debug__:
@@ -56,56 +60,47 @@ class Device(QGraphicsPixmapItem):
 
     def contextMenuEvent(self, event):
         menu = QMenu()
+
+        # Disconnect from device
         action1_disconnect = QAction("Disconnect from the device")
         action1_disconnect.triggered.connect(self.deleteDevice)
         menu.addAction(action1_disconnect)
 
+        # Rename the device
         action2_rename = QAction("Rename")
         action2_rename.triggered.connect(self.rename)
         menu.addAction(action2_rename)
 
+        # Show NETCONF capabilites
         action3_showNetconfCapabilities = QAction("Show NETCONF Capabilities")
         action3_showNetconfCapabilities.triggered.connect(self.showNetconfCapabilities)
         menu.addAction(action3_showNetconfCapabilities)
 
         menu.exec(event.screenPos())
-
-    def establishNetconfConnection(self, device_parameters):
-        self.mngr = manager.connect(
-            host=device_parameters["address"],
-            username=device_parameters["username"],
-            password=device_parameters["password"],
-            device_params={"name":device_parameters["device_params"]},
-            hostkey_verify=False)
         
     def deleteDevice(self):
-        self.mngr.close_session()
+        demolishNetconfConnection(self.mngr) # Disconnect from NETCONF
 
         if hasattr(self, 'border'): 
-            self.scene().removeItem(self.border) #Delete the DEBUG border, if there is one
+            self.scene().removeItem(self.border) # Delete the DEBUG border, if there is one
 
         self.scene().removeItem(self)
         #removeItem -> doesnt remove the item from memory, but gives the ownership of the item back to the Python interpreter,
         #which decides when to remove it from the memory. It is not necessary to call the "del" function for deleting the object from memory.
-
-        #CONTINUES IN THE RESPECITVE SUBDEVICE CLASS!
 
     def rename(self):
         print("rename")
         # TODO: Rename Device
 
     def showNetconfCapabilities(self):
-        print("show caps")
-        # TODO: Show NETCONF Capabilities (+ store them before in DB)
-        
+        pass
+
     # TODO: Pohlidat timeout, kdyz se zarizeni po necinnosti odpoji
 
-    # TODO: Pohlidat exceptiony: timeout pri connectovani, spatne heslo, atd...
-
-
+    
 class Router(Device):
     _counter = 0
-    _registry = {} #Store router instances
+    _registry = {} # To store router instances
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
 
@@ -131,16 +126,27 @@ class Router(Device):
         #Registry
         Router._registry[self.id] = self
 
+        #NETCONF capabilities
+        getNetconfCapabilities(self.mngr, self.id)
+
     def deleteDevice(self):
-        # Inherited from Device class
+        # Delete from DB
         db_handler.deleteDevice(db_handler.connection, self.id) #TODO: use one shared connection, or create and tear down one-shot connections? If one shared, there needs to be a fail-safe in db_handler.py
         
-        #Cables
+        # Cables
         for cable in self.cables.copy(): # CANNOT MODIFY CONTENTS OF A LIST, WHILE ITERATING THROUGH IT! => .copy()
             cable.removeCable()
 
         del Router._registry[self.id]
+        
         super().deleteDevice()
+
+    def showNetconfCapabilities(self):
+        super().showNetconfCapabilities()
+        dialog = CapabilitiesDialog(self.id)
+        dialog.exec()
+
+        
 
     @classmethod
     def getRouterInstance(cls, router_id):
@@ -168,11 +174,6 @@ class Cable(QGraphicsLineItem):
         self.setLine(self.device_1_center.x(), self.device_1_center.y(), self.device_2_center.x(), self.device_2_center.y())
 
     def removeCable(self):
-        """         if __debug__:
-            print(f"Cables connected to device1: {self.device_1.cables}")
-            print(f"Cables connected to device2: {self.device_2.cables}")
-            print(f"Cable to be removed: {self}") """
-
         if self in self.device_1.cables:
             self.device_1.cables.remove(self)
         

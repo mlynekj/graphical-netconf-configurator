@@ -23,7 +23,7 @@ def createTables(conn):
     # Create DeviceType Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS DeviceType (
-            device_type_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_type_id INTEGER PRIMARY KEY,
             type_name TEXT NOT NULL
         )
     ''')
@@ -31,10 +31,9 @@ def createTables(conn):
     # Create Device Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS Device (
-            device_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
+            device_id TEXT PRIMARY KEY,
             device_type_id INTEGER NOT NULL,
-            UNIQUE(name),
+            UNIQUE(device_id),
             FOREIGN KEY (device_type_id) REFERENCES DeviceType(device_type_id)
         )
     ''')
@@ -43,8 +42,8 @@ def createTables(conn):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS Connection (
             connection_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            device_a_id INTEGER NOT NULL,
-            device_b_id INTEGER NOT NULL,
+            device_a_id TEXT NOT NULL,
+            device_b_id TEXT NOT NULL,
             cable_type TEXT,
             FOREIGN KEY (device_a_id) REFERENCES Device(device_id),
             FOREIGN KEY (device_b_id) REFERENCES Device(device_id)
@@ -55,10 +54,20 @@ def createTables(conn):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS DeviceAttribute (
             attribute_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            device_id INTEGER NOT NULL,
+            device_id TEXT NOT NULL,
             attribute_key TEXT NOT NULL,
             attribute_value TEXT,
             FOREIGN KEY (device_id) REFERENCES Device(device_id)
+        )
+    ''')
+
+    # Create Capabilities Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Capabilities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            capability TEXT NOT NULL,
+            FOREIGN KEY (device_id) REFERENCES Device(id)
         )
     ''')
 
@@ -77,42 +86,35 @@ def insertDeviceType(conn, type_name):
     if __debug__:
         print(f"Inserted device type: {type_name}")
 
-def insertDevice(conn, name, device_type_id):
+def insertDevice(conn, device_id, device_type_id):
     #Insert a new device into the Device table
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO Device (name, device_type_id)
+        INSERT INTO Device (device_id, device_type_id)
         VALUES (?, ?)
-    """, (name, device_type_id))
+    """, (device_id, device_type_id))
     conn.commit()
 
     if __debug__:
-        print(name)
-        print(f"Inserted device: {name}")
+        print(device_id)
+        print(f"Inserted device: {device_id}")
 
-def deleteDevice(conn, name):
-    # Delete a device from the Device table
-    # TODO: Zmenit nazev sloupce "name" na "id" (cpu tam R1, R2, atd...)
+def deleteDevice(conn, device_id):
     cursor = conn.cursor()
-    cursor.execute("""
-        DELETE FROM Device WHERE name = ?
-    """, (name,))
+    cursor.execute("DELETE FROM Device WHERE device_id = ?", (device_id,))
+    cursor.execute("DELETE FROM Capabilities WHERE device_id = ?", (device_id,))
     conn.commit()
 
     if __debug__:
-        print(f"Deleted device: {name}")
+        print(f"Deleted device: {device_id}")
 
-def getDevice(conn, name):
-    # Delete a device from the Device table
-    # TODO: Zmenit nazev sloupce "name" na "id" (cpu tam R1, R2, atd...)
+def getDevice(conn, device_id):
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT FROM Device WHERE name = ?
-    """, (name,))
+    cursor.execute("SELECT * FROM Device WHERE device_type = ?", (device_id,))
     conn.commit()
 
     if __debug__:
-        print(f"Retrieved device: {name}")
+        print(f"Selected device: {device_id}")
 
 def insertConnection(conn, device_a_id, device_b_id, cable_type):
     #Insert a new connection between two devices
@@ -139,12 +141,32 @@ def insertDeviceAttribute(conn, device_id, attribute_key, attribute_value):
     if __debug__:
         print(f"Inserted attribute {attribute_key} for device {device_id}")
 
+def insertNetconfCapabilities(conn, capabilities, device_id):
+    # Insert list of capabilities for a device
+    cursor = conn.cursor()
+    for capability in capabilities:
+        cursor.execute("""
+        INSERT INTO Capabilities (device_id, capability)
+        VALUES (?, ?)
+    """, (device_id, capability))
+    conn.commit()
+
+def queryNetconfCapabilities(conn, device_id):
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT capability FROM Capabilities
+        WHERE device_id = ?
+    """, (device_id,))
+    capabilities = cursor.fetchall()
+    return [row[0] for row in capabilities]
+
 def resetTables(conn):
     #Delete all rows in the tables related to devices and connections
     cursor = conn.cursor()
     cursor.execute("DELETE FROM Connection")
     cursor.execute("DELETE FROM DeviceAttribute")
     cursor.execute("DELETE FROM Device")
+    cursor.execute("DELETE FROM Capabilities")
 
     conn.commit()
 

@@ -161,3 +161,4 @@ cython_debug/
 
 # VSCODE
 .vscode/
+devices.db
