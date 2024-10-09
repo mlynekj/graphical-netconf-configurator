@@ -134,6 +134,11 @@ class Router(Device):
     def deleteDevice(self):
         # Inherited from Device class
         db_handler.deleteDevice(db_handler.connection, self.id) #TODO: use one shared connection, or create and tear down one-shot connections? If one shared, there needs to be a fail-safe in db_handler.py
+        
+        #Cables
+        for cable in self.cables.copy(): # CANNOT MODIFY CONTENTS OF A LIST, WHILE ITERATING THROUGH IT! => .copy()
+            cable.removeCable()
+
         del Router._registry[self.id]
         super().deleteDevice()
 
@@ -162,11 +167,11 @@ class Cable(QGraphicsLineItem):
 
         self.setLine(self.device_1_center.x(), self.device_1_center.y(), self.device_2_center.x(), self.device_2_center.y())
 
-    def deleteCable(self):
-        if __debug__:
+    def removeCable(self):
+        """         if __debug__:
             print(f"Cables connected to device1: {self.device_1.cables}")
             print(f"Cables connected to device2: {self.device_2.cables}")
-            print(f"Cable to be removed: {self}")
+            print(f"Cable to be removed: {self}") """
 
         if self in self.device_1.cables:
             self.device_1.cables.remove(self)

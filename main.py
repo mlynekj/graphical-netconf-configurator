@@ -104,12 +104,11 @@ class MainWindow(QMainWindow):
         cable = Cable(device_1, device_2)
         cable.setZValue(-1) #All cables to the background
         self.view.scene.addItem(cable)
-
         return cable
     
     def removeCable(self, device_1, device_2):        
         cable_to_be_removed = [cable for cable in device_1.cables if cable in device_2.cables]
-        cable_to_be_removed[0].deleteCable()
+        cable_to_be_removed[0].removeCable()
 
 class AddDeviceDialog(QDialog):
     device_parameters = {}
