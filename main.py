@@ -107,21 +107,9 @@ class MainWindow(QMainWindow):
 
         return cable
     
-    def removeCable(self, device_1, device_2):
-        device1_cables = device_1.cables
-        device2_cables = device_2.cables
-        
-        cable_to_be_removed = [cable for cable in device1_cables if cable in device2_cables]
-
-        if __debug__:
-            print(f"Cables connected to device1: {device1_cables}")
-            print(f"Cables connected to device2: {device2_cables}")
-            print(f"Cable to be removed: {cable_to_be_removed}")
-
-        cable_to_be_removed[0].scene().removeItem(cable_to_be_removed[0])
-        device_1.cables.remove(cable_to_be_removed[0]) # Remove the cable from device1.cables[]
-        device_2.cables.remove(cable_to_be_removed[0]) # -/-
-        del cable_to_be_removed
+    def removeCable(self, device_1, device_2):        
+        cable_to_be_removed = [cable for cable in device_1.cables if cable in device_2.cables]
+        cable_to_be_removed[0].deleteCable()
 
 class AddDeviceDialog(QDialog):
     device_parameters = {}
@@ -159,13 +147,13 @@ class AddDeviceDialog(QDialog):
 
         #Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.acceptCustom)
+        buttons.accepted.connect(self.confirmConnection)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
         self.setLayout(layout)
 
-    def acceptCustom(self):
+    def confirmConnection(self):
         self.device_parameters["address"] = self.address_input.text()
         self.device_parameters["username"] = self.username_input.text()
         self.device_parameters["password"] = self.password_input.text()

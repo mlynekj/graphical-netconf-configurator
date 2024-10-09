@@ -88,8 +88,7 @@ class Device(QGraphicsPixmapItem):
         #removeItem -> doesnt remove the item from memory, but gives the ownership of the item back to the Python interpreter,
         #which decides when to remove it from the memory. It is not necessary to call the "del" function for deleting the object from memory.
 
-        #Delete the device from DB
-        #NEEDS TO BE IN THE APPROPRIATE SUBCLASS! (to keep track of the respective id's)
+        #CONTINUES IN THE RESPECITVE SUBDEVICE CLASS!
 
     def rename(self):
         print("rename")
@@ -132,15 +131,15 @@ class Router(Device):
         #Registry
         Router._registry[self.id] = self
 
-    @classmethod
-    def getRouterInstance(cls, router_id):
-        return cls._registry.get(router_id)
-
     def deleteDevice(self):
         # Inherited from Device class
         db_handler.deleteDevice(db_handler.connection, self.id) #TODO: use one shared connection, or create and tear down one-shot connections? If one shared, there needs to be a fail-safe in db_handler.py
         del Router._registry[self.id]
         super().deleteDevice()
+
+    @classmethod
+    def getRouterInstance(cls, router_id):
+        return cls._registry.get(router_id)
 
 
 class Cable(QGraphicsLineItem):
@@ -162,3 +161,17 @@ class Cable(QGraphicsLineItem):
         self.device_2_center = self.device_2.sceneBoundingRect().center()
 
         self.setLine(self.device_1_center.x(), self.device_1_center.y(), self.device_2_center.x(), self.device_2_center.y())
+
+    def deleteCable(self):
+        if __debug__:
+            print(f"Cables connected to device1: {self.device_1.cables}")
+            print(f"Cables connected to device2: {self.device_2.cables}")
+            print(f"Cable to be removed: {self}")
+
+        if self in self.device_1.cables:
+            self.device_1.cables.remove(self)
+        
+        if self in self.device_2.cables:
+            self.device_2.cables.remove(self)
+
+        self.scene().removeItem(self)
