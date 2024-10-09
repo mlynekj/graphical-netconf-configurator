@@ -80,12 +80,12 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
     def showDeviceConnectionDialog(self):
-        dialog = DeviceConnectionDialog(self.addRouter)
+        dialog = AddDeviceDialog(self.addRouter)
         dialog.exec()
 
     #DEBUG:
     def showDebugDialog(self):
-        dialog = DebugDialog(self.addCable)
+        dialog = DebugDialog(self.addCable, self.removeCable)
         dialog.exec()
 
     def addRouter(self, device_parameters, x, y):
@@ -106,14 +106,30 @@ class MainWindow(QMainWindow):
         self.view.scene.addItem(cable)
 
         return cable
+    
+    def removeCable(self, device_1, device_2):
+        device1_cables = device_1.cables
+        device2_cables = device_2.cables
+        
+        cable_to_be_removed = [cable for cable in device1_cables if cable in device2_cables]
 
-class DeviceConnectionDialog(QDialog):
+        if __debug__:
+            print(f"Cables connected to device1: {device1_cables}")
+            print(f"Cables connected to device2: {device2_cables}")
+            print(f"Cable to be removed: {cable_to_be_removed}")
+
+        cable_to_be_removed[0].scene().removeItem(cable_to_be_removed[0])
+        device_1.cables.remove(cable_to_be_removed[0]) # Remove the cable from device1.cables[]
+        device_2.cables.remove(cable_to_be_removed[0]) # -/-
+        del cable_to_be_removed
+
+class AddDeviceDialog(QDialog):
     device_parameters = {}
 
     def __init__(self, addRouter_callback):
         super().__init__()
 
-        self.setWindowTitle("Connect to a device")
+        self.setWindowTitle("Add a device")
         self.addRouter_callback = addRouter_callback
         self.setModal(True)
         layout = QVBoxLayout()
@@ -163,12 +179,11 @@ class DeviceConnectionDialog(QDialog):
 
 
 class DebugDialog(QDialog):
-    device_parameters = {}
-
-    def __init__(self, addCable_callback):
+    def __init__(self, addCable_callback, removeCable_callback):
         super().__init__()
 
         self.addCable_callback = addCable_callback
+        self.removeCable_callback = removeCable_callback
 
         self.setWindowTitle("Debug")
         layout = QVBoxLayout()
@@ -190,16 +205,23 @@ class DebugDialog(QDialog):
         layout.addWidget(self.device2_combo)
 
         #Buttons
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.acceptCustom)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.button_box = QDialogButtonBox()
+        button1_addCable = QPushButton("ADD CABLE")
+        button2_removeCable = QPushButton("REMOVE CABLE")
+        self.button_box.addButton(button1_addCable, QDialogButtonBox.AcceptRole)
+        self.button_box.addButton(button2_removeCable, QDialogButtonBox.AcceptRole)
+        button1_addCable.clicked.connect(self.addCableDebug)
+        button2_removeCable.clicked.connect(self.removeCableDebug)
+        layout.addWidget(self.button_box)
 
         self.setLayout(layout)
 
-    def acceptCustom(self):
-        
-        self.addCable_callback()
+    def addCableDebug(self):
+        self.addCable_callback(Router.getRouterInstance(self.device1_combo.currentText()), Router.getRouterInstance(self.device2_combo.currentText()))
+        self.accept()
+
+    def removeCableDebug(self):
+        self.removeCable_callback(Router.getRouterInstance(self.device1_combo.currentText()), Router.getRouterInstance(self.device2_combo.currentText()))
         self.accept()
 
 if __name__ == "__main__":

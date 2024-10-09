@@ -40,7 +40,7 @@ class Device(QGraphicsPixmapItem):
 
         self.establishNetconfConnection(device_parameters)
         
-        #DEBUG: Show border around router
+        #DEBUG: Show border around device
         if __debug__:
             self.border = QGraphicsRectItem(self.boundingRect())
         
@@ -50,7 +50,7 @@ class Device(QGraphicsPixmapItem):
         for cable in self.cables:
             cable.updatePosition()
         
-        #DEBUG: Show border around router
+        #DEBUG: Show border around device
         if __debug__:
             self.border.setPos(self.scenePos())
 
@@ -106,6 +106,7 @@ class Device(QGraphicsPixmapItem):
 
 class Router(Device):
     _counter = 0
+    _registry = {} #Store router instances
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
 
@@ -128,9 +129,17 @@ class Router(Device):
         #DB
         db_handler.insertDevice(db_handler.connection, self.id, 1) # 1 = device_type_id = Router
 
+        #Registry
+        Router._registry[self.id] = self
+
+    @classmethod
+    def getRouterInstance(cls, router_id):
+        return cls._registry.get(router_id)
+
     def deleteDevice(self):
         # Inherited from Device class
         db_handler.deleteDevice(db_handler.connection, self.id) #TODO: use one shared connection, or create and tear down one-shot connections? If one shared, there needs to be a fail-safe in db_handler.py
+        del Router._registry[self.id]
         super().deleteDevice()
 
 
@@ -152,5 +161,4 @@ class Cable(QGraphicsLineItem):
         self.device_1_center = self.device_1.sceneBoundingRect().center()
         self.device_2_center = self.device_2.sceneBoundingRect().center()
 
-        #TODO: optimalizovat
         self.setLine(self.device_1_center.x(), self.device_1_center.y(), self.device_2_center.x(), self.device_2_center.y())
