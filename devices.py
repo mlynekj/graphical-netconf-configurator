@@ -30,23 +30,49 @@ from dialogs import *
 from PySide6.QtWidgets import QMessageBox
 
 class Device(QGraphicsPixmapItem):
+    _counter = 0 # To generate unique IDs
+    _registry = {} # To store device instances
+    _device_type_id = 0 # 0=General
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__()
 
+        # ICON + CANVAS PLACEMENT
         device_icon_img = QImage("graphics/icons/general.png") # TODO: CHANGE GENERAL ICON
         self.setPixmap(QPixmap.fromImage(device_icon_img))
-
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setTransformOriginPoint(self.boundingRect().center())
         self.setPos(x, y)
-        
-        self.cables = []
-
-        self.mngr = establishNetconfConnection(device_parameters)
-        
         #DEBUG: Show border around device
         if __debug__:
             self.border = QGraphicsRectItem(self.boundingRect())
+        
+        # CABLES LIST
+        self.cables = []
+
+        # ID
+        type(self)._counter += 1
+        self.id = f"R{type(self)._counter}"
+
+        # LABEL
+        self.label = QGraphicsTextItem(str(self.id), self)
+        self.label.setDefaultTextColor(QColor(0, 0, 0))
+        self.label.setFont(QFont('Arial', 10))
+        self.label.setPos(0, self.pixmap().height())
+        self.label_border = self.label.boundingRect()
+        self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
+
+        # DB
+        db_handler.insertDevice(db_handler.connection, self.id, self._device_type_id)
+
+        # REGISTRY
+        type(self)._registry[self.id] = self
+
+        # NETCONF CONNECTION
+        self.mngr = establishNetconfConnection(device_parameters)
+        # TODO: Pohlidat timeout, kdyz se zarizeni po necinnosti odpoji
+
+        # NETCONF CAPABILITIES
+        getNetconfCapabilities(self.mngr, self.id)
         
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
@@ -54,7 +80,7 @@ class Device(QGraphicsPixmapItem):
         for cable in self.cables:
             cable.updatePosition()
         
-        #DEBUG: Show border around device
+        # DEBUG: Show border around device
         if __debug__:
             self.border.setPos(self.scenePos())
 
@@ -88,69 +114,39 @@ class Device(QGraphicsPixmapItem):
         #removeItem -> doesnt remove the item from memory, but gives the ownership of the item back to the Python interpreter,
         #which decides when to remove it from the memory. It is not necessary to call the "del" function for deleting the object from memory.
 
+        # Delete from DB
+        db_handler.deleteDevice(db_handler.connection, self.id) #TODO: use one shared connection, or create and tear down one-shot connections? If one shared, there needs to be a fail-safe in db_handler.py
+
+        # Cables
+        for cable in self.cables.copy(): # CANNOT MODIFY CONTENTS OF A LIST, WHILE ITERATING THROUGH IT! => .copy()
+            cable.removeCable()
+
+        del type(self)._registry[self.id]
+
     def rename(self):
         print("rename")
         # TODO: Rename Device
 
     def showNetconfCapabilities(self):
-        pass
+        dialog = CapabilitiesDialog(self.id)
+        dialog.exec()
 
-    # TODO: Pohlidat timeout, kdyz se zarizeni po necinnosti odpoji
+    @classmethod
+    def getDeviceInstance(cls, device_id):
+        return cls._registry.get(device_id)
 
     
 class Router(Device):
     _counter = 0
-    _registry = {} # To store router instances
+    _registry = {}
+    _device_type_id = 1 # 1 = Router
+
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
 
-        #Router icon
+        # ICON
         router_icon_img = QImage("graphics/icons/router.png")
         self.setPixmap(QPixmap.fromImage(router_icon_img))
-
-        #ID
-        Router._counter += 1
-        self.id = f"R{Router._counter}"
-
-        #Label
-        self.label = QGraphicsTextItem(str(self.id), self)
-        self.label.setDefaultTextColor(QColor(0, 0, 0))
-        self.label.setFont(QFont('Arial', 10))
-        self.label.setPos(0, self.pixmap().height())
-        self.label_border = self.label.boundingRect()
-        self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
-
-        #DB
-        db_handler.insertDevice(db_handler.connection, self.id, 1) # 1 = device_type_id = Router
-
-        #Registry
-        Router._registry[self.id] = self
-
-        #NETCONF capabilities
-        getNetconfCapabilities(self.mngr, self.id)
-
-    def deleteDevice(self):
-        # Delete from DB
-        db_handler.deleteDevice(db_handler.connection, self.id) #TODO: use one shared connection, or create and tear down one-shot connections? If one shared, there needs to be a fail-safe in db_handler.py
-        
-        # Cables
-        for cable in self.cables.copy(): # CANNOT MODIFY CONTENTS OF A LIST, WHILE ITERATING THROUGH IT! => .copy()
-            cable.removeCable()
-
-        del Router._registry[self.id]
-        
-        super().deleteDevice()
-
-    def showNetconfCapabilities(self):
-        super().showNetconfCapabilities()
-        dialog = CapabilitiesDialog(self.id)
-        dialog.exec()
-
-        
-
-    @classmethod
-    def getRouterInstance(cls, router_id):
-        return cls._registry.get(router_id)
 
 
 class Cable(QGraphicsLineItem):
