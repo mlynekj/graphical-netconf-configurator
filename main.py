@@ -31,6 +31,7 @@ from PySide6.QtGui import (
 # Custom
 from devices import Router, Cable
 import db_handler
+from dialogs import *
 
 
 class MainView(QGraphicsView):
