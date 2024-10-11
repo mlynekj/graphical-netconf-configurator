@@ -36,6 +36,11 @@ class Device(QGraphicsPixmapItem):
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__()
 
+        # NETCONF CONNECTION
+        self.mngr = establishNetconfConnection(device_parameters)
+
+        # TODO: Pohlidat timeout, kdyz se zarizeni po necinnosti odpoji
+
         # ICON + CANVAS PLACEMENT
         device_icon_img = QImage("graphics/icons/general.png") # TODO: CHANGE GENERAL ICON
         self.setPixmap(QPixmap.fromImage(device_icon_img))
@@ -66,10 +71,6 @@ class Device(QGraphicsPixmapItem):
 
         # REGISTRY
         type(self)._registry[self.id] = self
-
-        # NETCONF CONNECTION
-        self.mngr = establishNetconfConnection(device_parameters)
-        # TODO: Pohlidat timeout, kdyz se zarizeni po necinnosti odpoji
 
         # NETCONF CAPABILITIES
         getNetconfCapabilities(self.mngr, self.id)

@@ -1,6 +1,7 @@
 # Other
-from ncclient import manager
+from ncclient import manager, transport, operations
 import xml.etree.ElementTree as ET
+from PySide6.QtWidgets import QLabel, QMessageBox
 
 # Custom
 import db_handler
@@ -15,10 +16,19 @@ def establishNetconfConnection(device_parameters):
             hostkey_verify=False
         )
         return mngr
+    except transport.errors.SSHError as e:
+        QMessageBox.critical(None, "Connection Error", f"Unable to connect: {e}")
+        raise ConnectionError(f"Unable to connect: {e}")
+    except transport.errors.AuthenticationError as e:
+        QMessageBox.critical(None, "Authentication Error", f"Authentication error: {e}")
+        raise ConnectionError(f"Authentication error: {e}")
+    except operations.errors.TimeoutExpiredError as e:
+        QMessageBox.critical(None, "Timeout Error", f"Timeout during connecting expired: {e}")
+        raise ConnectionError(f"Timeout during connecting expired: {e}")
     except Exception as e:
-        # TODO: Handle other exceptions
-        print(f"Failed to connect to NETCONF server: {e}")
-        return None
+        QMessageBox.critical(None, "General Error", f"General error: {e}")
+        raise ConnectionError(f"General error: {e}")
+
     
 def demolishNetconfConnection(mngr):
     mngr.close_session()
