@@ -8,7 +8,11 @@ from PySide6.QtWidgets import (
     QPushButton,
     QComboBox,
     QDialogButtonBox,
-    QLineEdit)
+    QLineEdit,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView)
+from PySide6.QtCore import Qt
 
 # Custom
 import db_handler
@@ -83,17 +87,40 @@ class CapabilitiesDialog(QDialog):
         scroll_area.setWidgetResizable(True)
 
         # Create a widget to hold the capabilities
-        capabilities_widget = QWidget()
-        capabilities_layout = QVBoxLayout()
+        table_widget = QWidget()
+        table_layout = QVBoxLayout()
 
-        capabilities = db_handler.queryNetconfCapabilities(db_handler.connection, device_id)
+        capabilities_table = QTableWidget()
+        capabilities_table.setColumnCount(1)
+        capabilities_table.setHorizontalHeaderLabels(["Capability"])
 
-        for capability in capabilities:
-            capabilities_layout.addWidget(QLabel(capability))
+        try:
+            capabilities = db_handler.queryNetconfCapabilities(db_handler.connection, device_id)
+        except Exception as e:
+            capabilities = []
+            error_label = QLabel(f"Failed to retrieve capabilities: {e}")
+            table_layout.addWidget(error_label)
+
+        if capabilities:
+            capabilities_table.setRowCount(len(capabilities))
+
+            for row, capability in enumerate(capabilities):
+                capability_item = QTableWidgetItem(capability)
+                capability_item.setFlags(capability_item.flags() ^ Qt.ItemIsEditable) # Non-editable cells
+                capabilities_table.setItem(row, 0, capability_item) # 0 = first column
+
+        else :
+            capabilities_table.setRowCount(1)
+            capabilities_table.setItem(0, 0, QTableWidgetItem("No capabilities found"))
+
+        capabilities_table.horizontalHeader().setStretchLastSection(True)
+        capabilities_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        capabilities_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
         
-
-        capabilities_widget.setLayout(capabilities_layout)
-        scroll_area.setWidget(capabilities_widget)
+        table_layout.addWidget(capabilities_table)
+        table_widget.setLayout(table_layout)
+        scroll_area.setWidget(table_widget)
 
         layout.addWidget(scroll_area)
 
@@ -106,7 +133,6 @@ class CapabilitiesDialog(QDialog):
 
         #TODO: nejak to funguje, ale je to nejake divne. Az nebudu prejety, tady pokracovat a upravit/predelat/vylepsit
         #radky asi dat do nejake tabulky, volani mezi soubory je nejaka posahane
-        #vsechny dialogy prestehovat do dialogs.py
 
 class DebugDialog(QDialog):
     def __init__(self, addCable_callback, removeCable_callback):
