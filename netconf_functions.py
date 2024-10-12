@@ -12,6 +12,7 @@ def establishNetconfConnection(device_parameters):
             host=device_parameters["address"],
             username=device_parameters["username"],
             password=device_parameters["password"],
+            port=device_parameters["port"],
             device_params={"name": device_parameters["device_params"]},
             hostkey_verify=False
         )

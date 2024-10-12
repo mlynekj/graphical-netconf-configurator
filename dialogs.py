@@ -31,7 +31,7 @@ class AddDeviceDialog(QDialog):
 
         # Input fields
         self.address_input = QLineEdit()
-        self.address_input.setPlaceholderText("IP address")
+        self.address_input.setPlaceholderText("IP address:port")
         layout.addWidget(self.address_input)
 
         self.username_input = QLineEdit()
@@ -61,7 +61,16 @@ class AddDeviceDialog(QDialog):
         self.setLayout(layout)
 
     def confirmConnection(self):
-        self.device_parameters["address"] = self.address_input.text()
+        addr_field = self.address_input.text().split(":")
+        if len(addr_field) == 2:
+            self.device_parameters["address"] = addr_field[0]
+            self.device_parameters["port"] = addr_field[1]
+        elif len(addr_field) == 1:
+            self.device_parameters["address"] = self.address_input.text()
+            self.device_parameters["port"] = 830
+        else:
+            raise ValueError("Invalid IP address format")
+
         self.device_parameters["username"] = self.username_input.text()
         self.device_parameters["password"] = self.password_input.text()
         if self.deviceType_combo.currentText() == "Cisco IOS XE":
