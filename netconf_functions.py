@@ -1,5 +1,6 @@
 # Other
 from ncclient import manager, transport, operations
+from ncclient.operations import RaiseMode
 import xml.etree.ElementTree as ET
 from PySide6.QtWidgets import QLabel, QMessageBox
 
@@ -16,6 +17,7 @@ def establishNetconfConnection(device_parameters):
             device_params={"name": device_parameters["device_params"]},
             hostkey_verify=False
         )
+        mngr.raise_mode = RaiseMode.ERRORS #Raise exceptions only on errors, not on warnings (https://github.com/ncclient/ncclient/issues/545)
         return mngr
     except transport.errors.SSHError as e:
         QMessageBox.critical(None, "Connection Error", f"Unable to connect: {e}")
