@@ -24,7 +24,7 @@ from PySide6.QtCore import (
 
 # Custom
 import db_handler
-from netconf_functions import *
+from modules.netconf import *
 from dialogs import *
 
 from PySide6.QtWidgets import QMessageBox
