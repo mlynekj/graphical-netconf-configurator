@@ -25,6 +25,7 @@ from PySide6.QtCore import (
 # Custom
 import db_handler
 from modules.netconf import *
+from modules.interfaces import *
 from dialogs import *
 
 from PySide6.QtWidgets import QMessageBox
@@ -67,14 +68,15 @@ class Device(QGraphicsPixmapItem):
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
 
         # DB
-        db_handler.insertDevice(db_handler.connection, self.id, self._device_type_id)
+        db_handler.insertDevice(db_handler.connection, self.id, self._device_type_id, device_parameters["device_params"])
 
         # REGISTRY
         type(self)._registry[self.id] = self
 
-        # NETCONF CAPABILITIES
+        # NETCONF functions
         getNetconfCapabilities(self.mngr, self.id)
-        
+        getInterfaces(self.mngr, self.id)
+
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
 
@@ -86,6 +88,7 @@ class Device(QGraphicsPixmapItem):
             self.border.setPos(self.scenePos())
 
     def contextMenuEvent(self, event):
+        # Right-click menu
         menu = QMenu()
 
         # Disconnect from device
@@ -102,6 +105,11 @@ class Device(QGraphicsPixmapItem):
         action3_showNetconfCapabilities = QAction("Show NETCONF Capabilities")
         action3_showNetconfCapabilities.triggered.connect(self.showNetconfCapabilities)
         menu.addAction(action3_showNetconfCapabilities)
+
+        # Show interfaces
+        action4_showInterfaces = QAction("Show Interfaces")
+        action4_showInterfaces.triggered.connect(self.showInterfaces)
+        menu.addAction(action4_showInterfaces)
 
         menu.exec(event.screenPos())
         
@@ -130,6 +138,10 @@ class Device(QGraphicsPixmapItem):
 
     def showNetconfCapabilities(self):
         dialog = CapabilitiesDialog(self.id)
+        dialog.exec()
+
+    def showInterfaces(self):
+        dialog = InterfacesDialog(self.id)
         dialog.exec()
 
     @classmethod
