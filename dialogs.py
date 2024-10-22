@@ -140,9 +140,6 @@ class CapabilitiesDialog(QDialog):
 
         self.setLayout(layout)
 
-        #TODO: nejak to funguje, ale je to nejake divne. Az nebudu prejety, tady pokracovat a upravit/predelat/vylepsit
-        #radky asi dat do nejake tabulky, volani mezi soubory je nejaka posahane
-
 class InterfacesDialog(QDialog):
     def __init__(self, device_id):
         super().__init__()
@@ -160,16 +157,14 @@ class InterfacesDialog(QDialog):
         table_widget = QWidget()
         table_layout = QVBoxLayout()
 
-        interfaces_table = QTableWidget()
-        interfaces_table.setColumnCount(8)
-        interfaces_table.setHorizontalHeaderLabels(["Interface", 
+        self.interfaces_table = QTableWidget()
+        self.interfaces_table.setColumnCount(6)
+        self.interfaces_table.setHorizontalHeaderLabels(["Interface", 
                                                     "Admin state", 
                                                     "Operational state", 
-                                                    "Subinterface index", 
-                                                    "IPv4 address", 
-                                                    "IPv4 prefix length", 
-                                                    "IPv6 address", 
-                                                    "IPv6 prefix length"])
+                                                    "IPv4", 
+                                                    "IPv6",
+                                                    ""])
 
         try:
             interfaces = db_handler.queryInterfaces(db_handler.connection, device_id)
@@ -180,7 +175,7 @@ class InterfacesDialog(QDialog):
 
         
         if interfaces:
-            interfaces_table.setRowCount(len(interfaces))
+            self.interfaces_table.setRowCount(len(interfaces))
 
             for row, (interface_id,
                       interface_name, 
@@ -190,58 +185,47 @@ class InterfacesDialog(QDialog):
                       ipv4_address, ipv4_prefix_length, 
                       ipv6_address, ipv6_prefix_length) in enumerate(interfaces):
                 
-                print(interface_id, interface_name, admin_state, oper_state, subinterface_index, ipv4_address, ipv4_prefix_length, ipv6_address, ipv6_prefix_length)
                 # Interface name
                 interface_item = QTableWidgetItem(interface_name)
                 interface_item.setFlags(interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
-                interfaces_table.setItem(row, 0, interface_item)  # 0 = first column
+                self.interfaces_table.setItem(row, 0, interface_item)  # 0 = first column
 
                 # Administrative state
                 admin_state_item = QTableWidgetItem(admin_state)
                 admin_state_item.setFlags(admin_state_item.flags() ^ Qt.ItemIsEditable)
-                interfaces_table.setItem(row, 1, admin_state_item)
+                self.interfaces_table.setItem(row, 1, admin_state_item)
 
                 # Operational state
                 oper_state_item = QTableWidgetItem(oper_state)
                 oper_state_item.setFlags(oper_state_item.flags() ^ Qt.ItemIsEditable)
-                interfaces_table.setItem(row, 2, oper_state_item)
+                self.interfaces_table.setItem(row, 2, oper_state_item)
 
-                # Subinterface index
-                subinterface_index_item = QTableWidgetItem(str(subinterface_index) if subinterface_index is not None else "")
-                subinterface_index_item.setFlags(subinterface_index_item.flags() ^ Qt.ItemIsEditable)
-                interfaces_table.setItem(row, 3, subinterface_index_item)
+                # IPv4 
+                ipv4_item = QTableWidgetItem((ipv4_address + "/" + str(ipv4_prefix_length)) if ipv4_address is not None else "")
+                ipv4_item.setFlags(ipv4_item.flags() ^ Qt.ItemIsEditable)
+                self.interfaces_table.setItem(row, 3, ipv4_item)
 
-                # IPv4 address
-                ipv4_address_item = QTableWidgetItem(ipv4_address)
-                ipv4_address_item.setFlags(ipv4_address_item.flags() ^ Qt.ItemIsEditable)
-                interfaces_table.setItem(row, 4, ipv4_address_item)
+                # IPv6
+                ipv6_item = QTableWidgetItem((ipv6_address + "/" + str(ipv6_prefix_length)) if ipv6_address is not None else "")
+                ipv6_item.setFlags(ipv6_item.flags() ^ Qt.ItemIsEditable)
+                self.interfaces_table.setItem(row, 4, ipv6_item)
 
-                # IPv4 prefix length
-                ipv4_prefix_length_item = QTableWidgetItem(str(ipv4_prefix_length) if ipv4_prefix_length is not None else "")
-                ipv4_prefix_length_item.setFlags(ipv4_prefix_length_item.flags() ^ Qt.ItemIsEditable)
-                interfaces_table.setItem(row, 5, ipv4_prefix_length_item)
-
-                # IPv6 address
-                ipv6_address_item = QTableWidgetItem(ipv6_address)
-                ipv6_address_item.setFlags(ipv6_address_item.flags() ^ Qt.ItemIsEditable)
-                interfaces_table.setItem(row, 6, ipv6_address_item)
-
-                # IPv6 prefix length
-                ipv6_prefix_length_item = QTableWidgetItem(str(ipv6_prefix_length) if ipv6_prefix_length is not None else "")
-                ipv6_prefix_length_item.setFlags(ipv6_prefix_length_item.flags() ^ Qt.ItemIsEditable)
-                interfaces_table.setItem(row, 7, ipv6_prefix_length_item)
+                # Edit button
+                button_item = QPushButton("Edit")
+                button_item.clicked.connect(self.editInterface)
+                self.interfaces_table.setCellWidget(row, 5, button_item)
 
         else :
-            interfaces_table.setRowCount(1)
-            interfaces_table.setColumnCount(1)
-            interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found"))
+            self.interfaces_table.setRowCount(1)
+            self.interfaces_table.setColumnCount(1)
+            self.interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found"))
 
-        interfaces_table.horizontalHeader().setStretchLastSection(True)
-        interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        interfaces_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.interfaces_table.horizontalHeader().setStretchLastSection(True)
+        self.interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.interfaces_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         
-        table_layout.addWidget(interfaces_table)
+        table_layout.addWidget(self.interfaces_table)
         table_widget.setLayout(table_layout)
         scroll_area.setWidget(table_widget)
 
@@ -253,6 +237,15 @@ class InterfacesDialog(QDialog):
         layout.addWidget(close_button)
 
         self.setLayout(layout)
+
+    def editInterface(self):
+        button = self.sender()
+        if button:
+            # Get the index of the row, in which was the button clicked
+            index = self.interfaces_table.indexAt(button.pos())
+            if index.isValid():
+                # TODO: Implement editing of the interface
+                print(index.row())
 
 class DebugDialog(QDialog):
     def __init__(self, addCable_callback, removeCable_callback):
@@ -266,7 +259,7 @@ class DebugDialog(QDialog):
 
         #Input fields
         cursor = db_handler.connection.cursor()
-        cursor.execute("SELECT device_id FROM Device") # TODO: does this need to be from a DB? Does this project need a DB at all?
+        cursor.execute("SELECT device_id FROM Device")
         devices = cursor.fetchall()
         devices_processed = []
         for device in devices:

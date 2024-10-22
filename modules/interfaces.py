@@ -39,6 +39,8 @@ def getInterfaces(mngr, device_id):
     rpc_reply_etree = ET.fromstring(rpc_reply_bytes)
     removeXmlns(rpc_reply_etree)
     
+    #FIXME: only first index is retrieved
+
     interface_names = rpc_reply_etree.xpath('//interfaces/interface/name')
     for interface_name in interface_names:
         name = interface_name.text
