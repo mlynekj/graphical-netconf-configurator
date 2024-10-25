@@ -38,6 +38,6 @@ def demolishNetconfConnection(mngr):
     # TODO: catch exceptions
 
 def getNetconfCapabilities(mngr, device_id):
-    # TODO: Return the capabilities
     capabilities_response = mngr.server_capabilities
     db_handler.insertNetconfCapabilities(db_handler.connection, capabilities_response, device_id)
+    return(capabilities_response)

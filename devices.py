@@ -74,8 +74,8 @@ class Device(QGraphicsPixmapItem):
         type(self)._registry[self.id] = self
 
         # NETCONF functions
-        getNetconfCapabilities(self.mngr, self.id)
-        interfaces = getInterfaces(self.mngr, self.id)
+        self.netconf_capabilities = getNetconfCapabilities(self.mngr, self.id)
+        self.interfaces = getInterfaces(self.mngr, self.id)
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
