@@ -75,7 +75,7 @@ class Device(QGraphicsPixmapItem):
 
         # NETCONF functions
         getNetconfCapabilities(self.mngr, self.id)
-        getInterfaces(self.mngr, self.id)
+        interfaces = getInterfaces(self.mngr, self.id)
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
@@ -144,6 +144,13 @@ class Device(QGraphicsPixmapItem):
         dialog = InterfacesDialog(self.id)
         dialog.exec()
 
+    def getSubinterfaces(self, interface_id):
+        return(getSubinterfaces(self.mngr, self.id, interface_id))
+
+    def editInterface(self, interface_id):
+        # TODO: Edit Interface
+        print(getSubinterfaces(self.mngr, self.id, interface_id))
+        
     @classmethod
     def getDeviceInstance(cls, device_id):
         return cls._registry.get(device_id)
@@ -151,7 +158,6 @@ class Device(QGraphicsPixmapItem):
     
 class Router(Device):
     _counter = 0
-    _registry = {}
     _device_type_id = 1 # 1 = Router
 
     def __init__(self, device_parameters, x=0, y=0):
