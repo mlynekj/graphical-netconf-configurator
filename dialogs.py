@@ -11,9 +11,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView)
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+    QHeaderView,
+    QStyle)
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QFont, QGuiApplication
 
 # Custom
 import db_handler
@@ -89,7 +90,14 @@ class CapabilitiesDialog(QDialog):
         super().__init__()
 
         self.setWindowTitle("Device Capabilities")
-        self.setGeometry(100, 100, 400, 300)
+        self.setGeometry(
+            QStyle.alignedRect(
+                Qt.LeftToRight,
+                Qt.AlignCenter,
+                QSize(800, 500),
+                QGuiApplication.primaryScreen().availableGeometry()
+            )
+        )
 
         layout = QVBoxLayout()
 
@@ -150,7 +158,14 @@ class InterfacesDialog(QDialog):
         self.device_id = device_id
 
         self.setWindowTitle("Device Interfaces")
-        self.setGeometry(100, 100, 800, 500)
+        self.setGeometry(
+            QStyle.alignedRect(
+                Qt.LeftToRight,
+                Qt.AlignCenter,
+                QSize(800, 500),
+                QGuiApplication.primaryScreen().availableGeometry()
+            )
+        )
 
         layout = QVBoxLayout()
 
@@ -227,7 +242,6 @@ class InterfacesDialog(QDialog):
 
         self.interfaces_table.horizontalHeader().setStretchLastSection(True)
         self.interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.interfaces_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         table_layout.addWidget(self.interfaces_table)
         table_widget.setLayout(table_layout)
@@ -259,7 +273,14 @@ class EditInterfaceDialog(QDialog):
         self.device_id = device_id
 
         self.setWindowTitle("Edit interface: " + interface_id)
-        self.setGeometry(100, 100, 800, 500)
+        self.setGeometry(
+            QStyle.alignedRect(
+                Qt.LeftToRight,
+                Qt.AlignCenter,
+                QSize(300, 400),
+                QGuiApplication.primaryScreen().availableGeometry()
+            )
+        )
 
         self.layout = QVBoxLayout()
 
@@ -280,6 +301,8 @@ class EditInterfaceDialog(QDialog):
         subinterface_table.setColumnCount(2)
         subinterface_table.setRowCount(len(subinterface['ipv4']) + len(subinterface['ipv6']))
         subinterface_table.setHorizontalHeaderLabels(["Address", "Prefix length"])
+        subinterface_table.horizontalHeader().setStretchLastSection(True)
+        subinterface_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         row = 0
         for ip, prefix in subinterface['ipv4']:
@@ -291,7 +314,7 @@ class EditInterfaceDialog(QDialog):
             subinterface_table.setItem(row, 0, QTableWidgetItem(ip))
             subinterface_table.setItem(row, 1, QTableWidgetItem(prefix))
             row += 1
-        
+
         return subinterface_table
 
 
