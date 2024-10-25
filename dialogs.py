@@ -13,10 +13,12 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView)
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 
 # Custom
 import db_handler
 import devices
+import modules.interfaces
 
 class AddDeviceDialog(QDialog):
     device_parameters = {}
@@ -140,12 +142,15 @@ class CapabilitiesDialog(QDialog):
 
         self.setLayout(layout)
 
+
 class InterfacesDialog(QDialog):
     def __init__(self, device_id):
         super().__init__()
 
+        self.device_id = device_id
+
         self.setWindowTitle("Device Interfaces")
-        self.setGeometry(100, 100, 400, 300)
+        self.setGeometry(100, 100, 800, 500)
 
         layout = QVBoxLayout()
 
@@ -167,7 +172,9 @@ class InterfacesDialog(QDialog):
                                                     ""])
 
         try:
-            interfaces = db_handler.queryInterfaces(db_handler.connection, device_id)
+            #interfaces = db_handler.queryInterfaces(db_handler.connection, self.device_id)
+            device = devices.Device.getDeviceInstance(device_id)
+            interfaces = devices.Device.getInterfaces(device, getIPs=True)
         except Exception as e:
             interfaces = []
             error_label = QLabel(f"Failed to retrieve interfaces: {e}")
@@ -177,11 +184,9 @@ class InterfacesDialog(QDialog):
         if interfaces:
             self.interfaces_table.setRowCount(len(interfaces))
 
-            for row, (interface_id,
-                      interface_name, 
+            for row, (interface_name, 
                       admin_state, 
                       oper_state, 
-                      subinterface_index, 
                       ipv4_address, ipv4_prefix_length, 
                       ipv6_address, ipv6_prefix_length) in enumerate(interfaces):
                 
@@ -212,7 +217,7 @@ class InterfacesDialog(QDialog):
 
                 # Edit button
                 button_item = QPushButton("Edit")
-                button_item.clicked.connect(self.editInterface)
+                button_item.clicked.connect(self.showEditInterfaceDialog)
                 self.interfaces_table.setCellWidget(row, 5, button_item)
 
         else :
@@ -224,28 +229,75 @@ class InterfacesDialog(QDialog):
         self.interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.interfaces_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
-        
         table_layout.addWidget(self.interfaces_table)
         table_widget.setLayout(table_layout)
         scroll_area.setWidget(table_widget)
 
         layout.addWidget(scroll_area)
 
-        # Add a close button
+        # Close button
         close_button = QPushButton("Close")
         close_button.clicked.connect(self.close)
         layout.addWidget(close_button)
 
         self.setLayout(layout)
 
-    def editInterface(self):
+    def showEditInterfaceDialog(self):
         button = self.sender()
         if button:
-            # Get the index of the row, in which was the button clicked
-            index = self.interfaces_table.indexAt(button.pos())
-            if index.isValid():
-                # TODO: Implement editing of the interface
-                print(index.row())
+            row_index = self.interfaces_table.indexAt(button.pos()) # Get the index of the row, in which was the button clicked
+            interface_id = self.interfaces_table.item(row_index.row(), 0).text() # Get the interface ID of the clicked row
+            
+            dialog = EditInterfaceDialog(self.device_id, interface_id)
+            dialog.exec()
+
+class EditInterfaceDialog(QDialog):
+
+    def __init__(self, device_id, interface_id):
+        super().__init__()
+
+        self.device_id = device_id
+
+        self.setWindowTitle("Edit interface: " + interface_id)
+        self.setGeometry(100, 100, 800, 500)
+
+        self.layout = QVBoxLayout()
+
+        device = devices.Device.getDeviceInstance(device_id)
+        subinterfaces = devices.Device.getSubinterfaces(device, interface_id)
+        for subinterface in subinterfaces:
+            subinterface_layout = QVBoxLayout()
+            subinterface_label = QLabel("Subinterface: " + subinterface['subinterface_index'])
+            subinterface_label.setFont(QFont("Arial", 16))
+            subinterface_layout.addWidget(subinterface_label)
+            subinterface_layout.addWidget(self.createSubinterfaceTable(subinterface))
+            self.layout.addLayout(subinterface_layout)
+
+        self.setLayout(self.layout)
+
+    def createSubinterfaceTable(self, subinterface):
+        subinterface_table = QTableWidget()
+        subinterface_table.setColumnCount(2)
+        subinterface_table.setRowCount(len(subinterface['ipv4']) + len(subinterface['ipv6']))
+        subinterface_table.setHorizontalHeaderLabels(["Address", "Prefix length"])
+
+        row = 0
+        for ip, prefix in subinterface['ipv4']:
+            subinterface_table.setItem(row, 0, QTableWidgetItem(ip))
+            subinterface_table.setItem(row, 1, QTableWidgetItem(prefix))
+            row += 1
+        
+        for ip, prefix in subinterface['ipv6']:
+            subinterface_table.setItem(row, 0, QTableWidgetItem(ip))
+            subinterface_table.setItem(row, 1, QTableWidgetItem(prefix))
+            row += 1
+        
+        return subinterface_table
+
+
+    def confirmEdit(self):
+        # TODO: later
+        self.accept()
 
 class DebugDialog(QDialog):
     def __init__(self, addCable_callback, removeCable_callback):

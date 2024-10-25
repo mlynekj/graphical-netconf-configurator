@@ -144,12 +144,15 @@ class Device(QGraphicsPixmapItem):
         dialog = InterfacesDialog(self.id)
         dialog.exec()
 
+    def getInterfaces(self, getIPs=False):
+        return(getInterfaces(self.mngr, self.id, getIPs))
+
     def getSubinterfaces(self, interface_id):
         return(getSubinterfaces(self.mngr, self.id, interface_id))
 
     def editInterface(self, interface_id):
         # TODO: Edit Interface
-        print(getSubinterfaces(self.mngr, self.id, interface_id))
+        pass
         
     @classmethod
     def getDeviceInstance(cls, device_id):

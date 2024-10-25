@@ -163,7 +163,8 @@ def insertInterface(conn, interface_name, device_id, admin_state, oper_state):
     conn.commit()
 
     if __debug__:
-        print(f"Inserted interface {interface_name} for device {device_id}")
+        pass
+        #print(f"Inserted interface {interface_name} for device {device_id}")
 
     return cursor.lastrowid
 
@@ -177,7 +178,8 @@ def insertSubinterface(conn, interface_id, subinterface_index, ipv4_address=None
     conn.commit()
 
     if __debug__:
-        print(f"Inserted subinterface {subinterface_index} for interface {interface_id}")
+        pass
+        #print(f"Inserted subinterface {subinterface_index} for interface {interface_id}")
 
 
 def insertDeviceAttribute(conn, device_id, attribute_key, attribute_value):
