@@ -3,6 +3,7 @@ from modules.yang_models.openconfig_interfaces import openconfig_interfaces
 
 # Other
 from pyangbind.lib.serialise import pybindIETFXMLEncoder
+from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface
 
 # Custom
 from modules.netconf import *
@@ -18,6 +19,7 @@ def buildGetInterfacesFilter():
 
 def buildGetSubinterfacesFilter(interface_name):
     """
+    format:
     <filter xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"><interfaces xmlns="http://openconfig.net/yang/interfaces">
         <interface>
             <name>GI1</name>
@@ -30,9 +32,43 @@ def buildGetSubinterfacesFilter(interface_name):
     ocinterfaces_model = openconfig_interfaces()
     ocinterfaces = ocinterfaces_model.interfaces
     ocinterfaces.interface.add(interface_name)
+    
     filter = '<filter xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">' + pybindIETFXMLEncoder.serialise(ocinterfaces) + '</filter>'
     del ocinterfaces_model
-    return (filter)
+    return(filter)
+
+def buildEditSubinterfaceFilter(interface_name, subinterface_index, ip, delete_ip=False):
+    ocinterfaces_model = openconfig_interfaces()
+    ocinterfaces = ocinterfaces_model.interfaces
+    
+    interface = ocinterfaces.interface.add(interface_name)
+    interface.subinterfaces.subinterface.add(subinterface_index)
+    subinterface = interface.subinterfaces.subinterface[subinterface_index]
+    if ip.version == 4:
+        subinterface.ipv4.addresses.address.add(str(ip.ip)) # Only sets the reference to the address, not the address itself!
+        ipv4 = subinterface.ipv4.addresses.address[str(ip.ip)]
+        ipv4.config.ip = str(ip.ip)
+        ipv4.config.prefix_length = str(ip.network.prefixlen)
+    elif ip.version == 6:
+        subinterface.ipv6.addresses.address.add(str(ip.ip)) # Only sets the reference to the address, not the address itself!
+        ipv6 = subinterface.ipv6.addresses.address[str(ip.ip)] 
+        ipv6.config.ip = str(ip.ip)
+        ipv6.config.prefix_length = str(ip.network.prefixlen)
+
+    edit_config_filter = '<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">' + pybindIETFXMLEncoder.serialise(ocinterfaces) + '</config>'
+    del ocinterfaces_model
+
+    if delete_ip:
+        root = ET.fromstring(edit_config_filter)
+        namespaces = {
+            'oc-intf': 'http://openconfig.net/yang/interfaces',
+            'oc-ip': 'http://openconfig.net/yang/interfaces/ip'
+        }
+        address_element = root.find('.//oc-ip:address', namespaces)
+        address_element.set("operation", "delete")
+        return(ET.tostring(root).decode('utf-8'))
+    else:
+        return(edit_config_filter)
 
 
 def getInterfaces(mngr, device_id, getIPs=False):
@@ -73,26 +109,21 @@ def getInterfaces(mngr, device_id, getIPs=False):
                 if len(interface_name.xpath('../subinterfaces/subinterface/ipv4/addresses/address/state/ip')) > 0:
                     ipv4_address = interface_name.xpath('../subinterfaces/subinterface/ipv4/addresses/address/state/ip')[0].text
                     ipv4_prefix_length = interface_name.xpath('../subinterfaces/subinterface/ipv4/addresses/address/state/prefix-length')[0].text
+                    ipv4_data = IPv4Interface(ipv4_address + '/' + ipv4_prefix_length)
                 else:
-                    ipv4_address = None
-                    ipv4_prefix_length = None
+                    ipv4_data = None
 
                 if len(interface_name.xpath('../subinterfaces/subinterface/ipv6/addresses/address/state/ip')) > 0:
                     ipv6_address = interface_name.xpath('../subinterfaces/subinterface/ipv6/addresses/address/state/ip')[0].text
                     ipv6_prefix_length = interface_name.xpath('../subinterfaces/subinterface/ipv6/addresses/address/state/prefix-length')[0].text
+                    ipv6_data = IPv6Interface(ipv6_address + '/' + ipv6_prefix_length)
                 else:
-                    ipv6_address = None
-                    ipv6_prefix_length = None
+                    ipv6_data = None
 
-                interfaces.append((name, 
-                                   admin_status, 
-                                   oper_status, 
-                                   ipv4_address, 
-                                   ipv4_prefix_length, 
-                                   ipv6_address, 
-                                   ipv6_prefix_length))
+                interfaces.append((name, admin_status, oper_status, ipv4_data, ipv6_data))
+
             else:
-                interfaces.append((name, admin_status, oper_status, None, None, None, None))
+                interfaces.append((name, admin_status, oper_status, None, None))
     else:
         for interface_name in interface_names:
             name = interface_name.text
@@ -104,7 +135,7 @@ def getInterfaces(mngr, device_id, getIPs=False):
             #interface_id = db_handler.insertInterface(db_handler.connection, name, device_id, admin_status, oper_status) # do i need this? TODO: check
         
     """
-    return format:
+    return format: # TODO: update this (after implmenting ipaddress library)
     interfaces = (name, admin_status, oper_status)
     [('ge-0/0/0', 'UP', 'UP'), ('ge-0/0/1', 'UP', 'UP'), ('ge-0/0/2', 'UP', 'UP')]
     """
@@ -142,15 +173,16 @@ def getSubinterfaces(mngr, device_id, interface_name):
         for ipv4_object in subinterface.findall('.//ipv4/addresses/address'):
             ipv4_address = ipv4_object.find('state/ip')
             ipv4_prefix_length = ipv4_object.find('state/prefix-length')
+            
             if ipv4_address is not None and ipv4_prefix_length is not None:
-                ipv4_data.append((ipv4_address.text, ipv4_prefix_length.text))
+                ipv4_data.append((IPv4Interface(ipv4_address.text + '/' + ipv4_prefix_length.text)))
 
         ipv6_data = []
         for ipv6_object in subinterface.findall('.//ipv6/addresses/address'):
             ipv6_address = ipv6_object.find('state/ip')
             ipv6_prefix_length = ipv6_object.find('state/prefix-length')
             if ipv6_address is not None and ipv6_prefix_length is not None:
-                ipv6_data.append((ipv6_address.text, ipv6_prefix_length.text))
+                ipv6_data.append((IPv6Interface(ipv6_address.text + '/' + ipv6_prefix_length.text)))
         
         subinterfaces.append({
             "subinterface_index": subinterface_index,
@@ -159,11 +191,20 @@ def getSubinterfaces(mngr, device_id, interface_name):
         })
 
     """
-    return format:
+    return format: # TODO: update this (after implmenting ipaddress library)
     [{'subinterface_index': '16384', 'ipv4': [('127.0.0.1', '32')], 'ipv6': []}, {'subinterface_index': '16385', 'ipv4': [], 'ipv6': []}]
     """
     return(subinterfaces)
-            
+
+def deleteIp(mngr, device_id, interface_name, subinterface_index, old_ip=None, new_ip=None):  
+    delete_filter = buildEditSubinterfaceFilter(interface_name, subinterface_index, old_ip, delete_ip=True)
+    rpc_reply = mngr.edit_config(delete_filter, target='running')
+    return(rpc_reply)
+
+def setIp(mngr, device_id, interface_name, subinterface_index, old_ip=None, new_ip=None):   
+    config_filter = buildEditSubinterfaceFilter(interface_name, subinterface_index, new_ip)
+    rpc_reply = mngr.edit_config(config_filter, target='running')
+    return(rpc_reply)
             
             
     

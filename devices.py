@@ -75,7 +75,7 @@ class Device(QGraphicsPixmapItem):
 
         # NETCONF functions
         self.netconf_capabilities = getNetconfCapabilities(self.mngr, self.id)
-        self.interfaces = getInterfaces(self.mngr, self.id)
+        self.interfaces = self.getDeviceInterfaces(self)
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
@@ -144,16 +144,22 @@ class Device(QGraphicsPixmapItem):
         dialog = InterfacesDialog(self.id)
         dialog.exec()
 
-    def getInterfaces(self, getIPs=False):
+    def getDeviceInterfaces(self, getIPs=False):
         return(getInterfaces(self.mngr, self.id, getIPs))
 
-    def getSubinterfaces(self, interface_id):
+    def getDeviceSubinterfaces(self, interface_id):
         return(getSubinterfaces(self.mngr, self.id, interface_id))
 
-    def editInterface(self, interface_id):
-        # TODO: Edit Interface
-        pass
-        
+    def deleteInterfaceIp(self, interface_id, subinterface_index, old_ip):
+        deleteIp(self.mngr, self.id, interface_id, subinterface_index, old_ip)
+
+    def setInterfaceIp(self, interface_id, subinterface_index, new_ip):
+        setIp(self.mngr, self.id, interface_id, subinterface_index, new_ip)
+
+    def replaceInterfaceIp(self, interface_id, subinterface_index, old_ip, new_ip):
+        deleteIp(self.mngr, self.id, interface_id, subinterface_index, old_ip)
+        setIp(self.mngr, self.id, interface_id, subinterface_index, old_ip, new_ip)
+    
     @classmethod
     def getDeviceInstance(cls, device_id):
         return cls._registry.get(device_id)
