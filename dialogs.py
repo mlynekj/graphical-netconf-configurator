@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QStyle,
-    QToolBar)
+    QToolBar,
+    QMessageBox)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QGuiApplication, QAction
 
@@ -274,6 +275,7 @@ class EditInterfaceDialog(QDialog):
         super().__init__()
 
         self.device_id = device_id
+        self.interface_id = interface_id
 
         self.setWindowTitle("Edit interface: " + interface_id)
         self.setGeometry(
@@ -321,7 +323,7 @@ class EditInterfaceDialog(QDialog):
             subinterface_table.setItem(row, 1, QTableWidgetItem(str(ipv4_data.network.prefixlen)))
             
             button_item = QPushButton("Edit")
-            button_item.clicked.connect(lambda _, interface=interface_id ,index=subinterface['subinterface_index'], ip = ipv4_data : self.showEditSubinterfaceDialog(interface, index, ip)) # _ = unused argument
+            button_item.clicked.connect(lambda _, interface=interface_id, index=subinterface['subinterface_index'], ip = ipv4_data : self.showEditSubinterfaceDialog(interface, index, ip)) # _ = unused argument
             subinterface_table.setCellWidget(row, 2, button_item)
             
             row += 1
@@ -339,7 +341,7 @@ class EditInterfaceDialog(QDialog):
         return subinterface_table
     
     def showEditSubinterfaceDialog(self, interface, subinterface_index, ip):       
-        dialog = EditSubinterfaceDialog(self.device_id, interface, subinterface_index, ip)
+        dialog = EditSubinterfaceDialog(self, self.device_id, interface, subinterface_index, ip)
         dialog.exec()
 
     def addSubinterface(self):
@@ -349,10 +351,43 @@ class EditInterfaceDialog(QDialog):
         # TODO: later
         self.accept()
 
+    def refreshTables(self):
+        # TODO: on close of editInterface dialog, refresh InterfaceDialog
+        # Clear the layout
+        while self.layout.count():
+            item = self.layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        # Toolbar
+        toolbar = QToolBar("Edit interface", self)
+        action1_addSubinterface = QAction("Add subinterface", self)
+        action1_addSubinterface.triggered.connect(self.addSubinterface)
+        toolbar.addAction(action1_addSubinterface)
+        self.layout.addWidget(toolbar)
+
+        # Device
+        device = devices.Device.getDeviceInstance(self.device_id)
+        subinterfaces = devices.Device.getDeviceSubinterfaces(device, self.interface_id)
+
+        # Subinterfaces
+        for subinterface in subinterfaces:
+            subinterface_layout = QVBoxLayout()
+            subinterface_label = QLabel("Subinterface: " + subinterface['subinterface_index'])
+            subinterface_label.setFont(QFont("Arial", 16))
+            subinterface_layout.addWidget(subinterface_label)
+            subinterface_layout.addWidget(self.createSubinterfaceTable(self.interface_id, subinterface))  
+
+            self.layout.addLayout(subinterface_layout)
+
+        self.setLayout(self.layout)
+
 class EditSubinterfaceDialog(QDialog):
-    def __init__(self, device_id, interface, subinterface_id, ip):
+    def __init__(self, editInterfaceDialogInstance, device_id, interface, subinterface_id, ip):
         super().__init__()
 
+        self.editInterfaceDialogInstance = editInterfaceDialogInstance
         self.device_id = device_id
         self.interface_id = interface
         self.subinterface_id = subinterface_id
@@ -391,6 +426,7 @@ class EditSubinterfaceDialog(QDialog):
         if self.new_ip != self.old_ip:
             device = devices.Device.getDeviceInstance(self.device_id)
             devices.Device.replaceInterfaceIp(device, self.interface_id, self.subinterface_id, self.old_ip, self.new_ip)
+            self.editInterfaceDialogInstance.refreshTables()
         else:
             info_dialog = QDialog(self)
             info_dialog.setWindowTitle("Information")

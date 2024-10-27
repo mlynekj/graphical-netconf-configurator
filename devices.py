@@ -151,14 +151,14 @@ class Device(QGraphicsPixmapItem):
         return(getSubinterfaces(self.mngr, self.id, interface_id))
 
     def deleteInterfaceIp(self, interface_id, subinterface_index, old_ip):
-        deleteIp(self.mngr, self.id, interface_id, subinterface_index, old_ip)
+        rpc_reply = deleteIp(self.mngr, self.id, interface_id, subinterface_index, old_ip)
 
     def setInterfaceIp(self, interface_id, subinterface_index, new_ip):
-        setIp(self.mngr, self.id, interface_id, subinterface_index, new_ip)
+        rpc_reply = setIp(self.mngr, self.id, interface_id, subinterface_index, new_ip)
 
     def replaceInterfaceIp(self, interface_id, subinterface_index, old_ip, new_ip):
-        deleteIp(self.mngr, self.id, interface_id, subinterface_index, old_ip)
-        setIp(self.mngr, self.id, interface_id, subinterface_index, old_ip, new_ip)
+        rpc_reply = deleteIp(self.mngr, self.id, interface_id, subinterface_index, old_ip)
+        rpc_reply = setIp(self.mngr, self.id, interface_id, subinterface_index, old_ip, new_ip)
     
     @classmethod
     def getDeviceInstance(cls, device_id):
