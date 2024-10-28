@@ -1,7 +1,8 @@
 # Qt
 from PySide6.QtWidgets import (
     QDialog, 
-    QVBoxLayout, 
+    QVBoxLayout,
+    QHBoxLayout, 
     QScrollArea, 
     QWidget, 
     QLabel, 
@@ -19,7 +20,7 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QGuiApplication, QAction
 
 # Other
-from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface
+import ipaddress
 
 # Custom
 import db_handler
@@ -269,6 +270,7 @@ class InterfacesDialog(QDialog):
             dialog = EditInterfaceDialog(self.device_id, interface_id)
             dialog.exec()
 
+
 class EditInterfaceDialog(QDialog):
 
     def __init__(self, device_id, interface_id):
@@ -291,7 +293,7 @@ class EditInterfaceDialog(QDialog):
 
         toolbar = QToolBar("Edit interface", self)
         action1_addSubinterface = QAction("Add subinterface", self)
-        action1_addSubinterface.triggered.connect(self.addSubinterface)
+        action1_addSubinterface.triggered.connect(lambda _, interface=interface_id, index=None : self.showEditSubinterfaceDialog(interface, index))
         toolbar.addAction(action1_addSubinterface)
         self.layout.addWidget(toolbar)
 
@@ -301,6 +303,14 @@ class EditInterfaceDialog(QDialog):
         for subinterface in subinterfaces:
             subinterface_layout = QVBoxLayout()
             subinterface_label = QLabel("Subinterface: " + subinterface['subinterface_index'])
+            
+            add_ip_button = QPushButton("Add IP address")
+            add_ip_button.clicked.connect(lambda _, interface=interface_id, index=subinterface['subinterface_index'] : self.showEditSubinterfaceDialog(interface, index))
+            header_layout = QHBoxLayout()
+            header_layout.addWidget(subinterface_label)
+            header_layout.addWidget(add_ip_button)
+            
+            subinterface_layout.addLayout(header_layout)
             subinterface_label.setFont(QFont("Arial", 16))
             subinterface_layout.addWidget(subinterface_label)
             subinterface_layout.addWidget(self.createSubinterfaceTable(interface_id, subinterface))
@@ -311,9 +321,9 @@ class EditInterfaceDialog(QDialog):
 
     def createSubinterfaceTable(self, interface_id, subinterface):
         subinterface_table = QTableWidget()
-        subinterface_table.setColumnCount(3)
+        subinterface_table.setColumnCount(4)
         subinterface_table.setRowCount(len(subinterface['ipv4']) + len(subinterface['ipv6']))
-        subinterface_table.setHorizontalHeaderLabels(["Address", "Prefix length", ""])
+        subinterface_table.setHorizontalHeaderLabels(["Address", "Prefix length", "", ""])
         subinterface_table.horizontalHeader().setStretchLastSection(True)
         subinterface_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
@@ -322,9 +332,13 @@ class EditInterfaceDialog(QDialog):
             subinterface_table.setItem(row, 0, QTableWidgetItem(str(ipv4_data.ip)))
             subinterface_table.setItem(row, 1, QTableWidgetItem(str(ipv4_data.network.prefixlen)))
             
-            button_item = QPushButton("Edit")
-            button_item.clicked.connect(lambda _, interface=interface_id, index=subinterface['subinterface_index'], ip = ipv4_data : self.showEditSubinterfaceDialog(interface, index, ip)) # _ = unused argument
-            subinterface_table.setCellWidget(row, 2, button_item)
+            edit_ip_button_item = QPushButton("Edit")
+            edit_ip_button_item.clicked.connect(lambda _, interface=interface_id, index=subinterface['subinterface_index'], ip = ipv4_data : self.showEditSubinterfaceDialog(interface, index, ip)) # _ = unused argument
+            subinterface_table.setCellWidget(row, 2, edit_ip_button_item)
+
+            delete_ip_button_item = QPushButton("Delete")
+            delete_ip_button_item.clicked.connect(lambda _, interface=interface_id, index=subinterface['subinterface_index'], ip = ipv4_data : self.deleteIP(interface, index, ip))
+            subinterface_table.setCellWidget(row, 3, delete_ip_button_item)
             
             row += 1
         
@@ -332,19 +346,29 @@ class EditInterfaceDialog(QDialog):
             subinterface_table.setItem(row, 0, QTableWidgetItem(str(ipv6_data.ip)))
             subinterface_table.setItem(row, 1, QTableWidgetItem(str(ipv6_data.network.prefixlen)))
 
-            button_item = QPushButton("Edit")
-            button_item.clicked.connect(lambda _, interface=interface_id, index=subinterface['subinterface_index'], ip = ipv6_data : self.showEditSubinterfaceDialog(interface, index, ip)) # _ = unused argument
-            subinterface_table.setCellWidget(row, 2, button_item)
+            edit_ip_button_item = QPushButton("Edit")
+            edit_ip_button_item.clicked.connect(lambda _, interface=interface_id, index=subinterface['subinterface_index'], ip = ipv6_data : self.showEditSubinterfaceDialog(interface, index, ip)) # _ = unused argument
+            subinterface_table.setCellWidget(row, 2, edit_ip_button_item)
+
+            delete_ip_button_item = QPushButton("Delete")
+            delete_ip_button_item.clicked.connect(lambda _, interface=interface_id, index=subinterface['subinterface_index'], ip = ipv6_data : self.deleteIP(interface, index, ip))
+            subinterface_table.setCellWidget(row, 3, delete_ip_button_item)
 
             row += 1
 
         return subinterface_table
     
-    def showEditSubinterfaceDialog(self, interface, subinterface_index, ip):       
+    def deleteIP(self, interface_id, subinterface_index, old_ip):
+        device = devices.Device.getDeviceInstance(self.device_id)
+        devices.Device.deleteInterfaceIp(device, interface_id, subinterface_index, old_ip)
+        self.refreshTables()
+    
+    def showEditSubinterfaceDialog(self, interface, subinterface_index, ip = None):       
         dialog = EditSubinterfaceDialog(self, self.device_id, interface, subinterface_index, ip)
         dialog.exec()
 
     def addSubinterface(self):
+        # TODO: later
         pass
 
     def confirmEdit(self):
@@ -383,19 +407,24 @@ class EditInterfaceDialog(QDialog):
 
         self.setLayout(self.layout)
 
+
 class EditSubinterfaceDialog(QDialog):
-    def __init__(self, editInterfaceDialogInstance, device_id, interface, subinterface_id, ip):
+    def __init__(self, editInterfaceDialogInstance, device_id, interface, subinterface_id, ip = None):
         super().__init__()
 
         self.editInterfaceDialogInstance = editInterfaceDialogInstance
         self.device_id = device_id
         self.interface_id = interface
         self.subinterface_id = subinterface_id
-        self.old_ip = ip
+        self.old_ip = ip if ip is not None else None
 
         self.layout = QVBoxLayout()
         
-        self.setWindowTitle("Edit subinterface: " + subinterface_id)
+        if self.subinterface_id:
+            self.setWindowTitle("Edit subinterface: " + subinterface_id)
+        else:
+            self.setWindowTitle("Add subinterface")
+
         self.setGeometry(
             QStyle.alignedRect(
                 Qt.LeftToRight,
@@ -405,8 +434,25 @@ class EditSubinterfaceDialog(QDialog):
             )
         )
 
+        subinterface_header_layout = QHBoxLayout()
+
+        self.subinterface_input = QLineEdit()
+        if self.subinterface_id:
+            self.subinterface_input.setText(self.subinterface_id)
+            self.subinterface_input.setReadOnly(True)
+
+        self.subinterface_label = QLabel("Subinterface: ")
+        subinterface_header_layout.addWidget(self.subinterface_label)
+        subinterface_header_layout.addWidget(self.subinterface_input)
+
+        self.layout.addLayout(subinterface_header_layout)
+        self.layout.addWidget(self.subinterface_input)
+
         self.ip_input = QLineEdit()
-        self.ip_input.setText(str(self.old_ip))
+        if self.old_ip:
+            self.ip_input.setText(str(self.old_ip))
+        else:
+            self.ip_input.setPlaceholderText("Enter IP address")
         self.layout.addWidget(self.ip_input)
 
         # Buttons
@@ -418,28 +464,46 @@ class EditSubinterfaceDialog(QDialog):
         self.setLayout(self.layout)
 
     def confirmEdit(self):
-        if self.old_ip.version == 4:
-            self.new_ip = IPv4Interface(self.ip_input.text())
-        elif self.old_ip.version == 6:
-            self.new_ip = IPv6Interface(self.ip_input.text())
-
-        if self.new_ip != self.old_ip:
-            device = devices.Device.getDeviceInstance(self.device_id)
-            devices.Device.replaceInterfaceIp(device, self.interface_id, self.subinterface_id, self.old_ip, self.new_ip)
-            self.editInterfaceDialogInstance.refreshTables()
+        if self.old_ip:
+            # If replacing old IP address, check the version of the old one and set the version of the new one accordingly
+            if self.old_ip.version == 4:
+                self.new_ip = ipaddress.IPv4Interface(self.ip_input.text())
+            elif self.old_ip.version == 6:
+                self.new_ip = ipaddress.IPv6Interface(self.ip_input.text())
         else:
-            info_dialog = QDialog(self)
-            info_dialog.setWindowTitle("Information")
-            info_layout = QVBoxLayout()
-            info_label = QLabel("No changes were made.")
-            info_layout.addWidget(info_label)
-            info_button = QPushButton("OK")
-            info_button.clicked.connect(info_dialog.accept)
-            info_layout.addWidget(info_button)
-            info_dialog.setLayout(info_layout)
-            info_dialog.exec()
-        self.accept()
+            # If adding a new IP address, check the version of the newly entered IP address automatically (using the ipaddress library)
+            self.new_ip = ipaddress.ip_interface(self.ip_input.text())
 
+        if self.subinterface_id:
+            if self.old_ip and self.old_ip != self.new_ip:
+                # If old_ip was entered and the new_ip is different, replace the IP address
+                # TODO: move getting the instance out of the if
+                device = devices.Device.getDeviceInstance(self.device_id)
+                devices.Device.replaceInterfaceIp(device, self.interface_id, self.subinterface_id, self.old_ip, self.new_ip)
+                self.editInterfaceDialogInstance.refreshTables()
+            elif self.old_ip and self.old_ip == self.new_ip:
+                # If old_ip was entered and the new_ip is the same, do nothing
+                # TODO: create def for a messagebox and move this out of here
+                info_dialog = QDialog(self)
+                info_dialog.setWindowTitle("Information")
+                info_layout = QVBoxLayout()
+                info_label = QLabel("No changes were made.")
+                info_layout.addWidget(info_label)
+                info_button = QPushButton("OK")
+                info_button.clicked.connect(info_dialog.accept)
+                info_layout.addWidget(info_button)
+                info_dialog.setLayout(info_layout)
+                info_dialog.exec()
+            elif not self.old_ip:
+                # If old_ip was not entered, set new ip address
+                device = devices.Device.getDeviceInstance(self.device_id)
+                devices.Device.setInterfaceIp(device, self.interface_id, self.subinterface_id, self.new_ip)
+                self.editInterfaceDialogInstance.refreshTables()
+        else:
+            device = devices.Device.getDeviceInstance(self.device_id)
+            devices.Device.setInterfaceIp(device, self.interface_id, self.subinterface_input.text(), self.new_ip)
+            self.editInterfaceDialogInstance.refreshTables()
+        self.accept()
 
 
 class DebugDialog(QDialog):

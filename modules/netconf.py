@@ -37,6 +37,10 @@ def demolishNetconfConnection(mngr):
     mngr.close_session()
     # TODO: catch exceptions
 
+def commitChanges(mngr):
+    rpc_reply = mngr.commit()
+    return(rpc_reply)
+
 def getNetconfCapabilities(mngr, device_id):
     capabilities_response = mngr.server_capabilities
     db_handler.insertNetconfCapabilities(db_handler.connection, capabilities_response, device_id)

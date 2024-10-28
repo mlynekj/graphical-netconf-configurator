@@ -41,6 +41,8 @@ def buildEditSubinterfaceFilter(interface_name, subinterface_index, ip, delete_i
     ocinterfaces_model = openconfig_interfaces()
     ocinterfaces = ocinterfaces_model.interfaces
     
+    print(subinterface_index)
+
     interface = ocinterfaces.interface.add(interface_name)
     interface.subinterfaces.subinterface.add(subinterface_index)
     subinterface = interface.subinterfaces.subinterface[subinterface_index]
@@ -196,14 +198,15 @@ def getSubinterfaces(mngr, device_id, interface_name):
     """
     return(subinterfaces)
 
-def deleteIp(mngr, device_id, interface_name, subinterface_index, old_ip=None, new_ip=None):  
+def deleteIp(mngr, device_id, interface_name, subinterface_index, old_ip=None):  
     delete_filter = buildEditSubinterfaceFilter(interface_name, subinterface_index, old_ip, delete_ip=True)
-    rpc_reply = mngr.edit_config(delete_filter, target='running')
+    rpc_reply = mngr.edit_config(delete_filter, target='candidate')
     return(rpc_reply)
 
-def setIp(mngr, device_id, interface_name, subinterface_index, old_ip=None, new_ip=None):   
+def setIp(mngr, device_id, interface_name, subinterface_index, new_ip=None):   
     config_filter = buildEditSubinterfaceFilter(interface_name, subinterface_index, new_ip)
-    rpc_reply = mngr.edit_config(config_filter, target='running')
+    print(config_filter)
+    rpc_reply = mngr.edit_config(config_filter, target='candidate')
     return(rpc_reply)
             
             
