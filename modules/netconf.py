@@ -4,9 +4,6 @@ from ncclient.operations import RaiseMode
 from lxml import etree as ET
 from PySide6.QtWidgets import QLabel, QMessageBox
 
-# Custom
-import db_handler
-
 def establishNetconfConnection(device_parameters):
     try:
         mngr = manager.connect(
@@ -41,7 +38,6 @@ def commitChanges(mngr):
     rpc_reply = mngr.commit()
     return(rpc_reply)
 
-def getNetconfCapabilities(mngr, device_id):
-    capabilities_response = mngr.server_capabilities
-    db_handler.insertNetconfCapabilities(db_handler.connection, capabilities_response, device_id)
-    return(capabilities_response)
+def getNetconfCapabilities(mngr):
+    capabilities = mngr.server_capabilities
+    return(capabilities)

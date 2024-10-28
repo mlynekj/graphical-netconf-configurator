@@ -23,7 +23,6 @@ from PySide6.QtCore import (
     QPointF)
 
 # Custom
-import db_handler
 from modules.netconf import *
 from modules.interfaces import *
 from dialogs import *
@@ -36,6 +35,8 @@ class Device(QGraphicsPixmapItem):
     _device_type_id = 0 # 0=General
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__()
+
+        self.device_parameters = device_parameters
 
         # NETCONF CONNECTION
         self.mngr = establishNetconfConnection(device_parameters)
@@ -67,14 +68,11 @@ class Device(QGraphicsPixmapItem):
         self.label_border = self.label.boundingRect()
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
 
-        # DB
-        db_handler.insertDevice(db_handler.connection, self.id, self._device_type_id, device_parameters["device_params"])
-
         # REGISTRY
         type(self)._registry[self.id] = self
 
         # NETCONF functions
-        self.netconf_capabilities = getNetconfCapabilities(self.mngr, self.id)
+        self.netconf_capabilities = self.get_device_capabilities()
         self.interfaces = self.getDeviceInterfaces(self)
 
     def mouseMoveEvent(self, event):
@@ -123,9 +121,6 @@ class Device(QGraphicsPixmapItem):
         #removeItem -> doesnt remove the item from memory, but gives the ownership of the item back to the Python interpreter,
         #which decides when to remove it from the memory. It is not necessary to call the "del" function for deleting the object from memory.
 
-        # Delete from DB
-        db_handler.deleteDevice(db_handler.connection, self.id) #TODO: use one shared connection, or create and tear down one-shot connections? If one shared, there needs to be a fail-safe in db_handler.py
-
         # Cables
         for cable in self.cables.copy(): # CANNOT MODIFY CONTENTS OF A LIST, WHILE ITERATING THROUGH IT! => .copy()
             cable.removeCable()
@@ -137,35 +132,42 @@ class Device(QGraphicsPixmapItem):
         # TODO: Rename Device
 
     def showNetconfCapabilities(self):
-        dialog = CapabilitiesDialog(self.id)
+        dialog = CapabilitiesDialog(self)
         dialog.exec()
 
     def showInterfaces(self):
         dialog = InterfacesDialog(self.id)
         dialog.exec()
 
+    def get_device_capabilities(self):
+        return(getNetconfCapabilities(self.mngr))
+
     def getDeviceInterfaces(self, getIPs=False):
-        return(getInterfaces(self.mngr, self.id, getIPs))
+        return(getInterfaces(self, getIPs))
 
     def getDeviceSubinterfaces(self, interface_id):
-        return(getSubinterfaces(self.mngr, self.id, interface_id))
+        return(getSubinterfaces(self, interface_id))
 
     def deleteInterfaceIp(self, interface_id, subinterface_index, old_ip):
-        rpc_reply = deleteIp(self.mngr, self.id, interface_id, subinterface_index, old_ip)
+        rpc_reply = deleteIp(self, interface_id, subinterface_index, old_ip)
         rpc_reply = commitChanges(self.mngr)
 
     def setInterfaceIp(self, interface_id, subinterface_index, new_ip):
-        rpc_reply = setIp(self.mngr, self.id, interface_id, subinterface_index, new_ip)
+        rpc_reply = setIp(self, interface_id, subinterface_index, new_ip)
         rpc_reply = commitChanges(self.mngr)
 
     def replaceInterfaceIp(self, interface_id, subinterface_index, old_ip, new_ip):
-        rpc_reply = deleteIp(self.mngr, self.id, interface_id, subinterface_index, old_ip)
-        rpc_reply = setIp(self.mngr, self.id, interface_id, subinterface_index, new_ip)
+        rpc_reply = deleteIp(self, interface_id, subinterface_index, old_ip)
+        rpc_reply = setIp(self, interface_id, subinterface_index, new_ip)
         rpc_reply = commitChanges(self.mngr)
     
     @classmethod
     def getDeviceInstance(cls, device_id):
         return cls._registry.get(device_id)
+    
+    @classmethod
+    def getAllDeviceInstances(cls):
+        return list(cls._registry.keys())
 
     
 class Router(Device):

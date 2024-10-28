@@ -23,7 +23,6 @@ from PySide6.QtGui import QFont, QGuiApplication, QAction
 import ipaddress
 
 # Custom
-import db_handler
 import devices
 import modules.interfaces
 
@@ -92,7 +91,7 @@ class AddDeviceDialog(QDialog):
 
 
 class CapabilitiesDialog(QDialog):
-    def __init__(self, device_id):
+    def __init__(self, device):
         super().__init__()
 
         self.setWindowTitle("Device Capabilities")
@@ -120,7 +119,8 @@ class CapabilitiesDialog(QDialog):
         capabilities_table.setHorizontalHeaderLabels(["Capability"])
 
         try:
-            capabilities = db_handler.queryNetconfCapabilities(db_handler.connection, device_id)
+            capabilities = device.netconf_capabilities
+            print(capabilities)
         except Exception as e:
             capabilities = []
             error_label = QLabel(f"Failed to retrieve capabilities: {e}")
@@ -193,7 +193,6 @@ class InterfacesDialog(QDialog):
                                                     ""])
 
         try:
-            #interfaces = db_handler.queryInterfaces(db_handler.connection, self.device_id)
             device = devices.Device.getDeviceInstance(device_id)
             interfaces = devices.Device.getDeviceInterfaces(device, getIPs=True)
         except Exception as e:
@@ -517,19 +516,14 @@ class DebugDialog(QDialog):
         layout = QVBoxLayout()
 
         #Input fields
-        cursor = db_handler.connection.cursor()
-        cursor.execute("SELECT device_id FROM Device")
-        devices = cursor.fetchall()
-        devices_processed = []
-        for device in devices:
-            devices_processed.append(device[0])
+        self.devices = devices.Device.getAllDeviceInstances()
 
         self.device1_combo = QComboBox()
-        self.device1_combo.addItems(devices_processed)
+        self.device1_combo.addItems(self.devices)
         layout.addWidget(self.device1_combo)
 
         self.device2_combo = QComboBox()
-        self.device2_combo.addItems(devices_processed)
+        self.device2_combo.addItems(self.devices)
         layout.addWidget(self.device2_combo)
 
         #Buttons

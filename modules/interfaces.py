@@ -73,22 +73,20 @@ def buildEditSubinterfaceFilter(interface_name, subinterface_index, ip, delete_i
         return(edit_config_filter)
 
 
-def getInterfaces(mngr, device_id, getIPs=False):
-    cursor = db_handler.connection.cursor()
-    cursor.execute("SELECT device_params FROM Device WHERE device_id = ?", (device_id, ))
-    device_params = cursor.fetchone()
-    
+def getInterfaces(device, getIPs=False):
+    device_type = device.device_parameters['device_params']
+
     filter = buildGetInterfacesFilter()
-    rpc_reply = mngr.get(filter)
+    rpc_reply = device.mngr.get(filter)
 
     # Juniper returns <class 'ncclient.xml_.NCElement'> object, while Cisco returns <class 'ncclient.operations.retrieve.GetReply'>
     # Issue: https://github.com/ncclient/ncclient/issues/593
     # After the issue is resolved, this part can be simplified
-    if device_params[0] == "iosxe": # TODO: maybe this can be donw without db
+    if device_type == "iosxe":
         # RPC REPLY -> XML -> BYTES
         rpc_reply_xml = rpc_reply.xml
         rpc_reply_bytes = rpc_reply_xml.encode('utf-8')
-    elif device_params[0] == "junos":
+    elif device_type == "junos":
         # NCElement -> STRING -> BYTES
         rpc_reply_str = str(rpc_reply)
         rpc_reply_bytes = rpc_reply_str.encode('utf-8')
@@ -133,8 +131,6 @@ def getInterfaces(mngr, device_id, getIPs=False):
             oper_status = interface_name.xpath('../state/oper-status')[0].text
 
             interfaces.append((name, admin_status, oper_status))
-            
-            #interface_id = db_handler.insertInterface(db_handler.connection, name, device_id, admin_status, oper_status) # do i need this? TODO: check
         
     """
     return format: # TODO: update this (after implmenting ipaddress library)
@@ -143,22 +139,20 @@ def getInterfaces(mngr, device_id, getIPs=False):
     """
     return(interfaces)
 
-def getSubinterfaces(mngr, device_id, interface_name):
-    cursor = db_handler.connection.cursor()
-    cursor.execute("SELECT device_params FROM Device WHERE device_id = ?", (device_id, ))
-    device_params = cursor.fetchone() # TODO: maybe this can be done without db
+def getSubinterfaces(device, interface_name):
+    device_type = device.device_parameters['device_params']
     
     filter = buildGetSubinterfacesFilter(interface_name)
-    rpc_reply = mngr.get(filter)
+    rpc_reply = device.mngr.get(filter)
 
     # Juniper returns <class 'ncclient.xml_.NCElement'> object, while Cisco returns <class 'ncclient.operations.retrieve.GetReply'>
     # Issue: https://github.com/ncclient/ncclient/issues/593
     # After the issue is resolved, this part can be simplified
-    if device_params[0] == "iosxe": # TODO: maybe this can be done without db
+    if device_type == "iosxe":
         # RPC REPLY -> XML -> BYTES
         rpc_reply_xml = rpc_reply.xml
         rpc_reply_bytes = rpc_reply_xml.encode('utf-8')
-    elif device_params[0] == "junos":
+    elif device_type == "junos":
         # NCElement -> STRING -> BYTES
         rpc_reply_str = str(rpc_reply)
         rpc_reply_bytes = rpc_reply_str.encode('utf-8')
@@ -198,15 +192,15 @@ def getSubinterfaces(mngr, device_id, interface_name):
     """
     return(subinterfaces)
 
-def deleteIp(mngr, device_id, interface_name, subinterface_index, old_ip=None):  
+def deleteIp(device, interface_name, subinterface_index, old_ip=None):  
     delete_filter = buildEditSubinterfaceFilter(interface_name, subinterface_index, old_ip, delete_ip=True)
-    rpc_reply = mngr.edit_config(delete_filter, target='candidate')
+    rpc_reply = device.mngr.edit_config(delete_filter, target='candidate')
     return(rpc_reply)
 
-def setIp(mngr, device_id, interface_name, subinterface_index, new_ip=None):   
+def setIp(device, interface_name, subinterface_index, new_ip=None):   
     config_filter = buildEditSubinterfaceFilter(interface_name, subinterface_index, new_ip)
     print(config_filter)
-    rpc_reply = mngr.edit_config(config_filter, target='candidate')
+    rpc_reply = device.mngr.edit_config(config_filter, target='candidate')
     return(rpc_reply)
             
             
