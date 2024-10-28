@@ -28,8 +28,7 @@ def establishNetconfConnection(device_parameters):
     except Exception as e:
         QMessageBox.critical(None, "General Error", f"General error: {e}")
         raise ConnectionError(f"General error: {e}")
-
-    
+ 
 def demolishNetconfConnection(mngr):
     mngr.close_session()
     # TODO: catch exceptions

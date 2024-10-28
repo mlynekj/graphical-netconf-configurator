@@ -1,7 +1,3 @@
-# Other
-from ncclient import manager
-import sqlite3
-
 # QT
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem, 
@@ -22,26 +18,28 @@ from PySide6.QtCore import (
     QLineF,
     QPointF)
 
+# Other
+from ncclient import manager
+
 # Custom
-from modules.netconf import *
-from modules.interfaces import *
-from dialogs import *
+import modules.netconf as netconf
+import modules.interfaces as interfaces
+import dialogs
 
 from PySide6.QtWidgets import QMessageBox
 
 class Device(QGraphicsPixmapItem):
-    _counter = 0 # To generate unique IDs
-    _registry = {} # To store device instances
-    _device_type_id = 0 # 0=General
+    _counter = 0 # Used to generate device IDs
+    _registry = {} # Used to store device instances
+    _device_type = "D"
+    
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__()
 
         self.device_parameters = device_parameters
 
         # NETCONF CONNECTION
-        self.mngr = establishNetconfConnection(device_parameters)
-
-        # TODO: Pohlidat timeout, kdyz se zarizeni po necinnosti odpoji
+        self.mngr = netconf.establishNetconfConnection(device_parameters) # TODO: Handle timeout, when the device disconnects after some time
 
         # ICON + CANVAS PLACEMENT
         device_icon_img = QImage("graphics/icons/general.png") # TODO: CHANGE GENERAL ICON
@@ -58,7 +56,7 @@ class Device(QGraphicsPixmapItem):
 
         # ID
         type(self)._counter += 1
-        self.id = f"R{type(self)._counter}"
+        self.id = self.generateID()
 
         # LABEL
         self.label = QGraphicsTextItem(str(self.id), self)
@@ -71,9 +69,9 @@ class Device(QGraphicsPixmapItem):
         # REGISTRY
         type(self)._registry[self.id] = self
 
-        # NETCONF functions
-        self.netconf_capabilities = self.get_device_capabilities()
-        self.interfaces = self.getDeviceInterfaces(self)
+        # DEVICE INFORMATION
+        self.netconf_capabilities = self.dev_GetNetconfCapabilites()
+        self.interfaces = self.dev_GetInterfaces(self)
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
@@ -85,81 +83,74 @@ class Device(QGraphicsPixmapItem):
         if __debug__:
             self.border.setPos(self.scenePos())
 
+    def generateID(self):
+        return(type(self)._device_type + str(type(self)._counter))
+
     def contextMenuEvent(self, event):
         # Right-click menu
         menu = QMenu()
 
         # Disconnect from device
-        action1_disconnect = QAction("Disconnect from the device")
-        action1_disconnect.triggered.connect(self.deleteDevice)
-        menu.addAction(action1_disconnect)
-
-        # Rename the device
-        action2_rename = QAction("Rename")
-        action2_rename.triggered.connect(self.rename)
-        menu.addAction(action2_rename)
+        disconnect_action = QAction("Disconnect from the device")
+        disconnect_action.triggered.connect(self.deleteDevice)
+        menu.addAction(disconnect_action)
 
         # Show NETCONF capabilites
-        action3_showNetconfCapabilities = QAction("Show NETCONF Capabilities")
-        action3_showNetconfCapabilities.triggered.connect(self.showNetconfCapabilities)
-        menu.addAction(action3_showNetconfCapabilities)
+        show_netconf_capabilities_action = QAction("Show NETCONF Capabilities")
+        show_netconf_capabilities_action.triggered.connect(self.showNetconfCapabilities)
+        menu.addAction(show_netconf_capabilities_action)
 
         # Show interfaces
-        action4_showInterfaces = QAction("Show Interfaces")
-        action4_showInterfaces.triggered.connect(self.showInterfaces)
-        menu.addAction(action4_showInterfaces)
+        show_interfaces_action = QAction("Show Interfaces")
+        show_interfaces_action.triggered.connect(self.showInterfaces)
+        menu.addAction(show_interfaces_action)
 
         menu.exec(event.screenPos())
         
     def deleteDevice(self):
-        demolishNetconfConnection(self.mngr) # Disconnect from NETCONF
+        netconf.demolishNetconfConnection(self.mngr) # Disconnect from NETCONF
 
         if hasattr(self, 'border'): 
             self.scene().removeItem(self.border) # Delete the DEBUG border, if there is one
 
         self.scene().removeItem(self)
-        #removeItem -> doesnt remove the item from memory, but gives the ownership of the item back to the Python interpreter,
-        #which decides when to remove it from the memory. It is not necessary to call the "del" function for deleting the object from memory.
-
+    
         # Cables
         for cable in self.cables.copy(): # CANNOT MODIFY CONTENTS OF A LIST, WHILE ITERATING THROUGH IT! => .copy()
             cable.removeCable()
 
         del type(self)._registry[self.id]
 
-    def rename(self):
-        print("rename")
-        # TODO: Rename Device
-
     def showNetconfCapabilities(self):
-        dialog = CapabilitiesDialog(self)
+        dialog = dialogs.CapabilitiesDialog(self)
         dialog.exec()
 
     def showInterfaces(self):
-        dialog = InterfacesDialog(self.id)
+        dialog = dialogs.ListInterfacesDialog(self)
         dialog.exec()
 
-    def get_device_capabilities(self):
-        return(getNetconfCapabilities(self.mngr))
+    def dev_GetNetconfCapabilites(self):
+        return(netconf.getNetconfCapabilities(self.mngr))
 
-    def getDeviceInterfaces(self, getIPs=False):
-        return(getInterfaces(self, getIPs))
+    # INTERFACE MANIPULATION FUNCTIONS
+    def dev_GetInterfaces(self, getIPs=False):
+        return(interfaces.getInterfaceList(self, getIPs))
 
-    def getDeviceSubinterfaces(self, interface_id):
-        return(getSubinterfaces(self, interface_id))
+    def dev_GetSubinterfaces(self, interface_id):
+        return(interfaces.getSubinterfaces(self, interface_id))
+    
+    def dev_DeleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
+        rpc_reply = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
+        rpc_reply = netconf.commitChanges(self.mngr)
 
-    def deleteInterfaceIp(self, interface_id, subinterface_index, old_ip):
-        rpc_reply = deleteIp(self, interface_id, subinterface_index, old_ip)
-        rpc_reply = commitChanges(self.mngr)
+    def dev_SetInterfaceIP(self, interface_id, subinterface_index, new_ip):
+        rpc_reply = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
+        rpc_reply = netconf.commitChanges(self.mngr)
 
-    def setInterfaceIp(self, interface_id, subinterface_index, new_ip):
-        rpc_reply = setIp(self, interface_id, subinterface_index, new_ip)
-        rpc_reply = commitChanges(self.mngr)
-
-    def replaceInterfaceIp(self, interface_id, subinterface_index, old_ip, new_ip):
-        rpc_reply = deleteIp(self, interface_id, subinterface_index, old_ip)
-        rpc_reply = setIp(self, interface_id, subinterface_index, new_ip)
-        rpc_reply = commitChanges(self.mngr)
+    def dev_ReplaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
+        rpc_reply = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
+        rpc_reply = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
+        rpc_reply = netconf.commitChanges(self.mngr)
     
     @classmethod
     def getDeviceInstance(cls, device_id):
@@ -171,8 +162,7 @@ class Device(QGraphicsPixmapItem):
 
     
 class Router(Device):
-    _counter = 0
-    _device_type_id = 1 # 1 = Router
+    _device_type = "R"
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -200,7 +190,10 @@ class Cable(QGraphicsLineItem):
         self.device_1_center = self.device_1.sceneBoundingRect().center()
         self.device_2_center = self.device_2.sceneBoundingRect().center()
 
-        self.setLine(self.device_1_center.x(), self.device_1_center.y(), self.device_2_center.x(), self.device_2_center.y())
+        self.setLine(self.device_1_center.x(), 
+                     self.device_1_center.y(), 
+                     self.device_2_center.x(), 
+                     self.device_2_center.y())
 
     def removeCable(self):
         if self in self.device_1.cables:
