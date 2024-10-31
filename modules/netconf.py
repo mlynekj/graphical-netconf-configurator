@@ -5,6 +5,19 @@ from lxml import etree as ET
 from PySide6.QtWidgets import QLabel, QMessageBox
 
 def establishNetconfConnection(device_parameters):
+    """
+    Establishes a NETCONF connection to a network device.
+    Args:
+        device_parameters (dict): A dictionary containing:
+            - address (str): The IP address or hostname of the device.
+            - username (str): The username for authentication.
+            - password (str): The password for authentication.
+            - port (int): The port number for the NETCONF connection.
+            - device_params (str): The device-specific parameters for the NETCONF connection.
+    Returns:
+        ncclient.manager: An instance of the ncclient manager class representing the NETCONF connection.
+    """
+    
     try:
         mngr = manager.connect(
             host=device_parameters["address"],
@@ -30,13 +43,16 @@ def establishNetconfConnection(device_parameters):
         raise ConnectionError(f"General error: {e}")
  
 def demolishNetconfConnection(mngr):
+    """ Tears down the spcified ncclient connection, by deleting the mng object. """
     mngr.close_session()
     # TODO: catch exceptions
 
 def commitChanges(mngr):
+    """ Performs the "commit" operation using the specified ncclient connection. """
     rpc_reply = mngr.commit()
     return(rpc_reply)
 
 def getNetconfCapabilities(mngr):
+    """ Retrieves the capabilities of the specified ncclient connection. """
     capabilities = mngr.server_capabilities
     return(capabilities)

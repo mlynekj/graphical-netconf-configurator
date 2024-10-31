@@ -59,6 +59,7 @@ class Device(QGraphicsPixmapItem):
         self.id = self.generateID()
 
         # LABEL
+        # TODO: the label should be retrieved using netconf (hostname)
         self.label = QGraphicsTextItem(str(self.id), self)
         self.label.setDefaultTextColor(QColor(0, 0, 0))
         self.label.setFont(QFont('Arial', 10))
