@@ -515,6 +515,49 @@ class EditSubinterfaceDialog(QDialog):
         self.accept()
 
 
+class EditHostnameDialog(QDialog):
+    def __init__(self, device):
+        super().__init__()
+
+        self.device = device
+        self.old_hostname = self.device.hostname
+
+        self.setWindowTitle("Edit hostname: " + self.old_hostname)
+        self.setGeometry(
+            QStyle.alignedRect(
+                Qt.LeftToRight,
+                Qt.AlignCenter,
+                QSize(300, 100),
+                QGuiApplication.primaryScreen().availableGeometry()
+            )
+        )
+        
+        self.layout = QVBoxLayout()
+
+        # Input fields
+        self.hostname_input = QLineEdit()
+        self.hostname_input.setPlaceholderText(self.old_hostname)
+        self.layout.addWidget(self.hostname_input)
+
+        # Buttons
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons.accepted.connect(self.confirmRename)
+        self.buttons.rejected.connect(self.reject)
+        self.layout.addWidget(self.buttons)
+
+        self.setLayout(self.layout)
+
+    def confirmRename(self):
+        new_hostname = self.hostname_input.text()
+
+        if not new_hostname or (new_hostname and new_hostname == self.old_hostname):
+            showMessageBox(self, "Information", "No changes were made.")
+        elif new_hostname and new_hostname != self.old_hostname:
+            self.device.dev_SetHostname(new_hostname)
+            self.device.refreshHostnameLabel()
+        self.accept()
+
+
 class DebugDialog(QDialog):
     def __init__(self, addCable_callback, removeCable_callback):
         super().__init__()

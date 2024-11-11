@@ -13,6 +13,7 @@ from modules.yang_models.openconfig_interfaces import openconfig_interfaces
 TARGET_DATASTORE = 'candidate'
 
 # ---------- FILTERS: ----------
+# TODO: predelat asi cele na XML soubory
 def createFilter_GetAllInterfaces():
     """
     Creates a NETCONF filter to retrieve all interfaces.

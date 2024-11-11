@@ -6,7 +6,8 @@ from PySide6.QtWidgets import (
     QGraphicsRectItem, 
     QGraphicsSceneMouseEvent, 
     QMenu,
-    QGraphicsTextItem)
+    QGraphicsTextItem,
+    QToolTip)
 from PySide6.QtGui import (
     QImage, 
     QPixmap,
@@ -24,6 +25,7 @@ from ncclient import manager
 # Custom
 import modules.netconf as netconf
 import modules.interfaces as interfaces
+import modules.system as system
 import dialogs
 
 from PySide6.QtWidgets import QMessageBox
@@ -35,6 +37,8 @@ class Device(QGraphicsPixmapItem):
     
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__()
+
+        self.setAcceptHoverEvents(True)  # Enable mouse hover over events
 
         self.device_parameters = device_parameters
 
@@ -58,9 +62,13 @@ class Device(QGraphicsPixmapItem):
         type(self)._counter += 1
         self.id = self.generateID()
 
-        # LABEL
-        # TODO: the label should be retrieved using netconf (hostname)
-        self.label = QGraphicsTextItem(str(self.id), self)
+        # DEVICE INFORMATION
+        self.netconf_capabilities = self.dev_GetNetconfCapabilites()
+        self.interfaces = self.dev_GetInterfaces(self)
+        self.hostname = self.dev_GetHostname()
+
+        # LABEL (Hostname)
+        self.label = QGraphicsTextItem(str(self.hostname), self)
         self.label.setDefaultTextColor(QColor(0, 0, 0))
         self.label.setFont(QFont('Arial', 10))
         self.label.setPos(0, self.pixmap().height())
@@ -70,44 +78,16 @@ class Device(QGraphicsPixmapItem):
         # REGISTRY
         type(self)._registry[self.id] = self
 
-        # DEVICE INFORMATION
-        self.netconf_capabilities = self.dev_GetNetconfCapabilites()
-        self.interfaces = self.dev_GetInterfaces(self)
+    def refreshHostnameLabel(self):
+        self.hostname = self.dev_GetHostname()
 
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event) 
-
-        for cable in self.cables:
-            cable.updatePosition()
-        
-        # DEBUG: Show border around device
-        if __debug__:
-            self.border.setPos(self.scenePos())
+        self.label.setPlainText(str(self.hostname))
+        self.label_border = self.label.boundingRect()
+        self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
 
     def generateID(self):
         return(type(self)._device_type + str(type(self)._counter))
 
-    def contextMenuEvent(self, event):
-        # Right-click menu
-        menu = QMenu()
-
-        # Disconnect from device
-        disconnect_action = QAction("Disconnect from the device")
-        disconnect_action.triggered.connect(self.deleteDevice)
-        menu.addAction(disconnect_action)
-
-        # Show NETCONF capabilites
-        show_netconf_capabilities_action = QAction("Show NETCONF Capabilities")
-        show_netconf_capabilities_action.triggered.connect(self.showNetconfCapabilities)
-        menu.addAction(show_netconf_capabilities_action)
-
-        # Show interfaces
-        show_interfaces_action = QAction("Show Interfaces")
-        show_interfaces_action.triggered.connect(self.showInterfaces)
-        menu.addAction(show_interfaces_action)
-
-        menu.exec(event.screenPos())
-        
     def deleteDevice(self):
         netconf.demolishNetconfConnection(self.mngr) # Disconnect from NETCONF
 
@@ -122,18 +102,74 @@ class Device(QGraphicsPixmapItem):
 
         del type(self)._registry[self.id]
 
-    def showNetconfCapabilities(self):
+    # ---------- MOUSE EVENTS FUNCTIONS ---------- 
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event) 
+
+        for cable in self.cables:
+            cable.updatePosition()
+        
+        # DEBUG: Show border around device
+        if __debug__:
+            self.border.setPos(self.scenePos())
+
+    def hoverEnterEvent(self, event):
+        QToolTip.showText(event.screenPos(), f"Device ID: {self.id}")
+
+    def hoverLeaveEvent(self, event):
+        QToolTip.hideText()
+
+    def contextMenuEvent(self, event):
+        """ Right-click menu """
+        menu = QMenu()
+
+        # Disconnect from device
+        disconnect_action = QAction("Disconnect from the device")
+        disconnect_action.triggered.connect(self.deleteDevice)
+        menu.addAction(disconnect_action)
+
+        # Show NETCONF capabilites
+        show_netconf_capabilities_action = QAction("Show NETCONF Capabilities")
+        show_netconf_capabilities_action.triggered.connect(self.show_CapabilitiesDialog)
+        menu.addAction(show_netconf_capabilities_action)
+
+        # Show interfaces
+        show_interfaces_action = QAction("Show Interfaces")
+        show_interfaces_action.triggered.connect(self.show_ListInterfacesDialog)
+        menu.addAction(show_interfaces_action)
+
+        # Edit Hostname
+        edit_hostname_action = QAction("Edit Hostname")
+        edit_hostname_action.triggered.connect(self.show_EditHostnameDialog)
+        menu.addAction(edit_hostname_action)
+
+        menu.exec(event.screenPos())
+
+    # ---------- DIALOG SHOW FUNCTIONS ---------- 
+    def show_CapabilitiesDialog(self):
         dialog = dialogs.CapabilitiesDialog(self)
         dialog.exec()
 
-    def showInterfaces(self):
+    def show_ListInterfacesDialog(self):
         dialog = dialogs.ListInterfacesDialog(self)
+        dialog.exec()
+
+    def show_EditHostnameDialog(self):
+        dialog = dialogs.EditHostnameDialog(self)
         dialog.exec()
 
     def dev_GetNetconfCapabilites(self):
         return(netconf.getNetconfCapabilities(self.mngr))
+    
+    # ---------- HOSTNAME MANIPULATION FUNCTIONS ---------- 
+    def dev_GetHostname(self):
+        return(system.getHostname(self))
+    
+    def dev_SetHostname(self, new_hostname):
+        rpc_reply = system.setHostname(self, new_hostname)
+        rpc_reply = netconf.commitChanges(self.mngr)
 
-    # INTERFACE MANIPULATION FUNCTIONS
+    # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
     def dev_GetInterfaces(self, getIPs=False):
         return(interfaces.getInterfaceList(self, getIPs))
 
@@ -153,6 +189,7 @@ class Device(QGraphicsPixmapItem):
         rpc_reply = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
         rpc_reply = netconf.commitChanges(self.mngr)
     
+    # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod
     def getDeviceInstance(cls, device_id):
         return cls._registry.get(device_id)

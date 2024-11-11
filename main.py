@@ -20,7 +20,6 @@ from PySide6.QtGui import (
 from devices import Router, Cable
 from dialogs import *
 
-
 class MainView(QGraphicsView):
     def __init__(self):
         super().__init__()

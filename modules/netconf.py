@@ -3,8 +3,11 @@ from ncclient import manager, transport, operations
 from ncclient.operations import RaiseMode
 from lxml import etree as ET
 from PySide6.QtWidgets import QLabel, QMessageBox
+from pyangbind.lib.serialise import pybindIETFXMLEncoder
+
 
 def establishNetconfConnection(device_parameters):
+    # TODO: pass the device, not the device_parameters ?
     """
     Establishes a NETCONF connection to a network device.
     Args:
@@ -43,16 +46,27 @@ def establishNetconfConnection(device_parameters):
         raise ConnectionError(f"General error: {e}")
  
 def demolishNetconfConnection(mngr):
+    # TODO: pass the device, not the mngr ?
     """ Tears down the spcified ncclient connection, by deleting the mng object. """
     mngr.close_session()
     # TODO: catch exceptions
 
 def commitChanges(mngr):
+    # TODO: pass the device, not the mngr ?
     """ Performs the "commit" operation using the specified ncclient connection. """
     rpc_reply = mngr.commit()
     return(rpc_reply)
 
+def discardChanges(mngr):
+    # TODO: pass the device, not the mngr ?
+    """ Performs the "discard-changes" operation using the specified ncclient connection. """
+    rpc_reply = mngr.discard_changes()
+    return(rpc_reply)
+
 def getNetconfCapabilities(mngr):
+    # TODO: pass the device, not the mngr ?
     """ Retrieves the capabilities of the specified ncclient connection. """
     capabilities = mngr.server_capabilities
     return(capabilities)
+
+ 
