@@ -3,7 +3,7 @@ from lxml import etree as ET
 
 # Custom
 import modules.helper as helper
-from definitions import CISCO_XML_DIR, OPENCONFIG_XML_DIR, CONFIGURATION_TARGET
+from definitions import *
 
 
 def getHostname(device):
@@ -12,10 +12,10 @@ def getHostname(device):
 
     # FILTER
     if device_type == "iosxe":
-        filter_xml = ET.parse(CISCO_XML_DIR + "get_config-hostname.xml") # For Cisco, use IOS-XE native models
+        filter_xml = ET.parse(CISCO_XML_DIR + "system/get_config-hostname.xml") # For Cisco, use IOS-XE native models
         rpc_filter = ET.tostring(filter_xml).decode('utf-8') 
     elif device_type == "junos":
-        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "get_config-hostname.xml") # For Juniper, use OpenConfig models
+        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "system/get_config-hostname.xml") # For Juniper, use OpenConfig models
         rpc_filter = ET.tostring(filter_xml).decode('utf-8') 
     
     # RPC    
@@ -33,18 +33,18 @@ def setHostname(device, new_hostname):
 
     # CONFIG
     if device_type == "iosxe":
-        filter_xml = ET.parse(CISCO_XML_DIR + "edit_config-hostname.xml") # For Cisco, use IOS-XE native models
+        filter_xml = ET.parse(CISCO_XML_DIR + "system/edit_config-hostname.xml") # For Cisco, use IOS-XE native models
         namespaces = {'ns': 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
         hostname_element = filter_xml.find(".//ns:hostname", namespaces)
         hostname_element.text = new_hostname
         rpc_filter = ET.tostring(filter_xml).decode('utf-8') 
     elif device_type == "junos":
-        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "edit_config-hostname.xml") # For Cisco, use IOS-XE native models
+        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "system/edit_config-hostname.xml") # For Cisco, use IOS-XE native models
         namespaces = {'ns': 'http://openconfig.net/yang/system'}
         hostname_element = filter_xml.find(".//ns:hostname", namespaces)
         hostname_element.text = new_hostname
         rpc_filter = ET.tostring(filter_xml).decode('utf-8')
     
     # RPC
-    rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET, config=rpc_filter)
+    rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET_DATASTORE, config=rpc_filter)
     return(rpc_reply)

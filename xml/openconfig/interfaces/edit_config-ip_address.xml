@@ -1,0 +1,23 @@
+<config>
+	<interfaces xmlns="http://openconfig.net/yang/interfaces">
+        <interface>
+            <name></name>
+            <subinterfaces>
+            <subinterface>
+                <index></index>
+                <ipv4 xmlns="http://openconfig.net/yang/interfaces/ip">
+                <addresses>
+                    <address>
+                    <ip></ip>
+                    <config>
+                        <ip></ip>
+                        <prefix-length></prefix-length>
+                    </config>
+                    </address>
+                </addresses>
+                </ipv4>
+            </subinterface>
+            </subinterfaces>
+        </interface>
+	</interfaces>
+</config>

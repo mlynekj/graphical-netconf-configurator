@@ -1,4 +1,4 @@
-from xml.etree import ElementTree as ET
+from lxml import etree as ET
 
 def removeXmlns(element):
     """ Removes all namespace declarations from xml """
