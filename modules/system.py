@@ -34,18 +34,17 @@ def setHostname(device, new_hostname):
     # CONFIG
     if device_type == "iosxe":
         filter_xml = ET.parse(CISCO_XML_DIR + "edit_config-hostname.xml") # For Cisco, use IOS-XE native models
-        
         namespaces = {'ns': 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
         hostname_element = filter_xml.find(".//ns:hostname", namespaces)
-        
         hostname_element.text = new_hostname
         rpc_filter = ET.tostring(filter_xml).decode('utf-8') 
-
     elif device_type == "junos":
-        pass
+        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "edit_config-hostname.xml") # For Cisco, use IOS-XE native models
+        namespaces = {'ns': 'http://openconfig.net/yang/system'}
+        hostname_element = filter_xml.find(".//ns:hostname", namespaces)
+        hostname_element.text = new_hostname
+        rpc_filter = ET.tostring(filter_xml).decode('utf-8')
     
     # RPC
-    print(rpc_filter)
     rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET, config=rpc_filter)
-    
     return(rpc_reply)
