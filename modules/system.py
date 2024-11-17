@@ -49,4 +49,5 @@ def setHostname(device, new_hostname):
     
     # RPC
     rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET_DATASTORE, config=rpc_filter)
+    helper.printRpc(rpc_reply, "Set Hostname", device.hostname)
     return(rpc_reply)

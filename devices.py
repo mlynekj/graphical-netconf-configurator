@@ -26,6 +26,7 @@ from ncclient import manager
 import modules.netconf as netconf
 import modules.interfaces as interfaces
 import modules.system as system
+import modules.helper as helper
 import dialogs
 
 from PySide6.QtWidgets import QMessageBox
@@ -89,7 +90,7 @@ class Device(QGraphicsPixmapItem):
         return(type(self)._device_type + str(type(self)._counter))
 
     def deleteDevice(self):
-        netconf.demolishNetconfConnection(self.mngr) # Disconnect from NETCONF
+        netconf.demolishNetconfConnection(self) # Disconnect from NETCONF
 
         if hasattr(self, 'border'): 
             self.scene().removeItem(self.border) # Delete the DEBUG border, if there is one
@@ -145,7 +146,7 @@ class Device(QGraphicsPixmapItem):
 
         # Discard all pending changes
         discard_changes_action = QAction("Discard all pending changes from candidate datastore")
-        discard_changes_action.triggered.connect(lambda: netconf.discardChanges(self.mngr))
+        discard_changes_action.triggered.connect(lambda: netconf.discardChanges(self))
         menu.addAction(discard_changes_action)
 
         menu.exec(event.screenPos())
@@ -164,7 +165,7 @@ class Device(QGraphicsPixmapItem):
         dialog.exec()
 
     def dev_GetNetconfCapabilites(self):
-        return(netconf.getNetconfCapabilities(self.mngr))
+        return(netconf.getNetconfCapabilities(self))
     
     # ---------- HOSTNAME MANIPULATION FUNCTIONS ---------- 
     def dev_GetHostname(self):
@@ -172,7 +173,7 @@ class Device(QGraphicsPixmapItem):
     
     def dev_SetHostname(self, new_hostname):
         rpc_reply = system.setHostname(self, new_hostname)
-        rpc_reply = netconf.commitChanges(self.mngr)
+        rpc_reply = netconf.commitChanges(self)
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
     def dev_GetInterfaces(self, getIPs=False):
@@ -183,16 +184,16 @@ class Device(QGraphicsPixmapItem):
     
     def dev_DeleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
         rpc_reply = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
-        rpc_reply = netconf.commitChanges(self.mngr)
+        rpc_reply = netconf.commitChanges(self)
 
     def dev_SetInterfaceIP(self, interface_id, subinterface_index, new_ip):
         rpc_reply = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
-        rpc_reply = netconf.commitChanges(self.mngr)
+        rpc_reply = netconf.commitChanges(self)
 
     def dev_ReplaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
         rpc_reply = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
         rpc_reply = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
-        rpc_reply = netconf.commitChanges(self.mngr)
+        rpc_reply = netconf.commitChanges(self)
     
     # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod

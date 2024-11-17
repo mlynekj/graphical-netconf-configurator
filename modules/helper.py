@@ -1,4 +1,5 @@
 from lxml import etree as ET
+from datetime import datetime
 
 def removeXmlns(element):
     """ Removes all namespace declarations from xml """
@@ -26,3 +27,28 @@ def convertToEtree(rpc_reply, device_type):
     removeXmlns(rpc_reply_etree) # Strip all XML Namespace declarations for easier parsing
 
     return(rpc_reply_etree)
+
+def prettyXml(input):
+    string = str(input)
+    bytes_utf8 = bytes(string, 'utf8')
+    xml_etree = ET.fromstring(bytes_utf8)
+    xml_pretty = ET.tostring(xml_etree, pretty_print=True).decode()
+    return (xml_pretty)
+
+def printRpc(rpc_reply, action, device):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    rpc_reply_pretty = prettyXml(rpc_reply)
+    message = (
+        f"{timestamp}\n"
+        f"RPC reply for action: \"{action}\" on device \"{device}\":\n"
+        f"{rpc_reply}"
+    )
+    print(message)
+
+def printGeneral(message):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    message = (
+        f"{timestamp}\n"
+        f"{message}"
+    )
+    print(message)

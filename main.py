@@ -1,14 +1,17 @@
 # Other
 import sys
+from io import StringIO
 
 # QT
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal, QObject
 from PySide6.QtWidgets import (
     QApplication, 
     QMainWindow, 
     QGraphicsView, 
     QGraphicsScene,  
-    QToolBar)
+    QToolBar,
+    QPlainTextEdit,
+    QDockWidget)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
@@ -19,6 +22,7 @@ from PySide6.QtGui import (
 # Custom
 from devices import Router, Cable
 from dialogs import *
+from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE
 
 class MainView(QGraphicsView):
     def __init__(self):
@@ -37,6 +41,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.view)
 
         self.createToolBar()
+        self.consoleDockWidget = self.createConsoleWidget()
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
+
+        
 
     def createToolBar(self):
         toolbar = QToolBar("Toolbar", self)
@@ -57,6 +65,21 @@ class MainWindow(QMainWindow):
             toolbar.addAction(action_debug)
 
         self.addToolBar(toolbar)
+
+    def createConsoleWidget(self):
+        console = QPlainTextEdit()
+        console.setReadOnly(True)
+
+        if STDOUT_TO_CONSOLE:
+            sys.stdout = ConsoleStream(console)
+        if STDERR_TO_CONSOLE:
+            sys.stderr = ConsoleStream(console)
+
+        dock = QDockWidget("Console", self)
+        dock.setWidget(console)
+        dock.setAllowedAreas(Qt.BottomDockWidgetArea)
+        return dock
+        
 
     def show_DeviceConnectionDialog(self):
         dialog = AddDeviceDialog(self.addRouter) # self.addRouter function callback
@@ -88,6 +111,20 @@ class MainWindow(QMainWindow):
         cable_to_be_removed = [cable for cable in device_1.cables if cable in device_2.cables]
         cable_to_be_removed[0].removeCable()
 
+
+class ConsoleStream(StringIO):
+    def __init__(self, console_widget):
+        super().__init__()
+        self.console_widget = console_widget
+
+    def write(self, text):
+        self.console_widget.appendPlainText(text)
+        self.console_widget.ensureCursorVisible()
+
+    def flush(self):
+        pass
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
@@ -96,3 +133,4 @@ if __name__ == "__main__":
     window.resize(800, 600)
 
     sys.exit(app.exec())
+    

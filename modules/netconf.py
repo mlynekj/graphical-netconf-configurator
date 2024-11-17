@@ -5,6 +5,8 @@ from lxml import etree as ET
 from PySide6.QtWidgets import QLabel, QMessageBox
 from pyangbind.lib.serialise import pybindIETFXMLEncoder
 
+# Custom
+import modules.helper as helper
 
 def establishNetconfConnection(device_parameters):
     # TODO: pass the device, not the device_parameters ?
@@ -31,6 +33,7 @@ def establishNetconfConnection(device_parameters):
             hostkey_verify=False
         )
         mngr.raise_mode = RaiseMode.ERRORS # Raise exceptions only on errors, not on warnings (https://github.com/ncclient/ncclient/issues/545)
+        helper.printGeneral(f"Successfully established NETCONF connection to: {device_parameters['address']} on port {device_parameters['port']}")
         return mngr
     except transport.errors.SSHError as e:
         QMessageBox.critical(None, "Connection Error", f"Unable to connect: {e}")
@@ -45,28 +48,30 @@ def establishNetconfConnection(device_parameters):
         QMessageBox.critical(None, "General Error", f"General error: {e}")
         raise ConnectionError(f"General error: {e}")
  
-def demolishNetconfConnection(mngr):
+def demolishNetconfConnection(device):
     # TODO: pass the device, not the mngr ?
     """ Tears down the spcified ncclient connection, by deleting the mng object. """
-    mngr.close_session()
+    device.mngr.close_session()
     # TODO: catch exceptions
 
-def commitChanges(mngr):
+def commitChanges(device):
     # TODO: pass the device, not the mngr ?
     """ Performs the "commit" operation using the specified ncclient connection. """
-    rpc_reply = mngr.commit()
+    rpc_reply = device.mngr.commit()
+    helper.printRpc(rpc_reply, "Commit changes", device.hostname)
     return(rpc_reply)
 
-def discardChanges(mngr):
+def discardChanges(device):
     # TODO: pass the device, not the mngr ?
     """ Performs the "discard-changes" operation using the specified ncclient connection. """
-    rpc_reply = mngr.discard_changes()
+    rpc_reply = device.mngr.discard_changes()
+    helper.printRpc(rpc_reply, "Discard changes", device.hostname)
     return(rpc_reply)
 
-def getNetconfCapabilities(mngr):
+def getNetconfCapabilities(device):
     # TODO: pass the device, not the mngr ?
     """ Retrieves the capabilities of the specified ncclient connection. """
-    capabilities = mngr.server_capabilities
+    capabilities = device.mngr.server_capabilities
     return(capabilities)
 
  
