@@ -4,21 +4,25 @@ from PySide6.QtWidgets import (
     QGraphicsItem,
     QGraphicsLineItem, 
     QGraphicsRectItem, 
-    QGraphicsSceneMouseEvent, 
+    QGraphicsSceneMouseEvent,
+    QGraphicsProxyWidget, 
     QMenu,
     QGraphicsTextItem,
-    QToolTip)
+    QToolTip,
+    QPushButton)
 from PySide6.QtGui import (
     QImage, 
     QPixmap,
     QPen,
     QColor,
     QAction,
-    QFont)
+    QFont,
+    QIcon)
 from PySide6.QtCore import (
+    Qt,
     QLineF,
-    QPointF)
-
+    QPointF,
+    QSize)
 # Other
 from ncclient import manager
 
@@ -52,9 +56,7 @@ class Device(QGraphicsPixmapItem):
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setTransformOriginPoint(self.boundingRect().center())
         self.setPos(x, y)
-        #DEBUG: Show border around device
-        if __debug__:
-            self.border = QGraphicsRectItem(self.boundingRect())
+        self.setZValue(1)
         
         # CABLES LIST
         self.cables = []
@@ -70,14 +72,27 @@ class Device(QGraphicsPixmapItem):
 
         # LABEL (Hostname)
         self.label = QGraphicsTextItem(str(self.hostname), self)
-        self.label.setDefaultTextColor(QColor(0, 0, 0))
         self.label.setFont(QFont('Arial', 10))
         self.label.setPos(0, self.pixmap().height())
         self.label_border = self.label.boundingRect()
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
 
+        # ADD CABLE BUTTON
+        add_cable_icon = QIcon("graphics/icons/add_cable.png") #https://www.flaticon.com/free-icon/lan-equipment_4777224?term=ethernet&page=1&position=31&origin=search&related_id=4777224
+        add_cable_button = QPushButton()
+        add_cable_button.setIcon(add_cable_icon)
+        add_cable_button.setStyleSheet("background: transparent;")
+        add_cable_button.setIconSize(QSize(24, 24))
+        add_cable_button.clicked.connect(self.tmp)
+        self.button_proxy = QGraphicsProxyWidget(self)
+        self.button_proxy.setWidget(add_cable_button)
+        self.button_proxy.setPos(self.pixmap().width() - 5, 25)
+        self.button_proxy.setZValue(0)
+
         # REGISTRY
         type(self)._registry[self.id] = self
+    def tmp(self):
+        print("tmp")
 
     def refreshHostnameLabel(self):
         self.hostname = self.dev_GetHostname()
@@ -92,9 +107,6 @@ class Device(QGraphicsPixmapItem):
     def deleteDevice(self):
         netconf.demolishNetconfConnection(self) # Disconnect from NETCONF
 
-        if hasattr(self, 'border'): 
-            self.scene().removeItem(self.border) # Delete the DEBUG border, if there is one
-
         self.scene().removeItem(self)
     
         # Cables
@@ -104,21 +116,25 @@ class Device(QGraphicsPixmapItem):
         del type(self)._registry[self.id]
 
     # ---------- MOUSE EVENTS FUNCTIONS ---------- 
+    
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
 
         for cable in self.cables:
             cable.updatePosition()
-        
-        # DEBUG: Show border around device
-        if __debug__:
-            self.border.setPos(self.scenePos())
 
     def hoverEnterEvent(self, event):
-        QToolTip.showText(event.screenPos(), f"Device ID: {self.id}")
+        tooltip_text = (
+            f"Device ID: {self.id}\n"
+            f"IP: {self.device_parameters['address']}\n"
+            f"Device type: {self.device_parameters['device_params']}"
+        )
+        QToolTip.showText(event.screenPos(), tooltip_text)
+        self.button_proxy.setVisible(True)
 
     def hoverLeaveEvent(self, event):
         QToolTip.hideText()
+        self.button_proxy.setVisible(False)
 
     def contextMenuEvent(self, event):
         """ Right-click menu """

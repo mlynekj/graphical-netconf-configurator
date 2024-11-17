@@ -22,7 +22,9 @@ from PySide6.QtGui import (
 # Custom
 from devices import Router, Cable
 from dialogs import *
-from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE
+from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
+
+sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
 
 class MainView(QGraphicsView):
     def __init__(self):
@@ -30,7 +32,6 @@ class MainView(QGraphicsView):
 
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
-        self.scene.setBackgroundBrush(QBrush(QColor(255, 255, 255))) # White background
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -43,8 +44,6 @@ class MainWindow(QMainWindow):
         self.createToolBar()
         self.consoleDockWidget = self.createConsoleWidget()
         self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
-
-        
 
     def createToolBar(self):
         toolbar = QToolBar("Toolbar", self)
@@ -80,7 +79,6 @@ class MainWindow(QMainWindow):
         dock.setAllowedAreas(Qt.BottomDockWidgetArea)
         return dock
         
-
     def show_DeviceConnectionDialog(self):
         dialog = AddDeviceDialog(self.addRouter) # self.addRouter function callback
         dialog.exec()
@@ -93,11 +91,6 @@ class MainWindow(QMainWindow):
     def addRouter(self, device_parameters, x, y):
         router = Router(device_parameters, x, y)
         self.view.scene.addItem(router)
-        
-        #DEBUG: Show border around device
-        if __debug__:
-            self.view.scene.addItem(router.border)
-            router.border.setPos(router.scenePos())
 
         return(router)
     
@@ -127,6 +120,7 @@ class ConsoleStream(StringIO):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
 
     window = MainWindow()
     window.show()
