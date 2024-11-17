@@ -58,6 +58,10 @@ def createFilter_EditIPAddress(interface, subinterface_index, ip, delete_ip=Fals
     subinterface_index_element.text = str(subinterface_index)
 
     if ip.version == 4:
+        ipvX_element = filter_xml.findall(".//oc-ip:ipvX", namespaces)
+        for ipvX in ipvX_element: # Opening and closing tags
+            ipvX.tag = ipvX.tag.replace("ipvX", "ipv4")
+
         ipv4_element = filter_xml.find(".//oc-ip:ipv4", namespaces)
         address_element = ipv4_element.find(".//oc-ip:address", namespaces)
         address_element.set("operation", "delete") if delete_ip else None
@@ -69,6 +73,10 @@ def createFilter_EditIPAddress(interface, subinterface_index, ip, delete_ip=Fals
         prefix_length_element = address_element.find(".//oc-ip:prefix-length", namespaces)
         prefix_length_element.text = str(ip.network.prefixlen)
     elif ip.version == 6:
+        ipvX_element = filter_xml.findall(".//oc-ip:ipvX", namespaces)
+        for ipvX in ipvX_element: # Opening and closing tags
+            ipvX.tag = ipvX.tag.replace("ipvX", "ipv6")
+
         ipv6_element = filter_xml.find(".//oc-ip:ipv6", namespaces)
         address_element = ipv6_element.find(".//oc-ip:address", namespaces)
         address_element.set("operation", "delete") if delete_ip else None

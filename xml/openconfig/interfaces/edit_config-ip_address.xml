@@ -5,7 +5,7 @@
             <subinterfaces>
             <subinterface>
                 <index></index>
-                <ipv4 xmlns="http://openconfig.net/yang/interfaces/ip">
+                <ipvX xmlns="http://openconfig.net/yang/interfaces/ip">
                 <addresses>
                     <address>
                     <ip></ip>
@@ -15,7 +15,7 @@
                     </config>
                     </address>
                 </addresses>
-                </ipv4>
+                </ipvX>
             </subinterface>
             </subinterfaces>
         </interface>

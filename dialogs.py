@@ -322,40 +322,38 @@ class EditInterfaceDialog(QDialog):
 
         # Create the table, set basic properties
         subinterface_table = QTableWidget()
-        subinterface_table.setColumnCount(4)
+        subinterface_table.setColumnCount(3)
         subinterface_table.setRowCount(len(subinterface['ipv4']) + len(subinterface['ipv6']))
-        subinterface_table.setHorizontalHeaderLabels(["Address", "Prefix length", "", ""])
+        subinterface_table.setHorizontalHeaderLabels(["Address", "", ""])
         subinterface_table.horizontalHeader().setStretchLastSection(True)
         subinterface_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         row = 0
         for ipv4_data in subinterface['ipv4']:
             # IPv4 address
-            subinterface_table.setItem(row, 0, QTableWidgetItem(str(ipv4_data.ip)))
-            subinterface_table.setItem(row, 1, QTableWidgetItem(str(ipv4_data.network.prefixlen)))
+            subinterface_table.setItem(row, 0, QTableWidgetItem(str(ipv4_data.ip)+"/"+str(ipv4_data.network.prefixlen)))
             # Edit button
             self.edit_ip_button_item = QPushButton("Edit")
             self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface['subinterface_index'], ip = ipv4_data : self.showDialog(index, ip)) # _ = unused argument
-            subinterface_table.setCellWidget(row, 2, self.edit_ip_button_item)
+            subinterface_table.setCellWidget(row, 1, self.edit_ip_button_item)
             # Delete button
             self.delete_ip_button_item = QPushButton("Delete")
             self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface['subinterface_index'], ip = ipv4_data : self.deleteIP(index, ip))
-            subinterface_table.setCellWidget(row, 3, self.delete_ip_button_item)
+            subinterface_table.setCellWidget(row, 2, self.delete_ip_button_item)
             
             row += 1
         
         for ipv6_data in subinterface['ipv6']:
             # IPv6 address
-            subinterface_table.setItem(row, 0, QTableWidgetItem(str(ipv6_data.ip)))
-            subinterface_table.setItem(row, 1, QTableWidgetItem(str(ipv6_data.network.prefixlen)))
+            subinterface_table.setItem(row, 0, QTableWidgetItem(str(ipv6_data.ip)+"/"+str(ipv6_data.network.prefixlen)))
             # Edit button
             self.edit_ip_button_item = QPushButton("Edit")
             self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface['subinterface_index'], ip = ipv6_data : self.showDialog(index, ip)) # _ = unused argument
-            subinterface_table.setCellWidget(row, 2, self.edit_ip_button_item)
+            subinterface_table.setCellWidget(row, 1, self.edit_ip_button_item)
             # Delete button
             self.delete_ip_button_item = QPushButton("Delete")
             self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface['subinterface_index'], ip = ipv6_data : self.deleteIP(index, ip))
-            subinterface_table.setCellWidget(row, 3, self.delete_ip_button_item)
+            subinterface_table.setCellWidget(row, 2, self.delete_ip_button_item)
 
             row += 1
         return subinterface_table
