@@ -23,9 +23,11 @@ def getHostname(device):
     rpc_reply_etree = helper.convertToEtree(rpc_reply, device_type)
     
     # XPATH
-    hostname = rpc_reply_etree.find(".//hostname").text
-    
-    return(hostname)
+    hostname = rpc_reply_etree.find(".//hostname")
+    if hostname is not None:
+        return(hostname.text)
+    else:
+        return("N/A")
 
 def setHostname(device, new_hostname):
     """ Sets the device hostname of the specified device to the specified value. """

@@ -46,7 +46,7 @@ class Device(QGraphicsPixmapItem):
         self.mngr = netconf.establishNetconfConnection(device_parameters) # TODO: Handle timeout, when the device disconnects after some time
 
         # ICON + CANVAS PLACEMENT
-        device_icon_img = QImage("graphics/icons/general.png") # TODO: CHANGE GENERAL ICON
+        device_icon_img = QImage("graphics/devices/general.png") # TODO: CHANGE GENERAL ICON
         self.setPixmap(QPixmap.fromImage(device_icon_img))
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setTransformOriginPoint(self.boundingRect().center())
@@ -143,6 +143,11 @@ class Device(QGraphicsPixmapItem):
         edit_hostname_action.triggered.connect(self.show_EditHostnameDialog)
         menu.addAction(edit_hostname_action)
 
+        # Discard all pending changes
+        discard_changes_action = QAction("Discard all pending changes from candidate datastore")
+        discard_changes_action.triggered.connect(lambda: netconf.discardChanges(self.mngr))
+        menu.addAction(discard_changes_action)
+
         menu.exec(event.screenPos())
 
     # ---------- DIALOG SHOW FUNCTIONS ---------- 
@@ -151,7 +156,7 @@ class Device(QGraphicsPixmapItem):
         dialog.exec()
 
     def show_ListInterfacesDialog(self):
-        dialog = dialogs.ListInterfacesDialog(self)
+        dialog = dialogs.DeviceInterfacesDialog(self)
         dialog.exec()
 
     def show_EditHostnameDialog(self):
@@ -206,7 +211,7 @@ class Router(Device):
         super().__init__(device_parameters, x, y)
 
         # ICON
-        router_icon_img = QImage("graphics/icons/router.png")
+        router_icon_img = QImage("graphics/devices/router.png")
         self.setPixmap(QPixmap.fromImage(router_icon_img))
 
 
