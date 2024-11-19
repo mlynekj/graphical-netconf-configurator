@@ -16,4 +16,5 @@ STDOUT_TO_CONSOLE = True
 STDERR_TO_CONSOLE = False
 
 # DARK MODE
-DARK_MODE = True
+DARK_MODE = False
+# TODO: check on linux

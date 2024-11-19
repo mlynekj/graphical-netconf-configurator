@@ -22,7 +22,8 @@ from PySide6.QtCore import (
     Qt,
     QLineF,
     QPointF,
-    QSize)
+    QSize,
+    QTimer)
 # Other
 from ncclient import manager
 
@@ -81,16 +82,28 @@ class Device(QGraphicsPixmapItem):
         add_cable_icon = QIcon("graphics/icons/add_cable.png") #https://www.flaticon.com/free-icon/lan-equipment_4777224?term=ethernet&page=1&position=31&origin=search&related_id=4777224
         add_cable_button = QPushButton()
         add_cable_button.setIcon(add_cable_icon)
-        add_cable_button.setStyleSheet("background: transparent;")
         add_cable_button.setIconSize(QSize(24, 24))
         add_cable_button.clicked.connect(self.tmp)
-        self.button_proxy = QGraphicsProxyWidget(self)
-        self.button_proxy.setWidget(add_cable_button)
-        self.button_proxy.setPos(self.pixmap().width() - 5, 25)
-        self.button_proxy.setZValue(0)
+        self.add_cable_button_proxy = QGraphicsProxyWidget(self)
+        self.add_cable_button_proxy.setWidget(add_cable_button)
+        self.add_cable_button_proxy.setPos(self.pixmap().width() - 5, 25)
+        self.add_cable_button_proxy.setZValue(0)
+        self.add_cable_button_proxy.setVisible(False)
+
+        # TOOLTIP
+        # shown after 1 second of hovering over the device, at the current mouse position
+        self.tooltip_text = (
+            f"Device ID: {self.id}\n"
+            f"IP: {self.device_parameters['address']}\n"
+            f"Device type: {self.device_parameters['device_params']}"
+        )
+        self.tooltip_timer = QTimer()
+        self.tooltip_timer.setSingleShot(True) # only once per hover event
+        self.tooltip_timer.timeout.connect(lambda: QToolTip.showText(self.hover_pos, self.tooltip_text))
 
         # REGISTRY
         type(self)._registry[self.id] = self
+
     def tmp(self):
         print("tmp")
 
@@ -124,17 +137,20 @@ class Device(QGraphicsPixmapItem):
             cable.updatePosition()
 
     def hoverEnterEvent(self, event):
-        tooltip_text = (
-            f"Device ID: {self.id}\n"
-            f"IP: {self.device_parameters['address']}\n"
-            f"Device type: {self.device_parameters['device_params']}"
-        )
-        QToolTip.showText(event.screenPos(), tooltip_text)
-        self.button_proxy.setVisible(True)
+        # Tooltip
+        self.tooltip_timer.start(1000)
+        self.hover_pos = event.screenPos()
+
+        # Add cable button
+        self.add_cable_button_proxy.setVisible(True)
 
     def hoverLeaveEvent(self, event):
+        # Tooltip
+        self.tooltip_timer.stop()
         QToolTip.hideText()
-        self.button_proxy.setVisible(False)
+
+        # Add cable button
+        self.add_cable_button_proxy.setVisible(False)
 
     def contextMenuEvent(self, event):
         """ Right-click menu """

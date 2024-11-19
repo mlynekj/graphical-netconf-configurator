@@ -106,6 +106,7 @@ class MainWindow(QMainWindow):
 
 
 class ConsoleStream(StringIO):
+    # Redirects stdout and stderr to the integrated console widget
     def __init__(self, console_widget):
         super().__init__()
         self.console_widget = console_widget
