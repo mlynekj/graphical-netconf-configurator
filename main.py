@@ -11,13 +11,16 @@ from PySide6.QtWidgets import (
     QGraphicsScene,  
     QToolBar,
     QPlainTextEdit,
-    QDockWidget)
+    QDockWidget,
+    QMenu)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
     QIcon, 
     QAction,
-    QPixmap)
+    QPixmap,
+    QTransform,
+    QCursor)
 
 # Custom
 from devices import Router, Cable
@@ -46,24 +49,35 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
 
     def createToolBar(self):
-        toolbar = QToolBar("Toolbar", self)
-        toolbar.setVisible(True)
-        toolbar.setMovable(False)
-        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.toolbar = QToolBar("Toolbar", self)
+        self.toolbar.setVisible(True)
+        self.toolbar.setMovable(False)
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
         # "Add a device" button
         plus_icon_img = QIcon(QPixmap("graphics/icons/plus.png")) #https://www.freepik.com/icon/add_1082378#fromView=family&page=1&position=1&uuid=d639dba2-0441-47bb-a400-3b47c2034665
         action_connectToDevice = QAction(plus_icon_img, "Connect to a device", self)
         action_connectToDevice.triggered.connect(self.show_DeviceConnectionDialog)
-        toolbar.addAction(action_connectToDevice)
+        self.toolbar.addAction(action_connectToDevice)
 
+        # "Cable mode" button
+        cable_mode_img = QIcon(QPixmap("graphics/icons/cable_mode.png")) #https://www.freepik.com/icon/ethernet_9693285
+        action_cableMode = QAction(cable_mode_img, "Cable mode", self)
+        action_cableMode.setCheckable(True)
+        action_cableMode.triggered.connect(self.toggleCableMode)
+        self.toolbar.addAction(action_cableMode)
+
+        # Debug" button
         #DEBUG: 
         if __debug__:
             action_debug = QAction("DEBUG", self)
             action_debug.triggered.connect(self.show_DebugDialog)
-            toolbar.addAction(action_debug)
+            self.toolbar.addAction(action_debug)
 
-        self.addToolBar(toolbar)
+        self.addToolBar(self.toolbar)                
+
+    def cableModeButtonIsChecked(self):
+        return self.toolbar.actions()[1].isChecked()
 
     def createConsoleWidget(self):
         console = QPlainTextEdit()
@@ -91,22 +105,107 @@ class MainWindow(QMainWindow):
     def addRouter(self, device_parameters, x, y):
         router = Router(device_parameters, x, y)
         self.view.scene.addItem(router)
-
         return(router)
-    
-    def addCable(self, device_1, device_2):
-        cable = Cable(device_1, device_2)
+
+    def toggleCableMode(self):
+        if self.cableModeButtonIsChecked():
+            self.cable_mode = CableMode(self)
+        else:
+            self.cable_mode.restoreMouseEventHandlers(self.cable_mode.normal_mode_handlers)
+            QApplication.restoreOverrideCursor()
+            del self.cable_mode
+
+
+class CableMode(QObject):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.view = parent.view
+        self.scene = parent.view.scene
+
+        self.cable_mode_cursor = QCursor(QPixmap("graphics/icons/cable_mode_cursor.png"))
+
+        self.device1 = None
+        self.device2 = None
+        self.device1_interface = None
+        self.device2_interface = None
+
+        self.normal_mode_handlers = self.saveMouseEventHandlers()
+        self.view.scene.mousePressEvent = self.device1SelectionMode
+
+    @property
+    def buttonIsChecked(self):
+        return self.parent.toolbar.actions()[1].isChecked()
+
+    def saveMouseEventHandlers(self):
+        original_mousePressEvent = self.view.scene.mousePressEvent
+        original_mouseMoveEvent = self.view.scene.mouseMoveEvent
+        return(original_mousePressEvent, original_mouseMoveEvent)
+
+    def restoreMouseEventHandlers(self, mouse_event_handlers):
+        self.view.scene.mousePressEvent = mouse_event_handlers[0]
+        self.view.scene.mouseMoveEvent = mouse_event_handlers[1]
+
+    # ----------------- DEVICE1 -----------------
+    def device1SelectionMode(self, event):
+        self.device1 = self.view.scene.itemAt(event.scenePos(), QTransform())
+        self.device1InterfaceSelectionMode(event)
+
+    def device1InterfaceSelectionMode(self, event):
+        menu = QMenu()
+
+        for interface in self.device1.interfaces:
+            interface_action = QAction(interface[0], menu)
+            interface_action.triggered.connect(lambda checked, intf=interface[0]: self.device1InterfaceSelectionModeConfirm(intf))
+            menu.addAction(interface_action)
+        menu.exec(event.screenPos())
+
+    def device1InterfaceSelectionModeConfirm(self, interface):
+        self.device1_interface = interface
+        
+        
+        QApplication.setOverrideCursor(self.cable_mode_cursor)
+        self.device1_selection_mode_handlers = self.saveMouseEventHandlers()
+        self.view.scene.mousePressEvent = self.device2SelectionMode
+
+    # ----------------- DEVICE2 -----------------
+    def device2SelectionMode(self, event):
+        self.device2 = self.view.scene.itemAt(event.scenePos(), QTransform())
+        if self.device2 == self.device1: # Dont allow connecting a device to itself
+            self.restoreMouseEventHandlers(self.device1_selection_mode_handlers)
+            QApplication.restoreOverrideCursor()
+            return
+        else:
+            self.restoreMouseEventHandlers(self.device1_selection_mode_handlers)
+            self.device2InterfaceSelectionMode(event)
+            QApplication.restoreOverrideCursor()
+
+    def device2InterfaceSelectionMode(self, event):
+        menu = QMenu()
+
+        for interface in self.device2.interfaces:
+            interface_action = QAction(interface[0], menu)
+            interface_action.triggered.connect(lambda checked, intf=interface[0]: self.device2InterfaceSelectionModeConfirm(intf))
+            menu.addAction(interface_action)
+        menu.exec(event.screenPos())
+
+    def device2InterfaceSelectionModeConfirm(self, interface):
+        self.device2_interface = interface
+        self.addCable(self.device1, self.device1_interface, self.device2, self.device2_interface)
+
+    # ----------------- MANAGEMENT OF THE CABLES -----------------
+    def addCable(self, device1, device1_interface, device2, device2_interface):
+        cable = Cable(device1, device1_interface, device2, device2_interface)
         cable.setZValue(-1) #All cables to the background
         self.view.scene.addItem(cable)
         return(cable)
     
-    def removeCable(self, device_1, device_2):        
-        cable_to_be_removed = [cable for cable in device_1.cables if cable in device_2.cables]
+    def removeCable(self, device1, device2):        
+        cable_to_be_removed = [cable for cable in device1.cables if cable in device2.cables]
         cable_to_be_removed[0].removeCable()
 
-
 class ConsoleStream(StringIO):
-    # Redirects stdout and stderr to the integrated console widget
+    # Redirects stdout and/or stderr to the integrated console widget
     def __init__(self, console_widget):
         super().__init__()
         self.console_widget = console_widget
@@ -118,7 +217,7 @@ class ConsoleStream(StringIO):
     def flush(self):
         pass
 
-
+    
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")

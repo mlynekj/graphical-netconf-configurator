@@ -5,11 +5,15 @@ from PySide6.QtWidgets import (
     QGraphicsLineItem, 
     QGraphicsRectItem, 
     QGraphicsSceneMouseEvent,
-    QGraphicsProxyWidget, 
+    QGraphicsProxyWidget,
+    QListWidget,
+    QListWidgetItem,
     QMenu,
+    QWidget,
     QGraphicsTextItem,
     QToolTip,
-    QPushButton)
+    QPushButton,
+    QVBoxLayout)
 from PySide6.QtGui import (
     QImage, 
     QPixmap,
@@ -22,6 +26,7 @@ from PySide6.QtCore import (
     Qt,
     QLineF,
     QPointF,
+    QPoint,
     QSize,
     QTimer)
 # Other
@@ -78,34 +83,18 @@ class Device(QGraphicsPixmapItem):
         self.label_border = self.label.boundingRect()
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
 
-        # ADD CABLE BUTTON
-        add_cable_icon = QIcon("graphics/icons/add_cable.png") #https://www.flaticon.com/free-icon/lan-equipment_4777224?term=ethernet&page=1&position=31&origin=search&related_id=4777224
-        add_cable_button = QPushButton()
-        add_cable_button.setIcon(add_cable_icon)
-        add_cable_button.setIconSize(QSize(24, 24))
-        add_cable_button.clicked.connect(self.tmp)
-        self.add_cable_button_proxy = QGraphicsProxyWidget(self)
-        self.add_cable_button_proxy.setWidget(add_cable_button)
-        self.add_cable_button_proxy.setPos(self.pixmap().width() - 5, 25)
-        self.add_cable_button_proxy.setZValue(0)
-        self.add_cable_button_proxy.setVisible(False)
-
         # TOOLTIP
-        # shown after 1 second of hovering over the device, at the current mouse position
         self.tooltip_text = (
             f"Device ID: {self.id}\n"
             f"IP: {self.device_parameters['address']}\n"
             f"Device type: {self.device_parameters['device_params']}"
         )
-        self.tooltip_timer = QTimer()
+        self.tooltip_timer = QTimer() # shown after 1 second of hovering over the device, at the current mouse position
         self.tooltip_timer.setSingleShot(True) # only once per hover event
         self.tooltip_timer.timeout.connect(lambda: QToolTip.showText(self.hover_pos, self.tooltip_text))
 
         # REGISTRY
         type(self)._registry[self.id] = self
-
-    def tmp(self):
-        print("tmp")
 
     def refreshHostnameLabel(self):
         self.hostname = self.dev_GetHostname()
@@ -127,9 +116,12 @@ class Device(QGraphicsPixmapItem):
             cable.removeCable()
 
         del type(self)._registry[self.id]
+        
 
     # ---------- MOUSE EVENTS FUNCTIONS ---------- 
-    
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
 
@@ -141,16 +133,10 @@ class Device(QGraphicsPixmapItem):
         self.tooltip_timer.start(1000)
         self.hover_pos = event.screenPos()
 
-        # Add cable button
-        self.add_cable_button_proxy.setVisible(True)
-
     def hoverLeaveEvent(self, event):
         # Tooltip
         self.tooltip_timer.stop()
         QToolTip.hideText()
-
-        # Add cable button
-        self.add_cable_button_proxy.setVisible(False)
 
     def contextMenuEvent(self, event):
         """ Right-click menu """
@@ -249,22 +235,24 @@ class Router(Device):
 
 
 class Cable(QGraphicsLineItem):
-    def __init__(self, device_1, device_2):
+    def __init__(self, device1, device1_interface, device2, device2_interface):
         super().__init__()
 
-        self.device_1 = device_1
-        self.device_2 = device_2
+        self.device1 = device1
+        self.device2 = device2
+        self.device1_interface = device1_interface
+        self.device2_interface = device2_interface
 
-        self.device_1.cables.append(self)
-        self.device_2.cables.append(self)
+        self.device1.cables.append(self)
+        self.device2.cables.append(self)
 
         self.setPen(QPen(QColor(0, 0, 0), 3))
 
         self.updatePosition()
 
     def updatePosition(self):
-        self.device_1_center = self.device_1.sceneBoundingRect().center()
-        self.device_2_center = self.device_2.sceneBoundingRect().center()
+        self.device_1_center = self.device1.sceneBoundingRect().center()
+        self.device_2_center = self.device2.sceneBoundingRect().center()
 
         self.setLine(self.device_1_center.x(), 
                      self.device_1_center.y(), 
@@ -272,10 +260,10 @@ class Cable(QGraphicsLineItem):
                      self.device_2_center.y())
 
     def removeCable(self):
-        if self in self.device_1.cables:
-            self.device_1.cables.remove(self)
+        if self in self.device1.cables:
+            self.device1.cables.remove(self)
         
-        if self in self.device_2.cables:
-            self.device_2.cables.remove(self)
+        if self in self.device2.cables:
+            self.device2.cables.remove(self)
 
         self.scene().removeItem(self)
