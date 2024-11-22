@@ -4,7 +4,8 @@ from PySide6.QtWidgets import (
     QGraphicsRectItem, 
     QGraphicsTextItem,
     QMenu,
-    QApplication)
+    QApplication,
+    QToolTip)
 from PySide6.QtGui import (
     QImage, 
     QPixmap,
@@ -22,10 +23,14 @@ from PySide6.QtCore import (
     QPoint,
     QSize,
     QTimer,
-    QObject)
+    QObject,
+    QEvent)
 
 # Other
 import math
+
+# Custom
+from devices import Device
 
 class Cable(QGraphicsLineItem):
     def __init__(self, device1, device1_interface, device2: object, device2_interface):
@@ -46,7 +51,6 @@ class Cable(QGraphicsLineItem):
         self.device_interface_labels.append(CableInterfaceLabel(self.device2_interface, "device2", self))
 
         self.updatePosition()
-        self.updateLabelsPosition()
 
     def updatePosition(self):
         device_1_center = self.device1.sceneBoundingRect().center()
@@ -72,6 +76,7 @@ class Cable(QGraphicsLineItem):
 
         self.scene().removeItem(self)
 
+
 class CableInterfaceLabel(QGraphicsTextItem):
     def __init__(self, text, device, parent, distance_offset=70):
         super().__init__(text, parent)
@@ -86,23 +91,32 @@ class CableInterfaceLabel(QGraphicsTextItem):
         self.label_holder = QGraphicsRectItem(self.boundingRect(), parent)
         self.label_holder.setBrush(QColor(0, 0, 0))
         self.label_holder.setPen(Qt.NoPen)
-
         self.setParentItem(self.label_holder)
+
+        # TOOLTIP
+        self.setAcceptHoverEvents(True)  # Enable mouse hover over events
+        self.tooltip_text = text
+        self.tooltip_timer = QTimer() # shown after 1 second of hovering over the label, at the current mouse position
+        self.tooltip_timer.setSingleShot(True) # only once per hover event
+        self.tooltip_timer.timeout.connect(lambda: QToolTip.showText(self.hover_pos, self.tooltip_text))
 
         self.updatePosition()
 
+    def updatePosition(self):
+        label_pos = self.calculatePosition(self.distance_offset)
+        self.label_holder.setPos(label_pos)
+
     def calculatePosition(self, distance_offset):
         line = self.parent.line()
-
-        device1_point = line.p1()
-        device2_point = line.p2()
+        device1_point = line.p1() # where the line begins
+        device2_point = line.p2() # where the line ends
 
         # Direction vector
         dx = device2_point.x() - device1_point.x()
         dy = device2_point.y() - device1_point.y()
         line_length = math.sqrt(dx**2 + dy**2)
         if line_length == 0:
-            return device1_point if self.device == 1 else device2_point
+            return device1_point if self.device == "device1" else device2_point
 
         # Normalize the direction vector
         unit_dx = dx / line_length
@@ -115,20 +129,43 @@ class CableInterfaceLabel(QGraphicsTextItem):
             distance_offset = -distance_offset
             device_point = device2_point
 
-        # Move the label away from the device by distance offset, using the direction vector
-        device_label_x = device_point.x() + unit_dx * distance_offset
-        device_label_y = device_point.y() + unit_dy * distance_offset
-        device_label_pos = QPointF(device_label_x, device_label_y)
+        # Calculate the position of the label (move away from the device by distance offset)
+        label_x = device_point.x() + unit_dx * distance_offset
+        label_y = device_point.y() + unit_dy * distance_offset
+        label_pos = QPointF(label_x, label_y)
 
         # Center the label
-        device_label_pos_centered = device_label_pos - QPointF(self.boundingRect().width() / 2, self.boundingRect().height() / 2)
-
-        return(device_label_pos_centered)
+        label_pos_centered = label_pos - QPointF(self.boundingRect().width() / 2, self.boundingRect().height() / 2)
+        
+        return(label_pos_centered)
     
-    def updatePosition(self):
-        device_label_pos = self.calculatePosition(self.distance_offset)
+    def hoverEnterEvent(self, event):
+        # Tooltip
+        self.tooltip_timer.start(1000)
+        self.hover_pos = event.screenPos()
 
-        self.label_holder.setPos(device_label_pos)
+    def hoverLeaveEvent(self, event):
+        # Tooltip
+        self.tooltip_timer.stop()
+        QToolTip.hideText()
+    
+
+class TmpCable(QGraphicsLineItem):
+    def __init__(self, starting_pos):
+        super().__init__()
+
+        self.starting_pos = starting_pos
+        self.setPen(QPen(QColor(0, 0, 0), 3))
+
+    def updatePosition(self, event, starting_pos):
+        cursor_pos = event.scenePos()
+        self.setLine(
+            starting_pos.x(), 
+            starting_pos.y(), 
+            cursor_pos.x(), 
+            cursor_pos.y()
+        )
+        
 
 class CableEditMode(QObject):
     def __init__(self, parent):
@@ -137,7 +174,8 @@ class CableEditMode(QObject):
         self.view = parent.view
         self.scene = parent.view.scene
 
-        self.cable_mode_cursor = QCursor(QPixmap("graphics/icons/cable_mode_cursor.png"))
+        self.cable_mode_cursor_device1 = QCursor(QPixmap("graphics/cursors/cable_mode_cursor_device1.png"))
+        self.cable_mode_cursor_device2 = QCursor(QPixmap("graphics/cursors/cable_mode_cursor_device2.png"))
 
         self.device1 = None
         self.device2 = None
@@ -145,15 +183,37 @@ class CableEditMode(QObject):
         self.device2_interface = None
 
         self.normal_mode_handlers = self.parent.saveMouseEventHandlers()
+        self.changeCursor("device1_selection_mode")
         self.view.scene.mousePressEvent = self.device1SelectionMode
 
-    @property
-    def buttonIsChecked(self):
-        return self.parent.toolbar.actions()[1].isChecked()
+    def changeCursor(self, cursor):
+        if cursor == "normal":
+            QApplication.restoreOverrideCursor()
+        elif cursor == "device1_selection_mode":
+            QApplication.setOverrideCursor(self.cable_mode_cursor_device1)
+        elif cursor == "device2_selection_mode":
+            QApplication.setOverrideCursor(self.cable_mode_cursor_device2)
+        
+
+    # ----------------- TMP CABLE -----------------
+    def renderTmpCable(self):
+        self.tmp_cable = TmpCable(self.device1.sceneBoundingRect().center())
+        self.view.scene.addItem(self.tmp_cable)
+        self.view.setMouseTracking(True)
+        self.view.scene.mouseMoveEvent = lambda event: self.tmp_cable.updatePosition(event, self.device1.sceneBoundingRect().center())
+
+    def dontRenderTmpCable(self):
+        self.view.scene.removeItem(self.tmp_cable)
+        self.view.setMouseTracking(False)
+        self.view.scene.mouseMoveEvent = self.normal_mode_handlers[1] # [1] = original_mouseMoveEvent
 
     # ----------------- DEVICE1 -----------------
     def device1SelectionMode(self, event):
         self.device1 = self.view.scene.itemAt(event.scenePos(), QTransform())
+        if not isinstance(self.device1, Device):
+            return
+        
+        self.changeCursor("normal")
         self.device1InterfaceSelectionMode(event)
 
     def device1InterfaceSelectionMode(self, event):
@@ -168,22 +228,24 @@ class CableEditMode(QObject):
     def device1InterfaceSelectionModeConfirm(self, interface):
         self.device1_interface = interface
         
-        
-        QApplication.setOverrideCursor(self.cable_mode_cursor)
-        self.device1_selection_mode_handlers = self.parent.saveMouseEventHandlers()
+        self.changeCursor("device2_selection_mode")
         self.view.scene.mousePressEvent = self.device2SelectionMode
+        self.renderTmpCable()
 
     # ----------------- DEVICE2 -----------------
     def device2SelectionMode(self, event):
         self.device2 = self.view.scene.itemAt(event.scenePos(), QTransform())
+        if not isinstance(self.device2, Device):
+            return
+        
         if self.device2 == self.device1: # Dont allow connecting a device to itself
-            self.parent.restoreMouseEventHandlers(self.device1_selection_mode_handlers)
-            QApplication.restoreOverrideCursor()
+            self.view.scene.mousePressEvent = self.device1SelectionMode
+            self.changeCursor("device1_selection_mode")
             return
         else:
-            self.parent.restoreMouseEventHandlers(self.device1_selection_mode_handlers)
             self.device2InterfaceSelectionMode(event)
-            QApplication.restoreOverrideCursor()
+            self.dontRenderTmpCable()
+            self.changeCursor("normal")
 
     def device2InterfaceSelectionMode(self, event):
         menu = QMenu()
@@ -197,6 +259,7 @@ class CableEditMode(QObject):
     def device2InterfaceSelectionModeConfirm(self, interface):
         self.device2_interface = interface
         self.addCable(self.device1, self.device1_interface, self.device2, self.device2_interface)
+        self.view.scene.mousePressEvent = self.normal_mode_handlers[0] # [0] = original_mousePressEvent
 
     # ----------------- MANAGEMENT OF THE CABLES -----------------
     def addCable(self, device1, device1_interface, device2, device2_interface):

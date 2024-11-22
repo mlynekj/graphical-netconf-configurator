@@ -127,6 +127,9 @@ class Device(QGraphicsPixmapItem):
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
 
+        cursor_view_pos = event.pos()
+        cursor_scene_pos = self.mapToScene(cursor_view_pos.toPoint())
+
         for cable in self.cables:
             cable.updatePosition()
 

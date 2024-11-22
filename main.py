@@ -88,9 +88,6 @@ class MainWindow(QMainWindow):
 
         self.addToolBar(self.toolbar)                
 
-    def cableModeButtonIsChecked(self):
-        return self.toolbar.actions()[1].isChecked()
-
     def createConsoleWidget(self):
         console = QPlainTextEdit()
         console.setReadOnly(True)
@@ -118,13 +115,17 @@ class MainWindow(QMainWindow):
         router = Router(device_parameters, x, y)
         self.view.scene.addItem(router)
         return(router)
+    
+    def cableModeButtonIsChecked(self):
+        return self.toolbar.actions()[1].isChecked()
 
     def toggleCableMode(self):
         if self.cableModeButtonIsChecked():
             self.cable_edit_mode = CableEditMode(self)
         else:
             self.restoreMouseEventHandlers(self.normal_mode_handlers)
-            QApplication.restoreOverrideCursor()
+            self.cable_edit_mode.dontRenderTmpCable()
+            self.cable_edit_mode.changeCursor("normal")
             del self.cable_edit_mode
 
 
