@@ -41,7 +41,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Network Configurator")
+        self.setWindowTitle("Netconf Configurator")
         self.view = MainView()
         self.setCentralWidget(self.view)
 

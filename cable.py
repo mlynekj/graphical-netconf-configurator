@@ -28,7 +28,7 @@ from PySide6.QtCore import (
 import math
 
 class Cable(QGraphicsLineItem):
-    def __init__(self, device1, device1_interface, device2, device2_interface):
+    def __init__(self, device1, device1_interface, device2: object, device2_interface):
         super().__init__()
 
         self.device1 = device1
@@ -41,65 +41,12 @@ class Cable(QGraphicsLineItem):
 
         self.setPen(QPen(QColor(0, 0, 0), 3))
 
-        self.device1_interface_label, self.device1_interface_label_holder = self.createLabel(self.device1_interface)
-        self.device2_interface_label, self.device2_interface_label_holder = self.createLabel(self.device2_interface)
-        
+        self.device_interface_labels = []
+        self.device_interface_labels.append(CableInterfaceLabel(self.device1_interface, "device1", self))    
+        self.device_interface_labels.append(CableInterfaceLabel(self.device2_interface, "device2", self))
+
         self.updatePosition()
         self.updateLabelsPosition()
-
-    def createLabel(self, text):
-        label = QGraphicsTextItem(text, self)
-        label.setFont(QFont('Arial', 8))
-        label.setDefaultTextColor(Qt.white)
-
-        label_holder = QGraphicsRectItem(label.boundingRect(), self)
-        label_holder.setBrush(QColor(0, 0, 0))
-        label_holder.setPen(Qt.NoPen)
-        
-        #TODO: move to the foreground (so it is not covered by the device)
-        label.setParentItem(label_holder)
-
-        return(label, label_holder)
-
-    def calculateLabelPositions(self, distance_offset):
-        line = self.line()
-
-        start_point = line.p1()
-        end_point = line.p2()
-
-        # Direction vector
-        dx = end_point.x() - start_point.x()
-        dy = end_point.y() - start_point.y()
-        line_length = math.sqrt(dx**2 + dy**2)
-
-        if line_length == 0:
-            return start_point, end_point
-
-        # Normalize the direction vector
-        unit_dx = dx / line_length
-        unit_dy = dy / line_length
-
-        # Move the label away from the device using the direction vector
-        device1_label_x = start_point.x() + unit_dx * distance_offset
-        device1_label_y = start_point.y() + unit_dy * distance_offset
-        device1_label_pos = QPointF(device1_label_x, device1_label_y)
-
-        device2_label_x = end_point.x() + unit_dx * (-distance_offset)
-        device2_label_y = end_point.y() + unit_dy * (-distance_offset)
-        device2_label_pos = QPointF(device2_label_x, device2_label_y)
-
-        # Center the label
-        device1_label_pos_centered = device1_label_pos - QPointF(self.device1_interface_label.boundingRect().width() / 2, self.device1_interface_label.boundingRect().height() / 2)
-        device2_label_pos_centered = device2_label_pos - QPointF(self.device2_interface_label.boundingRect().width() / 2, self.device2_interface_label.boundingRect().height() / 2)
-
-        return(device1_label_pos_centered, device2_label_pos_centered)
-
-    def updateLabelsPosition(self):
-        distance_offset = 70
-        device1_label_pos, device2_label_pos = self.calculateLabelPositions(distance_offset)
-
-        self.device1_interface_label_holder.setPos(device1_label_pos)
-        self.device2_interface_label_holder.setPos(device2_label_pos)
 
     def updatePosition(self):
         device_1_center = self.device1.sceneBoundingRect().center()
@@ -112,6 +59,10 @@ class Cable(QGraphicsLineItem):
         
         self.updateLabelsPosition()
 
+    def updateLabelsPosition(self):
+        for interface_label in self.device_interface_labels:
+            interface_label.updatePosition()
+
     def removeCable(self):
         if self in self.device1.cables:
             self.device1.cables.remove(self)
@@ -120,6 +71,64 @@ class Cable(QGraphicsLineItem):
             self.device2.cables.remove(self)
 
         self.scene().removeItem(self)
+
+class CableInterfaceLabel(QGraphicsTextItem):
+    def __init__(self, text, device, parent, distance_offset=70):
+        super().__init__(text, parent)
+        
+        self.parent = parent
+        self.device = device
+        self.distance_offset = distance_offset
+
+        self.setFont(QFont('Arial', 8))
+        self.setDefaultTextColor(Qt.white)
+
+        self.label_holder = QGraphicsRectItem(self.boundingRect(), parent)
+        self.label_holder.setBrush(QColor(0, 0, 0))
+        self.label_holder.setPen(Qt.NoPen)
+
+        self.setParentItem(self.label_holder)
+
+        self.updatePosition()
+
+    def calculatePosition(self, distance_offset):
+        line = self.parent.line()
+
+        device1_point = line.p1()
+        device2_point = line.p2()
+
+        # Direction vector
+        dx = device2_point.x() - device1_point.x()
+        dy = device2_point.y() - device1_point.y()
+        line_length = math.sqrt(dx**2 + dy**2)
+        if line_length == 0:
+            return device1_point if self.device == 1 else device2_point
+
+        # Normalize the direction vector
+        unit_dx = dx / line_length
+        unit_dy = dy / line_length
+
+        if self.device == "device1":
+            distance_offset = distance_offset
+            device_point = device1_point
+        elif self.device == "device2":
+            distance_offset = -distance_offset
+            device_point = device2_point
+
+        # Move the label away from the device by distance offset, using the direction vector
+        device_label_x = device_point.x() + unit_dx * distance_offset
+        device_label_y = device_point.y() + unit_dy * distance_offset
+        device_label_pos = QPointF(device_label_x, device_label_y)
+
+        # Center the label
+        device_label_pos_centered = device_label_pos - QPointF(self.boundingRect().width() / 2, self.boundingRect().height() / 2)
+
+        return(device_label_pos_centered)
+    
+    def updatePosition(self):
+        device_label_pos = self.calculatePosition(self.distance_offset)
+
+        self.label_holder.setPos(device_label_pos)
 
 class CableEditMode(QObject):
     def __init__(self, parent):
