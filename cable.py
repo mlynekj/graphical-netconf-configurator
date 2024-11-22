@@ -186,6 +186,12 @@ class CableEditMode(QObject):
         self.changeCursor("device1_selection_mode")
         self.view.scene.mousePressEvent = self.device1SelectionMode
 
+    def exitCableMode(self):
+        self.changeCursor("normal")
+        self.dontRenderTmpCable()
+        self.view.scene.mousePressEvent = self.normal_mode_handlers[0]
+        del self
+
     def changeCursor(self, cursor):
         if cursor == "normal":
             QApplication.restoreOverrideCursor()
@@ -204,11 +210,13 @@ class CableEditMode(QObject):
 
     def dontRenderTmpCable(self):
         self.view.scene.removeItem(self.tmp_cable)
+        del self.tmp_cable
         self.view.setMouseTracking(False)
         self.view.scene.mouseMoveEvent = self.normal_mode_handlers[1] # [1] = original_mouseMoveEvent
 
     # ----------------- DEVICE1 -----------------
     def device1SelectionMode(self, event):
+        """ Wait for the user to select the starting device """
         self.device1 = self.view.scene.itemAt(event.scenePos(), QTransform())
         if not isinstance(self.device1, Device):
             return
@@ -217,6 +225,7 @@ class CableEditMode(QObject):
         self.device1InterfaceSelectionMode(event)
 
     def device1InterfaceSelectionMode(self, event):
+        """ Wait for the user to select the interface on the starting device """
         menu = QMenu()
 
         for interface in self.device1.interfaces:
@@ -226,6 +235,7 @@ class CableEditMode(QObject):
         menu.exec(event.screenPos())
 
     def device1InterfaceSelectionModeConfirm(self, interface):
+        """ Confirm the interface selection on the starting device """
         self.device1_interface = interface
         
         self.changeCursor("device2_selection_mode")
@@ -234,6 +244,7 @@ class CableEditMode(QObject):
 
     # ----------------- DEVICE2 -----------------
     def device2SelectionMode(self, event):
+        """ Wait for the user to select the ending device """
         self.device2 = self.view.scene.itemAt(event.scenePos(), QTransform())
         if not isinstance(self.device2, Device):
             return
@@ -248,6 +259,7 @@ class CableEditMode(QObject):
             self.changeCursor("normal")
 
     def device2InterfaceSelectionMode(self, event):
+        """ Wait for the user to select the interface on the ending device """
         menu = QMenu()
 
         for interface in self.device2.interfaces:
@@ -257,6 +269,7 @@ class CableEditMode(QObject):
         menu.exec(event.screenPos())
 
     def device2InterfaceSelectionModeConfirm(self, interface):
+        """ Confirm the interface selection on the ending device """
         self.device2_interface = interface
         self.addCable(self.device1, self.device1_interface, self.device2, self.device2_interface)
         self.view.scene.mousePressEvent = self.normal_mode_handlers[0] # [0] = original_mousePressEvent
