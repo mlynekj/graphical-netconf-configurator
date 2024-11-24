@@ -252,6 +252,7 @@ class CableEditMode(QObject):
     def _deleteCableMouseMoveHandler(self, event):
         found_cable = self._getItemClickedAtPos(event, Cable)
         if found_cable:
+            print("tukabel!")
             self._changeMouseBehaviour(
                 cursor="delete_cable_mode",
                 mouse_press_event=lambda _, cable=found_cable: self._deleteCableMousePressHandler(cable) # First argument (event) is ignored

@@ -3,7 +3,7 @@ import sys
 from io import StringIO
 
 # QT
-from PySide6.QtCore import Qt, Signal, QObject
+from PySide6.QtCore import Qt, Signal, QObject, QRectF
 from PySide6.QtWidgets import (
     QApplication, 
     QMainWindow, 
@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (
     QToolBar,
     QPlainTextEdit,
     QDockWidget,
-    QMenu)
+    QMenu,
+    QGraphicsRectItem)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
@@ -20,10 +21,11 @@ from PySide6.QtGui import (
     QAction,
     QPixmap,
     QTransform,
-    QCursor)
+    QCursor,
+    QPen)
 
 # Custom
-from devices import Router
+from devices import Device, Router
 from cable import Cable, CableEditMode
 from dialogs import *
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
@@ -36,6 +38,63 @@ class MainView(QGraphicsView):
 
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
+
+        self.rubber_band = None
+        self.start_pos = None
+
+    def createRubberBand(self, event):
+        self.start_pos = self.mapToScene(event.position().toPoint())
+        self.rubber_band = QGraphicsRectItem()
+        self.rubber_band.setPen(QPen(Qt.DashLine))
+        self.scene.addItem(self.rubber_band)
+
+    def updateRubberBand(self, event):
+        current_pos = self.mapToScene(event.position().toPoint())
+        rect = QRectF(self.start_pos, current_pos).normalized()
+        self.rubber_band.setRect(rect)
+
+    def makeSelectionRubberBand(self, event):
+        rect = self.rubber_band.rect()
+        self.scene.removeItem(self.rubber_band)
+        self.rubber_band = None
+
+        # Select all items within the rectangle
+        items = self.scene.items(rect, Qt.IntersectsItemShape)
+        for item in items:
+            item.setSelected(True)
+
+    def removeRubberBand(self):
+        if self.rubber_band:
+            self.scene.removeItem(self.rubber_band)
+            self.rubber_band = None
+        
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.removeRubberBand()
+            self.createRubberBand(event)    
+
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if not self.rubber_band and not self.start_pos:
+            return
+        
+        if not self.scene.selectedItems() and not self.window().cableModeButtonIsChecked():
+            self.updateRubberBand(event)
+        
+        for item in self.scene.selectedItems():
+            if isinstance(item, Device):
+                item.updateCablePositions()
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self.rubber_band:
+            self.makeSelectionRubberBand(event)
+
+        self.start_pos = None
+        super().mouseReleaseEvent(event)
+        # TODO: fix the issue when moving devices with rubber band, the deletecable function os broken
 
 class MainWindow(QMainWindow):
     def __init__(self):

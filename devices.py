@@ -62,6 +62,7 @@ class Device(QGraphicsPixmapItem):
         device_icon_img = QImage("graphics/devices/general.png") # TODO: CHANGE GENERAL ICON
         self.setPixmap(QPixmap.fromImage(device_icon_img))
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setTransformOriginPoint(self.boundingRect().center())
         self.setPos(x, y)
         self.setZValue(1)
@@ -118,7 +119,10 @@ class Device(QGraphicsPixmapItem):
             cable.removeCable()
 
         del type(self)._registry[self.id]
-        
+
+    def updateCablePositions(self):
+        for cable in self.cables:
+            cable.updatePosition()    
 
     # ---------- MOUSE EVENTS FUNCTIONS ---------- 
     def mousePressEvent(self, event):
@@ -127,11 +131,7 @@ class Device(QGraphicsPixmapItem):
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event) 
 
-        cursor_view_pos = event.pos()
-        cursor_scene_pos = self.mapToScene(cursor_view_pos.toPoint())
-
-        for cable in self.cables:
-            cable.updatePosition()
+        self.updateCablePositions()
 
     def hoverEnterEvent(self, event):
         # Tooltip
