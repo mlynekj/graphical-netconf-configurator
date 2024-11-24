@@ -96,7 +96,7 @@ class CableInterfaceLabel(QGraphicsTextItem):
         # TOOLTIP
         self.setAcceptHoverEvents(True)  # Enable mouse hover over events
         self.tooltip_text = text
-        self.tooltip_timer = QTimer() # shown after 1 second of hovering over the label, at the current mouse position
+        self.tooltip_timer = QTimer()
         self.tooltip_timer.setSingleShot(True) # only once per hover event
         self.tooltip_timer.timeout.connect(lambda: QToolTip.showText(self.hover_pos, self.tooltip_text))
 
@@ -141,7 +141,7 @@ class CableInterfaceLabel(QGraphicsTextItem):
     
     def hoverEnterEvent(self, event):
         # Tooltip
-        self.tooltip_timer.start(1000)
+        self.tooltip_timer.start(1000) # shown after 1 second of hovering over the label, at the current mouse position
         self.hover_pos = event.screenPos()
 
     def hoverLeaveEvent(self, event):
@@ -151,6 +151,8 @@ class CableInterfaceLabel(QGraphicsTextItem):
     
 
 class TmpCable(QGraphicsLineItem):
+    """ Temporary cable that is drawn while the user is creating a new cable """
+
     def __init__(self, starting_pos):
         super().__init__()
 
@@ -171,6 +173,7 @@ class CableEditMode(QObject):
     CURSOR_MODES = {
         "device1_selection_mode": "graphics/cursors/device1_selection_mode.png",
         "device2_selection_mode": "graphics/cursors/device2_selection_mode.png",
+        "delete_cable_mode": "graphics/cursors/delete_cable_mode.png", # https://www.freepik.com/icon/close_14440511#fromView=search&page=2&position=40&uuid=6e978c49-dea0-4abd-bc85-7785d1bd8f7f
         "normal": None
     }
     
@@ -187,21 +190,45 @@ class CableEditMode(QObject):
         self.device2_interface = None
 
         self._loadCursors()
-        self._changeCursor("device1_selection_mode")
+        
+        self._changeMouseBehaviour(
+            cursor="device1_selection_mode",
+            mouse_press_event=self._device1SelectionHandler,
+            mouse_move_event=self._deleteCableMouseMoveHandler,
+            tracking=True
+        )
+        
+    def exitMode(self):
+        self._deleteTmpCable()
+        self._changeMouseBehaviour(
+            cursor="normal",
+            mouse_press_event=self.normal_mode_mouse_handlers["mousePressEvent"],
+            mouse_move_event=self.normal_mode_mouse_handlers["mouseMoveEvent"],
+            tracking=False
+        )
+        del self
 
-        self._changeMousePressEvent(self._device1SelectionHandler)
-
+    def addCable(self, device1, device1_interface, device2, device2_interface):
+        cable = Cable(device1, device1_interface, device2, device2_interface)
+        cable.setZValue(-1) #All cables to the background
+        self.scene.addItem(cable)
+        return(cable)
+    
     def _loadCursors(self):
         self.cursors = {
             mode: QCursor(QPixmap(cursor_path)) if cursor_path else None
             for mode, cursor_path in self.CURSOR_MODES.items()
         }
 
-    def _changeMouseMoveEvent(self, mouse_move_event):
-        self.scene.mouseMoveEvent = mouse_move_event
-
-    def _changeMousePressEvent(self, mouse_press_event):
-        self.scene.mousePressEvent = mouse_press_event
+    def _changeMouseBehaviour(self, cursor=None, mouse_press_event=None, mouse_move_event=None, tracking: bool = None):
+        if cursor: 
+            self._changeCursor(cursor)
+        if mouse_press_event: 
+            self.scene.mousePressEvent = mouse_press_event
+        if mouse_move_event: 
+            self.scene.mouseMoveEvent = mouse_move_event
+        if tracking:
+            self.view.setMouseTracking(tracking)
 
     def _changeCursor(self, mode):
         if mode in self.cursors and self.cursors[mode]:
@@ -209,9 +236,9 @@ class CableEditMode(QObject):
         else:
             self.view.setCursor(Qt.ArrowCursor)
 
-    def _getDeviceClicked(self, event):
+    def _getItemClickedAtPos(self, event, item_type):
         item = self.scene.itemAt(event.scenePos(), QTransform())
-        return item if isinstance(item, Device) else None
+        return item if isinstance(item, item_type) else None
     
     def _promptInterfaceSelection(self, device, callback):
         menu = QMenu()
@@ -221,30 +248,43 @@ class CableEditMode(QObject):
             menu.addAction(interface_action)
         menu.exec(QCursor.pos())
 
-    def exitMode(self):
-        self._deleteTmpCable()
-        self._changeCursor("normal")
-        self._changeMousePressEvent(self.normal_mode_mouse_handlers["mousePressEvent"])
-        del self
+    # ----------------- CABLE DELETION -----------------
+    def _deleteCableMouseMoveHandler(self, event):
+        found_cable = self._getItemClickedAtPos(event, Cable)
+        if found_cable:
+            self._changeMouseBehaviour(
+                cursor="delete_cable_mode",
+                mouse_press_event=lambda _, cable=found_cable: self._deleteCableMousePressHandler(cable) # First argument (event) is ignored
+            )
+        else:
+            self._changeMouseBehaviour(
+                cursor="device1_selection_mode",
+                mouse_press_event=self._device1SelectionHandler
+            )
+
+    def _deleteCableMousePressHandler(self, cable):
+        cable.removeCable()
+        self._changeMouseBehaviour(
+            cursor="device1_selection_mode",
+            mouse_press_event=self._device1SelectionHandler
+        )
 
     # ----------------- TMP CABLE -----------------
     def _drawTmpCable(self):
         self.tmp_cable = TmpCable(self.device1.sceneBoundingRect().center())
         self.scene.addItem(self.tmp_cable)
-        self.view.setMouseTracking(True)
-        self._changeMouseMoveEvent(lambda event: self.tmp_cable.updatePosition(event, self.device1.sceneBoundingRect().center()))
+        self._changeMouseBehaviour(mouse_move_event=lambda event: self.tmp_cable.updatePosition(event, self.device1.sceneBoundingRect().center()))
 
     def _deleteTmpCable(self):
         if hasattr(self, 'tmp_cable'):
             self.scene.removeItem(self.tmp_cable)
             del self.tmp_cable
-        self.view.setMouseTracking(False)
-        self._changeMouseMoveEvent(self.normal_mode_mouse_handlers["mouseMoveEvent"])
+        self._changeMouseBehaviour(mouse_move_event=lambda event: self._deleteCableMouseMoveHandler(event))
 
     # ----------------- DEVICE1 -----------------
     def _device1SelectionHandler(self, event):
         """ Wait for the user to select the starting device """
-        self.device1 = self._getDeviceClicked(event)
+        self.device1 = self._getItemClickedAtPos(event, Device) 
         if not self.device1: # Ignore clicks on anything else than a device
             return
         
@@ -252,34 +292,29 @@ class CableEditMode(QObject):
 
     def _device1InterfaceSelected(self, interface):
         self.device1_interface = interface
-        self._changeMousePressEvent(self._device2SelectionHandler)
-        self._changeCursor("device2_selection_mode")
+        self._changeMouseBehaviour(
+            cursor="device2_selection_mode",
+            mouse_press_event=self._device2SelectionHandler
+        )
         self._drawTmpCable()
 
     # ----------------- DEVICE2 -----------------
     def _device2SelectionHandler(self, event):
         """ Wait for the user to select the ending device """
-        self.device2 = self._getDeviceClicked(event)
+        self.device2 = self._getItemClickedAtPos(event, Device) 
         if not self.device2 or self.device2 == self.device1: # Ignore clicks on anything else than a device, or connecting a device to itself
             return
         
         self._promptInterfaceSelection(self.device2, self._device2InterfaceSelected)
         self._deleteTmpCable()
-        self._changeCursor("normal")
+        self._changeMouseBehaviour(cursor="normal")
 
     def _device2InterfaceSelected(self, interface):
-        """ Confirm the interface selection on the ending device """
         self.device2_interface = interface
         self.addCable(self.device1, self.device1_interface, self.device2, self.device2_interface)
-        self._changeMousePressEvent(self.normal_mode_mouse_handlers["mousePressEvent"])
+        self._changeMouseBehaviour(
+            cursor="device1_selection_mode",
+            mouse_press_event=self._device1SelectionHandler
+        )
 
-    # ----------------- MANAGEMENT OF THE CABLES -----------------
-    def addCable(self, device1, device1_interface, device2, device2_interface):
-        cable = Cable(device1, device1_interface, device2, device2_interface)
-        cable.setZValue(-1) #All cables to the background
-        self.scene.addItem(cable)
-        return(cable)
-    
-    def removeCable(self, device1, device2):        
-        cable_to_be_removed = [cable for cable in device1.cables if cable in device2.cables]
-        cable_to_be_removed[0].removeCable()
+        
