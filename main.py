@@ -49,16 +49,10 @@ class MainWindow(QMainWindow):
         self.consoleDockWidget = self.createConsoleWidget()
         self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
 
-        self.normal_mode_handlers = self.saveMouseEventHandlers()
-
-    def saveMouseEventHandlers(self):
-        original_mousePressEvent = self.view.scene.mousePressEvent
-        original_mouseMoveEvent = self.view.scene.mouseMoveEvent
-        return(original_mousePressEvent, original_mouseMoveEvent)
-
-    def restoreMouseEventHandlers(self, mouse_event_handlers):
-        self.view.scene.mousePressEvent = mouse_event_handlers[0]
-        self.view.scene.mouseMoveEvent = mouse_event_handlers[1]
+        self.normal_mode_mouse_handlers = {
+            "mousePressEvent": self.view.scene.mousePressEvent, 
+            "mouseMoveEvent": self.view.scene.mouseMoveEvent
+            }
 
     def createToolBar(self):
         self.toolbar = QToolBar("Toolbar", self)
@@ -123,10 +117,7 @@ class MainWindow(QMainWindow):
         if self.cableModeButtonIsChecked():
             self.cable_edit_mode = CableEditMode(self)
         else:
-            self.restoreMouseEventHandlers(self.normal_mode_handlers)
-            self.cable_edit_mode.dontRenderTmpCable()
-            self.cable_edit_mode.changeCursor("normal")
-            del self.cable_edit_mode
+            self.cable_edit_mode.exitMode()
 
 
 class ConsoleStream(StringIO):
