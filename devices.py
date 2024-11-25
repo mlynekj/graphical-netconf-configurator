@@ -125,14 +125,6 @@ class Device(QGraphicsPixmapItem):
             cable.updatePosition()    
 
     # ---------- MOUSE EVENTS FUNCTIONS ---------- 
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event) 
-
-        self.updateCablePositions()
-
     def hoverEnterEvent(self, event):
         # Tooltip
         self.tooltip_timer.start(1000)

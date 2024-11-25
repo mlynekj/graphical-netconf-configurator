@@ -33,6 +33,13 @@ from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
 
 class MainView(QGraphicsView):
+    CURSOR_MODES = {
+        "device1_selection_mode": "graphics/cursors/device1_selection_mode.png",
+        "device2_selection_mode": "graphics/cursors/device2_selection_mode.png",
+        "delete_cable_mode": "graphics/cursors/delete_cable_mode.png", # https://www.freepik.com/icon/close_14440511#fromView=search&page=2&position=40&uuid=6e978c49-dea0-4abd-bc85-7785d1bd8f7f
+        "normal": None
+    }
+        
     def __init__(self):
         super().__init__()
 
@@ -42,18 +49,49 @@ class MainView(QGraphicsView):
         self.rubber_band = None
         self.start_pos = None
 
-    def createRubberBand(self, event):
+        self._loadCursors()
+        
+    def _loadCursors(self):
+        self.cursors = {
+            mode: QCursor(QPixmap(cursor_path)) if cursor_path else None
+            for mode, cursor_path in self.CURSOR_MODES.items()
+        }
+
+    def _changeCursor(self, mode):
+        if mode in self.cursors and self.cursors[mode]:
+            self.setCursor(self.cursors[mode])
+        else:
+            self.setCursor(Qt.ArrowCursor)
+
+    def changeMouseBehaviour(self, cursor=None, mouse_press_event=None, mouse_move_event=None, mouse_release_event=None, tracking: bool = None):
+        if cursor: 
+            self._changeCursor(cursor)
+        if mouse_press_event: 
+            self.scene.mousePressEvent = mouse_press_event
+        if mouse_move_event: 
+            self.scene.mouseMoveEvent = mouse_move_event
+        if mouse_release_event:
+            self.scene.mouseReleaseEvent = mouse_release_event
+        if tracking:
+            self.setMouseTracking(tracking)
+
+    def _createRubberBand(self, event):
         self.start_pos = self.mapToScene(event.position().toPoint())
         self.rubber_band = QGraphicsRectItem()
         self.rubber_band.setPen(QPen(Qt.DashLine))
         self.scene.addItem(self.rubber_band)
+    
+    def _removeRubberBand(self):
+        if self.rubber_band:
+            self.scene.removeItem(self.rubber_band)
+            self.rubber_band = None
 
-    def updateRubberBand(self, event):
+    def _updateRubberBand(self, event):
         current_pos = self.mapToScene(event.position().toPoint())
         rect = QRectF(self.start_pos, current_pos).normalized()
         self.rubber_band.setRect(rect)
 
-    def makeSelectionRubberBand(self, event):
+    def _makeSelectionWithRubberBand(self, event):
         rect = self.rubber_band.rect()
         self.scene.removeItem(self.rubber_band)
         self.rubber_band = None
@@ -62,25 +100,18 @@ class MainView(QGraphicsView):
         items = self.scene.items(rect, Qt.IntersectsItemShape)
         for item in items:
             item.setSelected(True)
-
-    def removeRubberBand(self):
-        if self.rubber_band:
-            self.scene.removeItem(self.rubber_band)
-            self.rubber_band = None
-        
+ 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.removeRubberBand()
-            self.createRubberBand(event)    
+            self._removeRubberBand()
+            self._createRubberBand(event)    
 
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        if not self.rubber_band and not self.start_pos:
-            return
-        
-        if not self.scene.selectedItems() and not self.window().cableModeButtonIsChecked():
-            self.updateRubberBand(event)
+        if self.rubber_band and self.start_pos:
+            if not self.scene.selectedItems() and not self.window().cableModeButtonIsChecked():
+                self._updateRubberBand(event)
         
         for item in self.scene.selectedItems():
             if isinstance(item, Device):
@@ -90,11 +121,10 @@ class MainView(QGraphicsView):
 
     def mouseReleaseEvent(self, event):
         if self.rubber_band:
-            self.makeSelectionRubberBand(event)
+            self._makeSelectionWithRubberBand(event)
 
         self.start_pos = None
         super().mouseReleaseEvent(event)
-        # TODO: fix the issue when moving devices with rubber band, the deletecable function os broken
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -110,8 +140,10 @@ class MainWindow(QMainWindow):
 
         self.normal_mode_mouse_handlers = {
             "mousePressEvent": self.view.scene.mousePressEvent, 
-            "mouseMoveEvent": self.view.scene.mouseMoveEvent
+            "mouseMoveEvent": self.view.scene.mouseMoveEvent,
+            "mouseReleaseEvent": self.view.scene.mouseReleaseEvent
             }
+
 
     def createToolBar(self):
         self.toolbar = QToolBar("Toolbar", self)
