@@ -135,8 +135,15 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.view)
 
         self.createToolBar()
+
         self.consoleDockWidget = self.createConsoleWidget()
         self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
+
+        self.leftDockWidget = self.createLeftDockWidget()
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.leftDockWidget)
+
+        self.rightDockWidget = self.createRightDockWidget()
+        self.addDockWidget(Qt.RightDockWidgetArea, self.rightDockWidget)
 
         self.normal_mode_mouse_handlers = {
             "mousePressEvent": self.view.scene.mousePressEvent, 
@@ -149,6 +156,7 @@ class MainWindow(QMainWindow):
         self.toolbar = QToolBar("Toolbar", self)
         self.toolbar.setVisible(True)
         self.toolbar.setMovable(False)
+        self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
         # "Add a device" button
@@ -185,10 +193,43 @@ class MainWindow(QMainWindow):
         dock = QDockWidget("Console", self)
         dock.setWidget(console)
         dock.setAllowedAreas(Qt.BottomDockWidgetArea)
+        dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
         return dock
+    
+    def createLeftDockWidget(self):
+        dock = QDockWidget("Configure device functions", self)
+        dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        dock.setFixedSize(150, 150)
+
+        button_holder = QWidget()
+        layout = QVBoxLayout()
+
+        ospf_button = QPushButton("OSPF")
+        ospf_button.clicked.connect(self.show_OSPFDialog)
+        layout.addWidget(ospf_button)
         
+        mpls_button = QPushButton("MPLS")
+        layout.addWidget(mpls_button)
+
+        button_holder.setLayout(layout)
+        dock.setWidget(button_holder)
+
+        return dock
+    
+    def createRightDockWidget(self):
+        dock = QDockWidget("Pending changes", self)
+        dock.setAllowedAreas(Qt.RightDockWidgetArea)
+        dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        dock.setFixedSize(150, 150)
+        return dock
+  
     def show_DeviceConnectionDialog(self):
         dialog = AddDeviceDialog(self.addRouter) # self.addRouter function callback
+        dialog.exec()
+
+    def show_OSPFDialog(self):
+        dialog = OSPFDialog()
         dialog.exec()
 
     #DEBUG:

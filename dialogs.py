@@ -535,6 +535,9 @@ class EditHostnameDialog(QDialog):
             self.device.refreshHostnameLabel()
         self.accept()
 
+class OSPFDialog(QDialog):
+    def __init__(self):
+        super().__init__()
 
 class DebugDialog(QDialog):
     def __init__(self, addCable_callback, removeCable_callback):
