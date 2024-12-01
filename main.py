@@ -30,7 +30,7 @@ from cable import Cable, CableEditMode
 from dialogs import *
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
-sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
+#sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
 
 class MainView(QGraphicsView):
     CURSOR_MODES = {
