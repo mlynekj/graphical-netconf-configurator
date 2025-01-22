@@ -123,7 +123,7 @@ class Device(QGraphicsPixmapItem):
             cable.removeCable()
 
         del type(self)._registry[self.id]
-        helper.printGeneral(f"Connection to device: {self.device_parameters["address"]} has been closed.")
+        helper.printGeneral(f"Connection to device: {self.device_parameters['address']} has been closed.")
 
     def updateCablePositions(self):
         for cable in self.cables:
