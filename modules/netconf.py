@@ -54,7 +54,7 @@ def demolishNetconfConnection(device):
     device.mngr.close_session()
     # TODO: catch exceptions
 
-def commitChanges(device):
+def commitNetconfChanges(device):
     # TODO: pass the device, not the mngr ?
     """ Performs the "commit" operation using the specified ncclient connection. """
     rpc_reply = device.mngr.commit()

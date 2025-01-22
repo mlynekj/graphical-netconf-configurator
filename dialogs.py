@@ -80,7 +80,7 @@ class AddDeviceDialog(QDialog):
 
         #DEBUG: Testing connection for debugging
         if __debug__:
-            self.address_input.setText("10.0.0.201")
+            self.address_input.setText("172.16.10.251")
             self.username_input.setText("jakub")
             self.password_input.setText("cisco")
 
@@ -539,49 +539,49 @@ class OSPFDialog(QDialog):
     def __init__(self):
         super().__init__()
 
-class DebugDialog(QDialog):
-    def __init__(self, addCable_callback, removeCable_callback):
-        super().__init__()
+# class DebugDialog(QDialog):
+#     def __init__(self, addCable_callback, removeCable_callback):
+#         super().__init__()
 
-        self.addCable_callback = addCable_callback
-        self.removeCable_callback = removeCable_callback
+#         self.addCable_callback = addCable_callback
+#         self.removeCable_callback = removeCable_callback
 
-        self.setWindowTitle("Debug")
-        self.layout = QVBoxLayout()
+#         self.setWindowTitle("Debug")
+#         self.layout = QVBoxLayout()
 
-        #Input fields
-        self.devices = devices.Device.getAllDeviceInstances()
+#         #Input fields
+#         self.devices = devices.Device.getAllDeviceInstances()
 
-        self.device1_combo = QComboBox()
-        self.device1_combo.addItems(self.devices)
-        self.layout.addWidget(self.device1_combo)
+#         self.device1_combo = QComboBox()
+#         self.device1_combo.addItems(self.devices)
+#         self.layout.addWidget(self.device1_combo)
 
-        self.device2_combo = QComboBox()
-        self.device2_combo.addItems(self.devices)
-        self.layout.addWidget(self.device2_combo)
+#         self.device2_combo = QComboBox()
+#         self.device2_combo.addItems(self.devices)
+#         self.layout.addWidget(self.device2_combo)
 
-        #Buttons
-        self.button_box = QDialogButtonBox()
+#         #Buttons
+#         self.button_box = QDialogButtonBox()
 
-        button1_addCable = QPushButton("ADD CABLE")
-        button1_addCable.clicked.connect(self.addCableDebug)
-        self.button_box.addButton(button1_addCable, QDialogButtonBox.AcceptRole)
+#         button1_addCable = QPushButton("ADD CABLE")
+#         button1_addCable.clicked.connect(self.addCableDebug)
+#         self.button_box.addButton(button1_addCable, QDialogButtonBox.AcceptRole)
 
-        button2_removeCable = QPushButton("REMOVE CABLE")
-        button2_removeCable.clicked.connect(self.removeCableDebug)
-        self.button_box.addButton(button2_removeCable, QDialogButtonBox.AcceptRole)         
+#         button2_removeCable = QPushButton("REMOVE CABLE")
+#         button2_removeCable.clicked.connect(self.removeCableDebug)
+#         self.button_box.addButton(button2_removeCable, QDialogButtonBox.AcceptRole)         
         
-        self.layout.addWidget(self.button_box)
-        self.setLayout(self.layout)
+#         self.layout.addWidget(self.button_box)
+#         self.setLayout(self.layout)
 
-    def addCableDebug(self):
-        device_1 = devices.Device.getDeviceInstance(self.device1_combo.currentText())
-        device_2 = devices.Device.getDeviceInstance(self.device2_combo.currentText())
-        self.addCable_callback(device_1, device_2)
-        self.accept()
+#     def addCableDebug(self):
+#         device_1 = devices.Device.getDeviceInstance(self.device1_combo.currentText())
+#         device_2 = devices.Device.getDeviceInstance(self.device2_combo.currentText())
+#         self.addCable_callback(device_1, device_2)
+#         self.accept()
 
-    def removeCableDebug(self):
-        device_1 = devices.Device.getDeviceInstance(self.device1_combo.currentText())
-        device_2 = devices.Device.getDeviceInstance(self.device2_combo.currentText())
-        self.removeCable_callback(device_1, device_2)
-        self.accept()
+#     def removeCableDebug(self):
+#         device_1 = devices.Device.getDeviceInstance(self.device1_combo.currentText())
+#         device_2 = devices.Device.getDeviceInstance(self.device2_combo.currentText())
+#         self.removeCable_callback(device_1, device_2)
+#         self.accept()

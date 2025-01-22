@@ -151,7 +151,7 @@ class CableInterfaceLabel(QGraphicsTextItem):
     
 
 class TmpCable(QGraphicsLineItem):
-    """ Temporary cable that is drawn while the user is creating a new cable """
+    """ Temporary cable that is drawn in the process of creating a new cable """
 
     def __init__(self, starting_pos):
         super().__init__()
@@ -171,7 +171,6 @@ class TmpCable(QGraphicsLineItem):
 
 class CableEditMode(QObject):
 
-    
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent

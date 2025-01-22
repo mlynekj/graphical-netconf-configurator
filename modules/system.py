@@ -5,7 +5,6 @@ from lxml import etree as ET
 import modules.helper as helper
 from definitions import *
 
-
 def getHostname(device):
     """ Retrieves the device hostname of the specified device. """
     device_type = device.device_parameters['device_params']
@@ -49,5 +48,4 @@ def setHostname(device, new_hostname):
     
     # RPC
     rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET_DATASTORE, config=rpc_filter)
-    helper.printRpc(rpc_reply, "Set Hostname", device.hostname)
     return(rpc_reply)

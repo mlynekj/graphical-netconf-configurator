@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QDockWidget,
     QMenu,
-    QGraphicsRectItem)
+    QGraphicsRectItem,
+    QSizePolicy)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
@@ -28,6 +29,9 @@ from PySide6.QtGui import (
 from devices import Device, Router
 from cable import Cable, CableEditMode
 from dialogs import *
+from signals import signal_manager
+import modules.netconf as netconf
+import modules.helper as helper
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
 sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
@@ -39,7 +43,7 @@ class MainView(QGraphicsView):
         "delete_cable_mode": "graphics/cursors/delete_cable_mode.png", # https://www.freepik.com/icon/close_14440511#fromView=search&page=2&position=40&uuid=6e978c49-dea0-4abd-bc85-7785d1bd8f7f
         "normal": None
     }
-        
+
     def __init__(self):
         super().__init__()
 
@@ -127,6 +131,7 @@ class MainView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
 class MainWindow(QMainWindow):
+
     def __init__(self):
         super().__init__()
 
@@ -134,23 +139,29 @@ class MainWindow(QMainWindow):
         self.view = MainView()
         self.setCentralWidget(self.view)
 
-        self.createToolBar()
-
-        self.consoleDockWidget = self.createConsoleWidget()
-        self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
-
-        self.leftDockWidget = self.createLeftDockWidget()
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.leftDockWidget)
-
-        self.rightDockWidget = self.createRightDockWidget()
-        self.addDockWidget(Qt.RightDockWidgetArea, self.rightDockWidget)
-
         self.normal_mode_mouse_handlers = {
             "mousePressEvent": self.view.scene.mousePressEvent, 
             "mouseMoveEvent": self.view.scene.mouseMoveEvent,
             "mouseReleaseEvent": self.view.scene.mouseReleaseEvent
             }
 
+        # Toolbar
+        self.createToolBar()
+
+        # Console dock
+        self.consoleDockWidget = self.createConsoleWidget()
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
+
+        # Protocols configuration dock
+        self.leftDockWidget = self.createLeftDockWidget()
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.leftDockWidget)
+
+        # Pending changes dock
+        self.pendigChangesDockWidget = PendingChangesWidget()
+        self.addDockWidget(Qt.RightDockWidgetArea, self.pendigChangesDockWidget)
+
+        signal_manager.pendingChangeAdded.connect(self.pendigChangesDockWidget.addPendingChange)
+        signal_manager.pendingChangeRemoved.connect(self.pendigChangesDockWidget.removePendingChange)
 
     def createToolBar(self):
         self.toolbar = QToolBar("Toolbar", self)
@@ -251,6 +262,68 @@ class MainWindow(QMainWindow):
         else:
             self.cable_edit_mode.exitMode()
 
+class PendingChangesWidget(QDockWidget):
+    def __init__(self):
+        super().__init__("Pending changes")
+
+        self.setAllowedAreas(Qt.RightDockWidgetArea)
+        self.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.setFixedWidth(250)
+        self.setContentsMargins(0, 0, 0, 0)
+
+        # Table with pending changes
+        self.table_widget = QTableWidget()
+        self.table_widget.setColumnCount(2)
+        self.table_widget.setHorizontalHeaderLabels(["ID", "Change"])
+        self.table_widget.horizontalHeader().setStretchLastSection(True)
+        self.table_widget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)  # First column
+        self.table_widget.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # Second column
+        self.table_widget.setSortingEnabled(True)
+
+        # Commit button
+        self.commit_button = QPushButton("Commit all changes") # TODO: muze byt verify + commit, nebu muzu udelat dva button a druhy bude "confirmed commit" (nebo funkce confirmed commitu bude v "commit" tlacitku)
+        self.commit_button.clicked.connect(self.commitPendingChanges) # TODO: osetrit, ze pokud neni nic k commitnuti, tak se nic nestane  
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.table_widget)
+        self.layout.addWidget(self.commit_button)
+        self.container = QWidget()
+        self.container.setLayout(self.layout)
+        self.setWidget(self.container)
+
+    def addPendingChange(self, device, change):
+        row_position = self.table_widget.rowCount()
+        self.table_widget.insertRow(row_position)
+
+        device_item = QTableWidgetItem(device)
+        device_item.setFlags(device_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
+        self.table_widget.setItem(row_position, 0, device_item)
+
+        change_item = QTableWidgetItem(change)
+        change_item.setFlags(change_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
+        self.table_widget.setItem(row_position, 1, change_item)
+
+    def removePendingChange(self, device, change):
+        #TODO: implementovat right click na buňku v tabulce (nebo řádek) a zobrazit možnost "Remove"
+        # TODO: toto je mozna zbytecne - stejne kdyz chci vymazat commity tak musim smazat celou candidate datastore na zarizeni
+        pass
+
+    def commitPendingChanges(self):
+        devices_with_commits = []
+        devices = Device.getAllDevicesInstances()
+        for device in devices:
+            if device.has_pending_changes:
+                devices_with_commits.append(device.hostname)
+                netconf.commitNetconfChanges(device)
+                device.has_pending_changes = False
+        
+        if devices_with_commits:
+            helper.printGeneral(f"Performed commit on devices: {', '.join(devices_with_commits)}")
+        else:
+            helper.printGeneral("No pending changes to commit")
+
+        # TODO: odstranit z tabulky to co jsem commitoval, updatnout hostname (kdyz ho menim!)
+    
 
 class ConsoleStream(StringIO):
     # Redirects stdout and/or stderr to the integrated console widget

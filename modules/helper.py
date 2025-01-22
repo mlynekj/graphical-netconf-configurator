@@ -1,5 +1,6 @@
 from lxml import etree as ET
 from datetime import datetime
+from signals import signal_manager
 
 def removeXmlns(element):
     """ Removes all namespace declarations from xml """
@@ -52,3 +53,7 @@ def printGeneral(message):
         f"{message}"
     )
     print(message)
+
+def addPendingChange(device, pending_change):
+    signal_manager.pendingChangeAdded.emit(device.id, pending_change)
+    device.has_pending_changes = True

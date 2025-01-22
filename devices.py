@@ -39,6 +39,7 @@ import modules.netconf as netconf
 import modules.interfaces as interfaces
 import modules.system as system
 import modules.helper as helper
+from signals import signal_manager
 import dialogs
 
 from PySide6.QtWidgets import QMessageBox
@@ -69,6 +70,9 @@ class Device(QGraphicsPixmapItem):
         
         # CABLES LIST
         self.cables = []
+
+        # PENDING CHANGES
+        self.has_pending_changes = False
 
         # ID
         type(self)._counter += 1
@@ -189,7 +193,8 @@ class Device(QGraphicsPixmapItem):
     
     def dev_SetHostname(self, new_hostname):
         rpc_reply = system.setHostname(self, new_hostname)
-        rpc_reply = netconf.commitChanges(self)
+        helper.addPendingChange(self, f"Set hostname: {new_hostname}")
+        helper.printRpc(rpc_reply, "Set Hostname", self.hostname)
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
     def dev_GetInterfaces(self, getIPs=False):
@@ -217,8 +222,12 @@ class Device(QGraphicsPixmapItem):
         return cls._registry.get(device_id)
     
     @classmethod
-    def getAllDeviceInstances(cls):
+    def getAllDevicesInstancesKeys(cls):
         return list(cls._registry.keys())
+    
+    @classmethod
+    def getAllDevicesInstances(cls):
+        return list(cls._registry.values())
 
     
 class Router(Device):
