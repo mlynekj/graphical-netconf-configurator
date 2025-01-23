@@ -40,12 +40,15 @@ def setHostname(device, new_hostname):
         hostname_element.text = new_hostname
         rpc_filter = ET.tostring(filter_xml).decode('utf-8') 
     elif device_type == "junos":
-        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "system/edit_config-hostname.xml") # For Cisco, use IOS-XE native models
+        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "system/edit_config-hostname.xml") # For Juniper, use openconfig models
         namespaces = {'ns': 'http://openconfig.net/yang/system'}
         hostname_element = filter_xml.find(".//ns:hostname", namespaces)
         hostname_element.text = new_hostname
         rpc_filter = ET.tostring(filter_xml).decode('utf-8')
     
+    # FLAG
+    device.has_updated_hostname = True
+
     # RPC
     rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET_DATASTORE, config=rpc_filter)
     return(rpc_reply)

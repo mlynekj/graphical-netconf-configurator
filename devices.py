@@ -71,8 +71,9 @@ class Device(QGraphicsPixmapItem):
         # CABLES LIST
         self.cables = []
 
-        # PENDING CHANGES
+        # FLAGS
         self.has_pending_changes = False
+        self.has_updated_hostname = False
 
         # ID
         type(self)._counter += 1
@@ -83,12 +84,11 @@ class Device(QGraphicsPixmapItem):
         self.interfaces = self.dev_GetInterfaces(self)
         self.hostname = self.dev_GetHostname()
 
+
         # LABEL (Hostname)
         self.label = QGraphicsTextItem(str(self.hostname), self)
         self.label.setFont(QFont('Arial', 10))
-        self.label.setPos(0, self.pixmap().height())
-        self.label_border = self.label.boundingRect()
-        self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
+        self.refreshHostnameLabel(self.hostname)
 
         # TOOLTIP
         self.tooltip_text = (
@@ -103,8 +103,18 @@ class Device(QGraphicsPixmapItem):
         # REGISTRY
         type(self)._registry[self.id] = self
 
-    def refreshHostnameLabel(self):
-        self.hostname = self.dev_GetHostname()
+    def refreshHostnameLabel(self, new_hostname=None):
+        """
+        Refreshes the hostname label of the device.
+
+        Parameters:
+        hostname (str, optional): The new hostname to set. If not provided, the hostname will be retrieved using dev_GetHostname().
+        """
+
+        if new_hostname is not None:
+            self.hostname = new_hostname
+        else:
+            self.hostname = self.dev_GetHostname()
 
         self.label.setPlainText(str(self.hostname))
         self.label_border = self.label.boundingRect()
@@ -166,10 +176,14 @@ class Device(QGraphicsPixmapItem):
 
         # Discard all pending changes
         discard_changes_action = QAction("Discard all pending changes from candidate datastore")
-        discard_changes_action.triggered.connect(lambda: netconf.discardChanges(self))
+        discard_changes_action.triggered.connect(self.discardChanges)
         menu.addAction(discard_changes_action)
 
         menu.exec(event.screenPos())
+
+    def discardChanges(self):
+        netconf.discardNetconfChanges(self)
+        signal_manager.allPendingChangesDiscarded.emit(self.id)
 
     # ---------- DIALOG SHOW FUNCTIONS ---------- 
     def show_CapabilitiesDialog(self):

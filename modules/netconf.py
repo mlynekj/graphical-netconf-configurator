@@ -61,7 +61,7 @@ def commitNetconfChanges(device):
     helper.printRpc(rpc_reply, "Commit changes", device.hostname)
     return(rpc_reply)
 
-def discardChanges(device):
+def discardNetconfChanges(device):
     # TODO: pass the device, not the mngr ?
     """ Performs the "discard-changes" operation using the specified ncclient connection. """
     rpc_reply = device.mngr.discard_changes()

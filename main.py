@@ -34,7 +34,7 @@ import modules.netconf as netconf
 import modules.helper as helper
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
-#sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
+sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
 
 class MainView(QGraphicsView):
     CURSOR_MODES = {
@@ -161,7 +161,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.pendigChangesDockWidget)
 
         signal_manager.pendingChangeAdded.connect(self.pendigChangesDockWidget.addPendingChange)
-        signal_manager.pendingChangeRemoved.connect(self.pendigChangesDockWidget.removePendingChange)
+        #signal_manager.pendingChangeRemoved.connect(self.pendigChangesDockWidget.removePendingChangesForDevice)
 
     def createToolBar(self):
         self.toolbar = QToolBar("Toolbar", self)
@@ -266,6 +266,8 @@ class PendingChangesWidget(QDockWidget):
     def __init__(self):
         super().__init__("Pending changes")
 
+        signal_manager.allPendingChangesDiscarded.connect(self.removePendingChangesForDevice)
+
         self.setAllowedAreas(Qt.RightDockWidgetArea)
         self.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.setFixedWidth(250)
@@ -282,7 +284,7 @@ class PendingChangesWidget(QDockWidget):
 
         # Commit button
         self.commit_button = QPushButton("Commit all changes") # TODO: muze byt verify + commit, nebu muzu udelat dva button a druhy bude "confirmed commit" (nebo funkce confirmed commitu bude v "commit" tlacitku)
-        self.commit_button.clicked.connect(self.commitPendingChanges) # TODO: osetrit, ze pokud neni nic k commitnuti, tak se nic nestane  
+        self.commit_button.clicked.connect(self.commitPendingChanges)
 
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.table_widget)
@@ -291,11 +293,11 @@ class PendingChangesWidget(QDockWidget):
         self.container.setLayout(self.layout)
         self.setWidget(self.container)
 
-    def addPendingChange(self, device, change):
+    def addPendingChange(self, device_id, change):
         row_position = self.table_widget.rowCount()
         self.table_widget.insertRow(row_position)
 
-        device_item = QTableWidgetItem(device)
+        device_item = QTableWidgetItem(device_id)
         device_item.setFlags(device_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
         self.table_widget.setItem(row_position, 0, device_item)
 
@@ -303,26 +305,29 @@ class PendingChangesWidget(QDockWidget):
         change_item.setFlags(change_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
         self.table_widget.setItem(row_position, 1, change_item)
 
-    def removePendingChange(self, device, change):
-        #TODO: implementovat right click na buňku v tabulce (nebo řádek) a zobrazit možnost "Remove"
-        # TODO: toto je mozna zbytecne - stejne kdyz chci vymazat commity tak musim smazat celou candidate datastore na zarizeni
-        pass
+    def removePendingChangesForDevice(self, device_id):
+        for row in range(self.table_widget.rowCount() - 1, -1, -1): # Iterate backwards to avoid skipping rows
+            if self.table_widget.item(row, 0).text() == device_id:
+                self.table_widget.removeRow(row)
 
     def commitPendingChanges(self):
-        devices_with_commits = []
+        commited_devices = []
         devices = Device.getAllDevicesInstances()
+
         for device in devices:
             if device.has_pending_changes:
-                devices_with_commits.append(device.hostname)
-                netconf.commitNetconfChanges(device)
                 device.has_pending_changes = False
+                netconf.commitNetconfChanges(device)
+                self.removePendingChangesForDevice(device.id)
+                commited_devices.append(device.id)
+            if device.has_updated_hostname:
+                device.has_updated_hostname = False
+                device.refreshHostnameLabel()
         
-        if devices_with_commits:
-            helper.printGeneral(f"Performed commit on devices: {', '.join(devices_with_commits)}")
+        if commited_devices:
+            helper.printGeneral(f"Performed commit on devices: {', '.join(commited_devices)}")
         else:
             helper.printGeneral("No pending changes to commit")
-
-        # TODO: odstranit z tabulky to co jsem commitoval, updatnout hostname (kdyz ho menim!)
     
 
 class ConsoleStream(StringIO):
