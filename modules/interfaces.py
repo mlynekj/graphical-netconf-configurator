@@ -214,7 +214,6 @@ def deleteIp(device, interface_name, subinterface_index, old_ip):
 
     # RPC
     rpc_reply = device.mngr.edit_config(filter, target=CONFIGURATION_TARGET_DATASTORE)
-    helper.printRpc(rpc_reply, "Delete IP: " + str(old_ip), device.hostname)
     return(rpc_reply)
 
 def setIp(device, interface_name, subinterface_index, new_ip):
@@ -233,7 +232,6 @@ def setIp(device, interface_name, subinterface_index, new_ip):
     
     # RPC
     rpc_reply = device.mngr.edit_config(filter, target=CONFIGURATION_TARGET_DATASTORE)
-    helper.printRpc(rpc_reply, "Set IP: " + str(new_ip), device.hostname)
     return(rpc_reply)
             
     

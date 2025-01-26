@@ -183,6 +183,7 @@ class Device(QGraphicsPixmapItem):
 
     def discardChanges(self):
         netconf.discardNetconfChanges(self)
+        self.has_pending_changes = False
         signal_manager.allPendingChangesDiscarded.emit(self.id)
 
     # ---------- DIALOG SHOW FUNCTIONS ---------- 
@@ -219,16 +220,20 @@ class Device(QGraphicsPixmapItem):
     
     def dev_DeleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
         rpc_reply = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
-        rpc_reply = netconf.commitChanges(self)
+        helper.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}")
+        helper.printRpc(rpc_reply, "Delete IP", self.hostname)
 
     def dev_SetInterfaceIP(self, interface_id, subinterface_index, new_ip):
         rpc_reply = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
-        rpc_reply = netconf.commitChanges(self)
+        helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}")
+        helper.printRpc(rpc_reply, "Set IP", self.hostname)
 
     def dev_ReplaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
-        rpc_reply = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
-        rpc_reply = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
-        rpc_reply = netconf.commitChanges(self)
+        rpc_reply_delete = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
+        rpc_reply_set = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
+        helper.addPendingChange(self, f"Replace IP: {old_ip} with {new_ip} on interface: {interface_id}.{subinterface_index}")
+        helper.printRpc(rpc_reply_delete, "Delete IP", self.hostname)
+        helper.printRpc(rpc_reply_set, "Set IP", self.hostname)
     
     # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod

@@ -266,8 +266,6 @@ class PendingChangesWidget(QDockWidget):
     def __init__(self):
         super().__init__("Pending changes")
 
-        signal_manager.allPendingChangesDiscarded.connect(self.removePendingChangesForDevice)
-
         self.setAllowedAreas(Qt.RightDockWidgetArea)
         self.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.setFixedWidth(250)
@@ -292,6 +290,8 @@ class PendingChangesWidget(QDockWidget):
         self.container = QWidget()
         self.container.setLayout(self.layout)
         self.setWidget(self.container)
+
+        signal_manager.allPendingChangesDiscarded.connect(self.removePendingChangesForDevice)
 
     def addPendingChange(self, device_id, change):
         row_position = self.table_widget.rowCount()
@@ -325,9 +325,9 @@ class PendingChangesWidget(QDockWidget):
                 device.refreshHostnameLabel()
         
         if commited_devices:
-            helper.printGeneral(f"Performed commit on devices: {', '.join(commited_devices)}")
+            helper.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
         else:
-            helper.printGeneral("No pending changes to commit")
+            showMessageBox(self, "No pending changes", "No pending changes to commit.")
     
 
 class ConsoleStream(StringIO):

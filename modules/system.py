@@ -46,7 +46,7 @@ def setHostname(device, new_hostname):
         hostname_element.text = new_hostname
         rpc_filter = ET.tostring(filter_xml).decode('utf-8')
     
-    # FLAG
+    # FLAG (needed to update the hostname label on canvas when commiting changes)
     device.has_updated_hostname = True
 
     # RPC
