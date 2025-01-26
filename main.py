@@ -14,7 +14,13 @@ from PySide6.QtWidgets import (
     QDockWidget,
     QMenu,
     QGraphicsRectItem,
-    QSizePolicy)
+    QSizePolicy,
+    QVBoxLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QWidget,
+    QPushButton,
+    QHeaderView)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
@@ -26,13 +32,14 @@ from PySide6.QtGui import (
     QPen)
 
 # Custom
-from devices import Device, Router
+from devices import Device, Router, AddDeviceDialog
 from cable import Cable, CableEditMode
-from dialogs import *
 from signals import signal_manager
 import modules.netconf as netconf
-import modules.helper as helper
+import helper as helper
+import modules.ospf as ospf
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
+
 
 sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
 
@@ -54,7 +61,8 @@ class MainView(QGraphicsView):
         self.start_pos = None
 
         self._loadCursors()
-        
+
+    # ---------- MOUSE BEHAVIOUR AND APPEREANCE FUNCTIONS ----------         
     def _loadCursors(self):
         self.cursors = {
             mode: QCursor(QPixmap(cursor_path)) if cursor_path else None
@@ -79,6 +87,32 @@ class MainView(QGraphicsView):
         if tracking:
             self.setMouseTracking(tracking)
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._removeRubberBand()
+            self._createRubberBand(event)    
+
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self.rubber_band:
+            self._makeSelectionWithRubberBand(event)
+
+        self.start_pos = None
+        super().mouseReleaseEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.rubber_band and self.start_pos:
+            if not self.scene.selectedItems() and not self.window()._cableModeButtonIsChecked():
+                self._updateRubberBand(event)
+        
+        for item in self.scene.selectedItems():
+            if isinstance(item, Device):
+                item.updateCablePositions()
+
+        super().mouseMoveEvent(event)
+        
+    # ---------- RUBBER BAND FUNCTIONS ---------- 
     def _createRubberBand(self, event):
         self.start_pos = self.mapToScene(event.position().toPoint())
         self.rubber_band = QGraphicsRectItem()
@@ -104,31 +138,7 @@ class MainView(QGraphicsView):
         items = self.scene.items(rect, Qt.IntersectsItemShape)
         for item in items:
             item.setSelected(True)
- 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self._removeRubberBand()
-            self._createRubberBand(event)    
 
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if self.rubber_band and self.start_pos:
-            if not self.scene.selectedItems() and not self.window().cableModeButtonIsChecked():
-                self._updateRubberBand(event)
-        
-        for item in self.scene.selectedItems():
-            if isinstance(item, Device):
-                item.updateCablePositions()
-
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        if self.rubber_band:
-            self._makeSelectionWithRubberBand(event)
-
-        self.start_pos = None
-        super().mouseReleaseEvent(event)
 
 class MainWindow(QMainWindow):
 
@@ -146,15 +156,15 @@ class MainWindow(QMainWindow):
             }
 
         # Toolbar
-        self.createToolBar()
+        self._createToolBar()
 
         # Console dock
-        self.consoleDockWidget = self.createConsoleWidget()
+        self.consoleDockWidget = ConsoleWidget()
         self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
 
         # Protocols configuration dock
-        self.leftDockWidget = self.createLeftDockWidget()
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.leftDockWidget)
+        self.protocolsWidget = ProtocolsWidget()
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.protocolsWidget)
 
         # Pending changes dock
         self.pendigChangesDockWidget = PendingChangesWidget()
@@ -162,7 +172,7 @@ class MainWindow(QMainWindow):
 
         signal_manager.pendingChangeAdded.connect(self.pendigChangesDockWidget.addPendingChange)
 
-    def createToolBar(self):
+    def _createToolBar(self):
         self.toolbar = QToolBar("Toolbar", self)
         self.toolbar.setVisible(True)
         self.toolbar.setMovable(False)
@@ -172,90 +182,81 @@ class MainWindow(QMainWindow):
         # "Add a device" button
         plus_icon_img = QIcon(QPixmap("graphics/icons/plus.png")) #https://www.freepik.com/icon/add_1082378#fromView=family&page=1&position=1&uuid=d639dba2-0441-47bb-a400-3b47c2034665
         action_connectToDevice = QAction(plus_icon_img, "Connect to a device", self)
-        action_connectToDevice.triggered.connect(self.show_DeviceConnectionDialog)
+        action_connectToDevice.triggered.connect(self._showDeviceConnectionDialog)
         self.toolbar.addAction(action_connectToDevice)
 
         # "Cable edit mode" button
         cable_mode_img = QIcon(QPixmap("graphics/icons/cable_mode.png")) #https://www.freepik.com/icon/ethernet_9693285
         action_cableEditMode = QAction(cable_mode_img, "Cable edit mode", self)
         action_cableEditMode.setCheckable(True)
-        action_cableEditMode.triggered.connect(self.toggleCableMode)
+        action_cableEditMode.triggered.connect(self._toggleCableMode)
         self.toolbar.addAction(action_cableEditMode)
 
-        # Debug" button
-        #DEBUG: 
-        if __debug__:
-            action_debug = QAction("DEBUG", self)
-            action_debug.triggered.connect(self.show_DebugDialog)
-            self.toolbar.addAction(action_debug)
-
         self.addToolBar(self.toolbar)                
-
-    def createConsoleWidget(self):
-        console = QPlainTextEdit()
-        console.setReadOnly(True)
-
-        if STDOUT_TO_CONSOLE:
-            sys.stdout = ConsoleStream(console)
-        if STDERR_TO_CONSOLE:
-            sys.stderr = ConsoleStream(console)
-
-        dock = QDockWidget("Console", self)
-        dock.setWidget(console)
-        dock.setAllowedAreas(Qt.BottomDockWidgetArea)
-        dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        return dock
-    
-    def createLeftDockWidget(self):
-        dock = QDockWidget("Configure device functions", self)
-        dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-        dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        dock.setFixedSize(150, 150)
-
-        button_holder = QWidget()
-        layout = QVBoxLayout()
-
-        ospf_button = QPushButton("OSPF")
-        ospf_button.clicked.connect(self.show_OSPFDialog)
-        layout.addWidget(ospf_button)
-        
-        mpls_button = QPushButton("MPLS")
-        layout.addWidget(mpls_button)
-
-        button_holder.setLayout(layout)
-        dock.setWidget(button_holder)
-
-        return dock
-    
-    def createRightDockWidget(self):
-        dock = QDockWidget("Pending changes", self)
-        dock.setAllowedAreas(Qt.RightDockWidgetArea)
-        dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        dock.setFixedSize(150, 150)
-        return dock
   
-    def show_DeviceConnectionDialog(self):
-        dialog = AddDeviceDialog(self.addRouter) # self.addRouter function callback
+    def _showDeviceConnectionDialog(self):
+        dialog = AddDeviceDialog(self.view)
         dialog.exec()
-
-    def show_OSPFDialog(self):
-        dialog = OSPFDialog()
-        dialog.exec()
-
-    def addRouter(self, device_parameters, x, y):
-        router = Router(device_parameters, x, y)
-        self.view.scene.addItem(router)
-        return(router)
     
-    def cableModeButtonIsChecked(self):
+    def _cableModeButtonIsChecked(self):
         return self.toolbar.actions()[1].isChecked()
 
-    def toggleCableMode(self):
-        if self.cableModeButtonIsChecked():
+    def _toggleCableMode(self):
+        if self._cableModeButtonIsChecked():
             self.cable_edit_mode = CableEditMode(self)
         else:
             self.cable_edit_mode.exitMode()
 
+
+# Bottom dock widget
+class ConsoleWidget(QDockWidget):
+    def __init__(self):
+        super().__init__("Console")
+
+        self.setAllowedAreas(Qt.BottomDockWidgetArea)
+        self.setFeatures(QDockWidget.NoDockWidgetFeatures)
+
+        self.consoleTextField = QPlainTextEdit()
+        self.consoleTextField.setReadOnly(True)
+
+        if STDOUT_TO_CONSOLE:
+            sys.stdout = ConsoleStream(self.consoleTextField)
+        if STDERR_TO_CONSOLE:
+            sys.stderr = ConsoleStream(self.consoleTextField)
+
+        self.setWidget(self.consoleTextField)
+
+
+# Left dock widget
+class ProtocolsWidget(QDockWidget):
+    def __init__(self):
+        super().__init__("Configure protocols")
+
+        self.setAllowedAreas(Qt.LeftDockWidgetArea)
+        self.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.setFixedWidth(150)
+    
+        button_holder = QWidget()
+        layout = QVBoxLayout()
+
+        # OSPF button
+        ospf_button = QPushButton("OSPF")
+        ospf_button.clicked.connect(self._showOSPFDialog)
+        layout.addWidget(ospf_button)
+        
+        # MPLS button
+        mpls_button = QPushButton("MPLS")
+        layout.addWidget(mpls_button)
+
+        button_holder.setLayout(layout)
+        self.setWidget(button_holder)
+
+    def _showOSPFDialog(self):
+        dialog = ospf.OSPFDialog()
+        dialog.exec
+
+
+# Right dock widget
 class PendingChangesWidget(QDockWidget):
     def __init__(self):
         super().__init__("Pending changes")
@@ -264,6 +265,8 @@ class PendingChangesWidget(QDockWidget):
         self.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.setFixedWidth(250)
         self.setContentsMargins(0, 0, 0, 0)
+
+        signal_manager.allPendingChangesDiscarded.connect(self.removePendingChangesForDevice)
 
         # Table with pending changes
         self.table_widget = QTableWidget()
@@ -276,16 +279,15 @@ class PendingChangesWidget(QDockWidget):
 
         # Commit button
         self.commit_button = QPushButton("Commit all changes") # TODO: muze byt verify + commit, nebu muzu udelat dva button a druhy bude "confirmed commit" (nebo funkce confirmed commitu bude v "commit" tlacitku)
-        self.commit_button.clicked.connect(self.commitPendingChanges)
+        self.commit_button.clicked.connect(self._commitPendingChanges)
 
+        # Layout
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.table_widget)
         self.layout.addWidget(self.commit_button)
         self.container = QWidget()
         self.container.setLayout(self.layout)
         self.setWidget(self.container)
-
-        signal_manager.allPendingChangesDiscarded.connect(self.removePendingChangesForDevice)
 
     def addPendingChange(self, device_id, change):
         row_position = self.table_widget.rowCount()
@@ -304,7 +306,7 @@ class PendingChangesWidget(QDockWidget):
             if self.table_widget.item(row, 0).text() == device_id:
                 self.table_widget.removeRow(row)
 
-    def commitPendingChanges(self):
+    def _commitPendingChanges(self):
         commited_devices = []
         devices = Device.getAllDevicesInstances()
 
@@ -321,11 +323,14 @@ class PendingChangesWidget(QDockWidget):
         if commited_devices:
             helper.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
         else:
-            showMessageBox(self, "No pending changes", "No pending changes to commit.")
-    
+            helper.showMessageBox(self, "No pending changes", "No pending changes to commit.")   
+
 
 class ConsoleStream(StringIO):
-    # Redirects stdout and/or stderr to the integrated console widget
+    """
+    Class that redirects stdout and/or stderr to an integrated console widget.
+    """
+
     def __init__(self, console_widget):
         super().__init__()
         self.console_widget = console_widget
@@ -344,7 +349,7 @@ if __name__ == "__main__":
 
     window = MainWindow()
     window.show()
-    window.resize(800, 600)
+    window.resize(1024, 768)
 
     sys.exit(app.exec())
     

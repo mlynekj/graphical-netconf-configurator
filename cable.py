@@ -33,7 +33,7 @@ import math
 from devices import Device
 
 class Cable(QGraphicsLineItem):
-    def __init__(self, device1, device1_interface, device2: object, device2_interface):
+    def __init__(self, device1: object, device1_interface, device2: object, device2_interface):
         super().__init__()
 
         self.device1 = device1
@@ -102,11 +102,7 @@ class CableInterfaceLabel(QGraphicsTextItem):
 
         self.updatePosition()
 
-    def updatePosition(self):
-        label_pos = self.calculatePosition(self.distance_offset)
-        self.label_holder.setPos(label_pos)
-
-    def calculatePosition(self, distance_offset):
+    def _calculatePosition(self, distance_offset):
         line = self.parent.line()
         device1_point = line.p1() # where the line begins
         device2_point = line.p2() # where the line ends
@@ -139,6 +135,10 @@ class CableInterfaceLabel(QGraphicsTextItem):
         
         return(label_pos_centered)
     
+    def updatePosition(self):
+        label_pos = self._calculatePosition(self.distance_offset)
+        self.label_holder.setPos(label_pos)
+
     def hoverEnterEvent(self, event):
         # Tooltip
         self.tooltip_timer.start(1000) # shown after 1 second of hovering over the label, at the current mouse position
@@ -150,7 +150,7 @@ class CableInterfaceLabel(QGraphicsTextItem):
         QToolTip.hideText()
     
 
-class TmpCable(QGraphicsLineItem):
+class TempCable(QGraphicsLineItem):
     """ Temporary cable that is drawn in the process of creating a new cable """
 
     def __init__(self, starting_pos):
@@ -170,6 +170,21 @@ class TmpCable(QGraphicsLineItem):
         
 
 class CableEditMode(QObject):
+    """
+    Class that handles the cable editing mode in application.
+    It allows users to add and delete cables between devices in a graphical scene.
+
+    Important attributes:
+        device1 (Device): The first device selected for cable connection.
+        device2 (Device): The second device selected for cable connection.
+        device1_interface (str): The interface of the first device.
+        device2_interface (str): The interface of the second device.
+    Public methods:
+        exitMode():
+            Exits the cable edit mode and restores normal mouse behavior.
+        addCable(device1, device1_interface, device2, device2_interface):
+            Adds a cable between two devices and returns the created cable.
+    """
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -191,7 +206,7 @@ class CableEditMode(QObject):
         )
 
     def exitMode(self):
-        self._deleteTmpCable()
+        self._deleteTempCable()
         self.view.changeMouseBehaviour(
             cursor="normal",
             mouse_press_event=self.normal_mode_mouse_handlers["mousePressEvent"],
@@ -241,12 +256,12 @@ class CableEditMode(QObject):
         )
 
     # ----------------- TMP CABLE -----------------
-    def _drawTmpCable(self):
-        self.tmp_cable = TmpCable(self.device1.sceneBoundingRect().center())
+    def _drawTempCable(self):
+        self.tmp_cable = TempCable(self.device1.sceneBoundingRect().center())
         self.scene.addItem(self.tmp_cable)
         self.view.changeMouseBehaviour(mouse_move_event=lambda event: self.tmp_cable.updatePosition(event, self.device1.sceneBoundingRect().center()))
 
-    def _deleteTmpCable(self):
+    def _deleteTempCable(self):
         if hasattr(self, 'tmp_cable'):
             self.scene.removeItem(self.tmp_cable)
             del self.tmp_cable
@@ -267,7 +282,7 @@ class CableEditMode(QObject):
             cursor="device2_selection_mode",
             mouse_press_event=self._device2SelectionHandler
         )
-        self._drawTmpCable()
+        self._drawTempCable()
 
     # ----------------- DEVICE2 -----------------
     def _device2SelectionHandler(self, event):
@@ -277,7 +292,7 @@ class CableEditMode(QObject):
             return
         
         self._promptInterfaceSelection(self.device2, self._device2InterfaceSelected)
-        self._deleteTmpCable()
+        self._deleteTempCable()
         self.view.changeMouseBehaviour(cursor="normal")
 
     def _device2InterfaceSelected(self, interface):

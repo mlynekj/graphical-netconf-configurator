@@ -6,10 +6,32 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 from pyangbind.lib.serialise import pybindIETFXMLEncoder
 
 # Custom
-import modules.helper as helper
+import helper as helper
+
+#TMP potom uklidit
+# Qt
+from PySide6.QtWidgets import (
+    QDialog, 
+    QVBoxLayout,
+    QHBoxLayout, 
+    QScrollArea, 
+    QWidget, 
+    QLabel, 
+    QPushButton,
+    QComboBox,
+    QDialogButtonBox,
+    QLineEdit,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QStyle,
+    QToolBar,
+    QMessageBox)
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QFont, QGuiApplication, QAction
+import ipaddress
 
 def establishNetconfConnection(device_parameters):
-    # TODO: pass the device, not the device_parameters ?
     """
     Establishes a NETCONF connection to a network device.
     Args:
@@ -49,13 +71,11 @@ def establishNetconfConnection(device_parameters):
         raise ConnectionError(f"General error: {e}")
  
 def demolishNetconfConnection(device):
-    # TODO: pass the device, not the mngr ?
     """ Tears down the spcified ncclient connection, by deleting the mng object. """
     device.mngr.close_session()
     # TODO: catch exceptions
 
 def commitNetconfChanges(device):
-    # TODO: pass the device, not the mngr ?
     """ Performs the "commit" operation using the specified ncclient connection. """
     rpc_reply = device.mngr.commit()
     helper.printRpc(rpc_reply, "Commit changes", device.hostname)
@@ -65,7 +85,6 @@ def discardNetconfChanges(device):
     # TODO: pass the device, not the mngr ?
     """ Performs the "discard-changes" operation using the specified ncclient connection. """
     rpc_reply = device.mngr.discard_changes()
-    helper.printRpc(rpc_reply, "Discard changes", device.hostname)
     return(rpc_reply)
 
 def getNetconfCapabilities(device):
@@ -74,4 +93,69 @@ def getNetconfCapabilities(device):
     capabilities = device.mngr.server_capabilities
     return(capabilities)
 
+
+
+# ---------- QT: ----------
+class NetconfCapabilitiesDialog(QDialog):
+    def __init__(self, device):
+        super().__init__()
+
+        self.setWindowTitle("Device Capabilities")
+        self.setGeometry(
+            QStyle.alignedRect(
+                Qt.LeftToRight,
+                Qt.AlignCenter,
+                QSize(800, 500),
+                QGuiApplication.primaryScreen().availableGeometry()
+            )
+        )
+
+        self.layout = QVBoxLayout()
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+
+        # Initialize table for holding the capabilities
+        self.table_widget = QWidget()
+        self.table_layout = QVBoxLayout()
+        self.capabilities_table = QTableWidget()
+        self.capabilities_table.setColumnCount(1)
+        self.capabilities_table.setHorizontalHeaderLabels(["Capability"])
+
+        # Load capabilities
+        try:
+            self.capabilities = device.netconf_capabilities
+        except Exception as e:
+            self.capabilities = []
+            self.error_label = QLabel(f"Failed to retrieve self.capabilities: {e}")
+            self.table_layout.addWidget(self.error_label)
+
+        # Populate the table with the capabilities
+        if self.capabilities:
+            self.capabilities_table.setRowCount(len(self.capabilities))
+            for row, capability in enumerate(self.capabilities):
+                capability_item = QTableWidgetItem(capability)
+                capability_item.setFlags(capability_item.flags() ^ Qt.ItemIsEditable) # Non-editable cells
+                self.capabilities_table.setItem(row, 0, capability_item)
+        else :
+            self.capabilities_table.setRowCount(1)
+            self.capabilities_table.setItem(0, 0, QTableWidgetItem("No capabilities found"))
+
+        # Set table properties
+        self.capabilities_table.horizontalHeader().setStretchLastSection(True)
+        self.capabilities_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.capabilities_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        # Add table to layout
+        self.table_layout.addWidget(self.capabilities_table)
+        self.table_widget.setLayout(self.table_layout)
+        self.scroll_area.setWidget(self.table_widget)
+        self.layout.addWidget(self.scroll_area)
+
+        # Close button
+        self.close_button = QPushButton("Close")
+        self.close_button.clicked.connect(self.close)
+        self.layout.addWidget(self.close_button)
+
+        self.setLayout(self.layout)
  
