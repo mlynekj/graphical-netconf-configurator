@@ -91,7 +91,7 @@ def createFilter_EditIPAddress(interface, subinterface_index, ip, delete_ip=Fals
     return(ET.tostring(filter_xml).decode('utf-8'))
 
 # ---------- OPERATIONS: ----------
-def getInterfaceList(device, getIPs=False):
+def getInterfaceListWithNetconf(device, getIPs=False):
     """
     Retrieve the list of interfaces from a network device, optionally including IP address information.
     Args:
@@ -152,7 +152,7 @@ def getInterfaceList(device, getIPs=False):
             interfaces.append(name, admin_status, oper_status)
     return(interfaces)
 
-def getSubinterfaces(device, interface_name):
+def getSubinterfacesWithNetconf(device, interface_name):
     """
     Retrieve subinterfaces for a specific interface.
     Args:
@@ -198,7 +198,7 @@ def getSubinterfaces(device, interface_name):
         subinterfaces.append({"subinterface_index": subinterface_index, "ipv4": ipv4_data, "ipv6": ipv6_data})
     return(subinterfaces)
 
-def deleteIp(device, interface_name, subinterface_index, old_ip):
+def deleteIpWithNetconf(device, interface_name, subinterface_index, old_ip):
     """
     Delete an IP address from a specified interface.
     Args:
@@ -216,7 +216,7 @@ def deleteIp(device, interface_name, subinterface_index, old_ip):
     rpc_reply = device.mngr.edit_config(filter, target=CONFIGURATION_TARGET_DATASTORE)
     return(rpc_reply)
 
-def setIp(device, interface_name, subinterface_index, new_ip):
+def setIpWithNetconf(device, interface_name, subinterface_index, new_ip):
     """
     Set an IP address on a specified interface.
     Args:

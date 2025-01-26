@@ -161,7 +161,6 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.pendigChangesDockWidget)
 
         signal_manager.pendingChangeAdded.connect(self.pendigChangesDockWidget.addPendingChange)
-        #signal_manager.pendingChangeRemoved.connect(self.pendigChangesDockWidget.removePendingChangesForDevice)
 
     def createToolBar(self):
         self.toolbar = QToolBar("Toolbar", self)
@@ -241,11 +240,6 @@ class MainWindow(QMainWindow):
 
     def show_OSPFDialog(self):
         dialog = OSPFDialog()
-        dialog.exec()
-
-    #DEBUG:
-    def show_DebugDialog(self):
-        dialog = DebugDialog(self.addCable, self.removeCable) # self.addRouter and self.removeCable function callback
         dialog.exec()
 
     def addRouter(self, device_parameters, x, y):

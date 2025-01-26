@@ -5,7 +5,7 @@ from lxml import etree as ET
 import modules.helper as helper
 from definitions import *
 
-def getHostname(device):
+def getHostnameWithNetconf(device):
     """ Retrieves the device hostname of the specified device. """
     device_type = device.device_parameters['device_params']
 
@@ -28,7 +28,7 @@ def getHostname(device):
     else:
         return("N/A")
 
-def setHostname(device, new_hostname):
+def setHostnameWithNetconf(device, new_hostname):
     """ Sets the device hostname of the specified device to the specified value. """
     device_type = device.device_parameters['device_params']
 

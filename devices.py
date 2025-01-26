@@ -80,9 +80,9 @@ class Device(QGraphicsPixmapItem):
         self.id = self.generateID()
 
         # DEVICE INFORMATION
-        self.netconf_capabilities = self.dev_GetNetconfCapabilites()
-        self.interfaces = self.dev_GetInterfaces(self)
-        self.hostname = self.dev_GetHostname()
+        self.netconf_capabilities = self.getNetconfCapabilites()
+        self.interfaces = self.getInterfaces(self)
+        self.hostname = self.getHostname()
 
 
         # LABEL (Hostname)
@@ -108,13 +108,13 @@ class Device(QGraphicsPixmapItem):
         Refreshes the hostname label of the device.
 
         Parameters:
-        hostname (str, optional): The new hostname to set. If not provided, the hostname will be retrieved using dev_GetHostname().
+        hostname (str, optional): The new hostname to set. If not provided, the hostname will be retrieved using getHostname().
         """
 
         if new_hostname is not None:
             self.hostname = new_hostname
         else:
-            self.hostname = self.dev_GetHostname()
+            self.hostname = self.getHostname()
 
         self.label.setPlainText(str(self.hostname))
         self.label_border = self.label.boundingRect()
@@ -199,38 +199,38 @@ class Device(QGraphicsPixmapItem):
         dialog = dialogs.EditHostnameDialog(self)
         dialog.exec()
 
-    def dev_GetNetconfCapabilites(self):
+    def getNetconfCapabilites(self):
         return(netconf.getNetconfCapabilities(self))
     
     # ---------- HOSTNAME MANIPULATION FUNCTIONS ---------- 
-    def dev_GetHostname(self):
-        return(system.getHostname(self))
+    def getHostname(self):
+        return(system.getHostnameWithNetconf(self))
     
-    def dev_SetHostname(self, new_hostname):
-        rpc_reply = system.setHostname(self, new_hostname)
+    def setHostname(self, new_hostname):
+        rpc_reply = system.setHostnameWithNetconf(self, new_hostname)
         helper.addPendingChange(self, f"Set hostname: {new_hostname}")
         helper.printRpc(rpc_reply, "Set Hostname", self.hostname)
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
-    def dev_GetInterfaces(self, getIPs=False):
-        return(interfaces.getInterfaceList(self, getIPs))
+    def getInterfaces(self, getIPs=False):
+        return(interfaces.getInterfaceListWithNetconf(self, getIPs))
 
-    def dev_GetSubinterfaces(self, interface_id):
-        return(interfaces.getSubinterfaces(self, interface_id))
+    def getSubinterfaces(self, interface_id):
+        return(interfaces.getSubinterfacesWithNetconf(self, interface_id))
     
-    def dev_DeleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
-        rpc_reply = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
+    def deleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
+        rpc_reply = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
         helper.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}")
         helper.printRpc(rpc_reply, "Delete IP", self.hostname)
 
-    def dev_SetInterfaceIP(self, interface_id, subinterface_index, new_ip):
-        rpc_reply = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
+    def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
+        rpc_reply = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
         helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}")
         helper.printRpc(rpc_reply, "Set IP", self.hostname)
 
-    def dev_ReplaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
-        rpc_reply_delete = interfaces.deleteIp(self, interface_id, subinterface_index, old_ip)
-        rpc_reply_set = interfaces.setIp(self, interface_id, subinterface_index, new_ip)
+    def replaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
+        rpc_reply_delete = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
+        rpc_reply_set = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
         helper.addPendingChange(self, f"Replace IP: {old_ip} with {new_ip} on interface: {interface_id}.{subinterface_index}")
         helper.printRpc(rpc_reply_delete, "Delete IP", self.hostname)
         helper.printRpc(rpc_reply_set, "Set IP", self.hostname)

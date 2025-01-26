@@ -216,7 +216,7 @@ class DeviceInterfacesDialog(QDialog):
 
         # Get interfaces
         try:
-            self.interfaces = self.device.dev_GetInterfaces(getIPs=True)
+            self.interfaces = self.device.getInterfaces(getIPs=True)
         except Exception as e:
             self.interfaces = []
             self.error_label = QLabel(f"Failed to retrieve self.interfaces: {e}")
@@ -359,7 +359,7 @@ class EditInterfaceDialog(QDialog):
         return subinterface_table
     
     def deleteIP(self, subinterface_index, old_ip):
-        self.device.dev_DeleteInterfaceIP(self.interface_id, subinterface_index, old_ip)
+        self.device.deleteInterfaceIP(self.interface_id, subinterface_index, old_ip)
         self.refreshDialog()
 
     def closeEvent(self, event):
@@ -376,7 +376,7 @@ class EditInterfaceDialog(QDialog):
         self.layout.addWidget(self.toolbar)
 
         # Get subinterfaces, create a layout for each subinterface containg: Header, Table
-        self.subinterfaces = self.device.dev_GetSubinterfaces(self.interface_id)
+        self.subinterfaces = self.device.getSubinterfaces(self.interface_id)
         for subinterface in self.subinterfaces:
             self.subinterface_layout = QVBoxLayout()
             
@@ -478,17 +478,17 @@ class EditSubinterfaceDialog(QDialog):
             # Editing existing subinterface
             if self.old_ip and self.old_ip != self.new_ip:
                 # If old_ip was entered and the new_ip is different, replace the IP address
-                self.device.dev_ReplaceInterfaceIP(self.interface_id, self.subinterface_id, self.old_ip, self.new_ip)
+                self.device.replaceInterfaceIP(self.interface_id, self.subinterface_id, self.old_ip, self.new_ip)
                 self.editInterfaceDialog_instance.refreshDialog()
             elif self.old_ip and self.old_ip == self.new_ip:
                 # If old_ip was entered and the new_ip is the same, do nothing
                 showMessageBox(self, "Information", "No changes were made.")
             elif not self.old_ip:
                 # If old_ip was not entered, set new ip address
-                self.device.dev_SetInterfaceIP(self.interface_id, self.subinterface_id, self.new_ip)
+                self.device.setInterfaceIP(self.interface_id, self.subinterface_id, self.new_ip)
                 self.editInterfaceDialog_instance.refreshDialog()
         else:
-            self.device.dev_SetInterfaceIP(self.interface_id, self.subinterface_input.text(), self.new_ip)
+            self.device.setInterfaceIP(self.interface_id, self.subinterface_input.text(), self.new_ip)
             self.editInterfaceDialog_instance.refreshDialog()
         self.accept()
 
@@ -531,57 +531,11 @@ class EditHostnameDialog(QDialog):
         if not new_hostname or (new_hostname and new_hostname == self.old_hostname):
             showMessageBox(self, "Information", "No changes were made.")
         elif new_hostname and new_hostname != self.old_hostname:
-            self.device.dev_SetHostname(new_hostname)
+            self.device.setHostname(new_hostname)
             self.device.refreshHostnameLabel()
         self.accept()
+
 
 class OSPFDialog(QDialog):
     def __init__(self):
         super().__init__()
-
-# class DebugDialog(QDialog):
-#     def __init__(self, addCable_callback, removeCable_callback):
-#         super().__init__()
-
-#         self.addCable_callback = addCable_callback
-#         self.removeCable_callback = removeCable_callback
-
-#         self.setWindowTitle("Debug")
-#         self.layout = QVBoxLayout()
-
-#         #Input fields
-#         self.devices = devices.Device.getAllDeviceInstances()
-
-#         self.device1_combo = QComboBox()
-#         self.device1_combo.addItems(self.devices)
-#         self.layout.addWidget(self.device1_combo)
-
-#         self.device2_combo = QComboBox()
-#         self.device2_combo.addItems(self.devices)
-#         self.layout.addWidget(self.device2_combo)
-
-#         #Buttons
-#         self.button_box = QDialogButtonBox()
-
-#         button1_addCable = QPushButton("ADD CABLE")
-#         button1_addCable.clicked.connect(self.addCableDebug)
-#         self.button_box.addButton(button1_addCable, QDialogButtonBox.AcceptRole)
-
-#         button2_removeCable = QPushButton("REMOVE CABLE")
-#         button2_removeCable.clicked.connect(self.removeCableDebug)
-#         self.button_box.addButton(button2_removeCable, QDialogButtonBox.AcceptRole)         
-        
-#         self.layout.addWidget(self.button_box)
-#         self.setLayout(self.layout)
-
-#     def addCableDebug(self):
-#         device_1 = devices.Device.getDeviceInstance(self.device1_combo.currentText())
-#         device_2 = devices.Device.getDeviceInstance(self.device2_combo.currentText())
-#         self.addCable_callback(device_1, device_2)
-#         self.accept()
-
-#     def removeCableDebug(self):
-#         device_1 = devices.Device.getDeviceInstance(self.device1_combo.currentText())
-#         device_2 = devices.Device.getDeviceInstance(self.device2_combo.currentText())
-#         self.removeCable_callback(device_1, device_2)
-#         self.accept()
