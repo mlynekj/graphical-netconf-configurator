@@ -20,7 +20,8 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QWidget,
     QPushButton,
-    QHeaderView)
+    QHeaderView,
+    QLabel)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
@@ -231,12 +232,17 @@ class ProtocolsWidget(QDockWidget):
     def __init__(self):
         super().__init__("Configure protocols")
 
+        title_label = QLabel("Configure protocols")
+        title_label.setAlignment(Qt.AlignCenter)
+        self.setTitleBarWidget(title_label)
+
         self.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.setFixedWidth(150)
     
         button_holder = QWidget()
         layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignTop)
 
         # OSPF button
         ospf_button = QPushButton("OSPF")
@@ -259,6 +265,10 @@ class ProtocolsWidget(QDockWidget):
 class PendingChangesWidget(QDockWidget):
     def __init__(self):
         super().__init__("Pending changes")
+
+        title_label = QLabel("Pending changes")
+        title_label.setAlignment(Qt.AlignCenter)
+        self.setTitleBarWidget(title_label)
 
         self.setAllowedAreas(Qt.RightDockWidgetArea)
         self.setFeatures(QDockWidget.NoDockWidgetFeatures)
