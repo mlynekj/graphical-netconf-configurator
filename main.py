@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+
         self.setWindowTitle("Netconf Configurator")
         self.view = MainView()
         self.setCentralWidget(self.view)
@@ -169,8 +170,6 @@ class MainWindow(QMainWindow):
         # Pending changes dock
         self.pendigChangesDockWidget = PendingChangesWidget()
         self.addDockWidget(Qt.RightDockWidgetArea, self.pendigChangesDockWidget)
-
-        signal_manager.pendingChangeAdded.connect(self.pendigChangesDockWidget.addPendingChange)
 
     def _createToolBar(self):
         self.toolbar = QToolBar("Toolbar", self)
@@ -266,7 +265,9 @@ class PendingChangesWidget(QDockWidget):
         self.setFixedWidth(250)
         self.setContentsMargins(0, 0, 0, 0)
 
-        signal_manager.allPendingChangesDiscarded.connect(self.removePendingChangesForDevice)
+        # Signals
+        signal_manager.pendingChangeAdded.connect(self.addPendingChangeToTable)
+        signal_manager.deviceNoLongerHasPendingChanges.connect(self.clearPendingChangesFromTable)
 
         # Table with pending changes
         self.table_widget = QTableWidget()
@@ -281,6 +282,9 @@ class PendingChangesWidget(QDockWidget):
         self.commit_button = QPushButton("Commit all changes") # TODO: muze byt verify + commit, nebu muzu udelat dva button a druhy bude "confirmed commit" (nebo funkce confirmed commitu bude v "commit" tlacitku)
         self.commit_button.clicked.connect(self._commitPendingChanges)
 
+        # Discard all changes button
+        # TODO: self.discard_button = QPushButton("Discard all changes")
+
         # Layout
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.table_widget)
@@ -289,7 +293,7 @@ class PendingChangesWidget(QDockWidget):
         self.container.setLayout(self.layout)
         self.setWidget(self.container)
 
-    def addPendingChange(self, device_id, change):
+    def addPendingChangeToTable(self, device_id, change):
         row_position = self.table_widget.rowCount()
         self.table_widget.insertRow(row_position)
 
@@ -301,7 +305,7 @@ class PendingChangesWidget(QDockWidget):
         change_item.setFlags(change_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
         self.table_widget.setItem(row_position, 1, change_item)
 
-    def removePendingChangesForDevice(self, device_id):
+    def clearPendingChangesFromTable(self, device_id):
         for row in range(self.table_widget.rowCount() - 1, -1, -1): # Iterate backwards to avoid skipping rows
             if self.table_widget.item(row, 0).text() == device_id:
                 self.table_widget.removeRow(row)
@@ -310,20 +314,23 @@ class PendingChangesWidget(QDockWidget):
         commited_devices = []
         devices = Device.getAllDevicesInstances()
 
-        for device in devices:
-            if device.has_pending_changes:
-                device.has_pending_changes = False
-                netconf.commitNetconfChanges(device)
-                self.removePendingChangesForDevice(device.id)
-                commited_devices.append(device.id)
-            if device.has_updated_hostname:
-                device.has_updated_hostname = False
-                device.refreshHostnameLabel()
+        try:
+            for device in devices:
+                if device.has_pending_changes:
+                    device.commitChanges()
+                    self.clearPendingChangesFromTable(device.id)
+                    commited_devices.append(device.id)
+                if device.has_updated_hostname: # Refresh the hostname label on canvas, if it was updated
+                    device.has_updated_hostname = False
+                    device.refreshHostnameLabel()
         
-        if commited_devices:
-            helper.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
-        else:
-            helper.showMessageBox(self, "No pending changes", "No pending changes to commit.")   
+            if commited_devices:
+                helper.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
+            else:
+                helper.showMessageBox(self, "No pending changes", "No pending changes to commit.")
+
+        except Exception as e:
+            helper.showMessageBox(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
 
 
 class ConsoleStream(StringIO):

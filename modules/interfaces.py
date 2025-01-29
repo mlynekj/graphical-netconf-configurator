@@ -8,8 +8,6 @@ import modules.netconf as netconf
 import helper as helper
 from definitions import *
 
-
-#TMP potom uklidit
 # Qt
 from PySide6.QtWidgets import (
     QDialog, 
@@ -32,89 +30,112 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QGuiApplication, QAction
 import ipaddress
 
-
 # ---------- FILTERS: ----------
-# TODO: predelat asi cele na XML soubory
+class GetInterfacesOpenconfigFilter:
+    def __init__(self):
+        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/get-all_interfaces.xml")
 
-def createFilter_EditIPAddress(interface, subinterface_index, ip, delete_ip=False):
-    """
-    Creates a NETCONF filter to edit or delete a subinterface IP address.
-    Args:
-        interface (str): The name of the interface.
-        subinterface_index (int): The index of the subinterface.
-        ip (IPv4Interface of IPv6Interface): An IPvXInterface object containing the IP address and network information.
-        delete_ip (bool, optional): If True, the IP address will be marked for deletion. Defaults to False.
-    Returns (example):
-        <config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-            <interfaces xmlns="http://openconfig.net/yang/interfaces">
-                <interface>
-                    <name>interface</name>
-                    <subinterfaces>
-                    <subinterface>
-                        <index>subinterface_index</index>
-                        <ipv4(ipv6) xmlns="http://openconfig.net/yang/interfaces/ip">
-                        <addresses>
-                            <address(operation="delete")>
-                            <ip>ip.ip</ip>
-                            <config>
-                                <ip>ip.ip</ip>
-                                <prefix-length>ip.network.prefixlen</prefix-length>
-                            </config>
-                            </address>
-                        </addresses>
-                        </ipv4>
-                    </subinterface>
-                    </subinterfaces>
-                </interface>
-            </interfaces>
-        </config>
-    """
+    def __str__(self):
+        """
+        This method converts the filter_xml attribute to a string using the
+        ElementTree tostring method and decodes it to UTF-8.
+        This is needed for dispatching RPCs with ncclient.
 
-    filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/edit_config-ip_address.xml")
-    namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
-                  'oc-ip': 'http://openconfig.net/yang/interfaces/ip'}
-    
-    interface_name_element = filter_xml.find(".//ns:name", namespaces)
-    interface_name_element.text = interface
+        Returns:
+            str: The string representation of the filter_xml attribute.
+        """
+        return(ET.tostring(self.filter_xml).decode('utf-8'))
 
-    subinterface_index_element = filter_xml.find(".//ns:index", namespaces)
-    subinterface_index_element.text = str(subinterface_index)
+class GetSubinterfacesOpenconfigFilter:
+    def __init__(self, interface_element):
+        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/get-interface.xml")
+        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces'}
 
-    if ip.version == 4:
-        ipvX_element = filter_xml.findall(".//oc-ip:ipvX", namespaces)
+        interface_name_element = self.filter_xml.find(".//ns:name", self.namespaces)
+        interface_name_element.text = interface_element
+
+    def __str__(self):
+        """
+        This method converts the filter_xml attribute to a string using the
+        ElementTree tostring method and decodes it to UTF-8.
+        This is needed for dispatching RPCs with ncclient.
+
+        Returns:
+            str: The string representation of the filter_xml attribute.
+        """
+        return(ET.tostring(self.filter_xml).decode('utf-8'))
+
+class EditIPAddressOpenconfigFilter:
+    def __init__(self, interface, subinterface_index, ip, delete_ip=False):
+        self.interface = interface
+        self.subinterface_index = subinterface_index
+        self.ip = ip
+        self.delete_ip = delete_ip
+
+        # Load the XML filter template
+        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/edit_config-ip_address.xml")
+        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
+                           'oc-ip': 'http://openconfig.net/yang/interfaces/ip'}
+
+        # Set the interface name and subinterface index
+        interface_name_element = self.filter_xml.find(".//ns:name", self.namespaces)
+        interface_name_element.text = interface
+
+        subinterface_index_element = self.filter_xml.find(".//ns:index", self.namespaces)
+        subinterface_index_element.text = str(subinterface_index)
+
+        if self.ip.version == 4:
+            self.createIPV4Filter()
+        elif self.ip.version == 6:
+            self.createIPV6Filter()
+
+    def __str__(self):
+        """
+        This method converts the filter_xml attribute to a string using the
+        ElementTree tostring method and decodes it to UTF-8.
+        This is needed for dispatching RPCs with ncclient.
+
+        Returns:
+            str: The string representation of the filter_xml attribute.
+        """
+        return(ET.tostring(self.filter_xml).decode('utf-8'))
+
+    def createIPV4Filter(self):
+        ipvX_element = self.filter_xml.findall(".//oc-ip:ipvX", self.namespaces)
         for ipvX in ipvX_element: # Opening and closing tags
             ipvX.tag = ipvX.tag.replace("ipvX", "ipv4")
 
-        ipv4_element = filter_xml.find(".//oc-ip:ipv4", namespaces)
-        address_element = ipv4_element.find(".//oc-ip:address", namespaces)
-        address_element.set("operation", "delete") if delete_ip else None
+        ipv4_element = self.filter_xml.find(".//oc-ip:ipv4", self.namespaces)
+        address_element = ipv4_element.find(".//oc-ip:address", self.namespaces)
+        address_element.set("operation", "delete") if self.delete_ip else None
         
-        ip_elements = address_element.findall(".//oc-ip:ip", namespaces) # The IP address element is stored in TWO places in the XML
+        ip_elements = address_element.findall(".//oc-ip:ip", self.namespaces) # The IP address element is stored in TWO places in the XML
         for ip_element in ip_elements:
-            ip_element.text = str(ip.ip)
+            ip_element.text = str(self.ip.ip)
         
-        prefix_length_element = address_element.find(".//oc-ip:prefix-length", namespaces)
-        prefix_length_element.text = str(ip.network.prefixlen)
-    elif ip.version == 6:
-        ipvX_element = filter_xml.findall(".//oc-ip:ipvX", namespaces)
+        prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
+        prefix_length_element.text = str(self.ip.network.prefixlen)
+
+    def createIPV6Filter(self):
+        ipvX_element = self.filter_xml.findall(".//oc-ip:ipvX", self.namespaces)
         for ipvX in ipvX_element: # Opening and closing tags
             ipvX.tag = ipvX.tag.replace("ipvX", "ipv6")
 
-        ipv6_element = filter_xml.find(".//oc-ip:ipv6", namespaces)
-        address_element = ipv6_element.find(".//oc-ip:address", namespaces)
-        address_element.set("operation", "delete") if delete_ip else None
+        ipv4_element = self.filter_xml.find(".//oc-ip:ipv6", self.namespaces)
+        address_element = ipv4_element.find(".//oc-ip:address", self.namespaces)
+        address_element.set("operation", "delete") if self.delete_ip else None
         
-        ip_elements = address_element.findall(".//oc-ip:ip", namespaces) # The IP address element is stored in TWO places in the XML
+        ip_elements = address_element.findall(".//oc-ip:ip", self.namespaces) # The IP address element is stored in TWO places in the XML
         for ip_element in ip_elements:
-            ip_element.text = str(ip.ip)
+            ip_element.text = str(self.ip.ip)
         
-        prefix_length_element = address_element.find(".//oc-ip:prefix-length", namespaces)
-        prefix_length_element.text = str(ip.network.prefixlen)
+        prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
+        prefix_length_element.text = str(self.ip.network.prefixlen)
 
-    return(ET.tostring(filter_xml).decode('utf-8'))
 
 # ---------- OPERATIONS: ----------
-def getInterfaceListWithNetconf(device, getIPs=False):
+# -- Interface --
+def getInterfacesWithNetconf(device, getIPs=False):
     """
     Retrieve the list of interfaces from a network device, optionally including IP address information.
     Args:
@@ -126,61 +147,71 @@ def getInterfaceListWithNetconf(device, getIPs=False):
         [(name, admin_status, oper_status, ipv4_data, ipv6_data), ...]
         [('ge-0/0/0', 'UP', 'UP', IPv4Interface('192.168.1.1/24'), IPv6Interface('2001:db8::1/64')), ('ge-0/0/1', 'UP', 'UP', None, None)]
     """
-    
+
     device_type = device.device_parameters['device_params']
 
     # FILTER
-    filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/get-all_interfaces.xml")
-    rpc_filter = ET.tostring(filter_xml).decode('utf-8')
+    filter = GetInterfacesOpenconfigFilter()
 
     # RPC
-    rpc_reply = device.mngr.get(rpc_filter)
+    rpc_reply = device.mngr.get(str(filter))
     rpc_reply_etree = helper.convertToEtree(rpc_reply, device_type)
 
     interfaces = []
-    interface_names = rpc_reply_etree.xpath('//interfaces/interface/name')
+    interface_elements = rpc_reply_etree.xpath('//interfaces/interface/name')
     
-    if getIPs:
-        # If the getIPs flag is set, retrieve the first IP address for each interface (used for ListInterfacesDialog)
-        for interface_name in interface_names:
-            name = interface_name.text
-            admin_status = interface_name.xpath('../state/admin-status')[0].text
-            oper_status = interface_name.xpath('../state/oper-status')[0].text
-
-            subinterface_indexes = interface_name.xpath('../subinterfaces/subinterface/index')
-            if len(subinterface_indexes) > 0:
-                if len(interface_name.xpath('../subinterfaces/subinterface/ipv4/addresses/address/state/ip')) > 0:
-                    ipv4_address = interface_name.xpath('../subinterfaces/subinterface/ipv4/addresses/address/state/ip')[0].text
-                    ipv4_prefix_length = interface_name.xpath('../subinterfaces/subinterface/ipv4/addresses/address/state/prefix-length')[0].text
-                    ipv4_data = IPv4Interface(ipv4_address + '/' + ipv4_prefix_length)
-                else:
-                    ipv4_data = None
-
-                if len(interface_name.xpath('../subinterfaces/subinterface/ipv6/addresses/address/state/ip')) > 0:
-                    ipv6_address = interface_name.xpath('../subinterfaces/subinterface/ipv6/addresses/address/state/ip')[0].text
-                    ipv6_prefix_length = interface_name.xpath('../subinterfaces/subinterface/ipv6/addresses/address/state/prefix-length')[0].text
-                    ipv6_data = IPv6Interface(ipv6_address + '/' + ipv6_prefix_length)
-                else:
-                    ipv6_data = None
-
-                interfaces.append((name, admin_status, oper_status, ipv4_data, ipv6_data))
-            else:
-                interfaces.append((name, admin_status, oper_status, None, None))
-    else:
-        # If the getIPs flag is not set, retrieve only the interface names
-        for interface_name in interface_names:
-            name = interface_name.text
-            admin_status = interface_name.xpath('../state/admin-status')[0].text
-            oper_status = interface_name.xpath('../state/oper-status')[0].text
+    # If the getIPs flag is NOT set, retrieve only the interface names and states
+    if not getIPs:
+        for interface_element in interface_elements:
+            name = interface_element.text
+            admin_status = interface_element.xpath('../state/admin-status')[0].text
+            oper_status = interface_element.xpath('../state/oper-status')[0].text
             interfaces.append((name, admin_status, oper_status))
+            return(interfaces)
+        
+    # If the getIPs flag is set, retrieve the first IP address for each interface (used for DeviceInterfacesDialog)
+    for interface_element in interface_elements:
+        name = interface_element.text
+        admin_status = interface_element.xpath('../state/admin-status')[0].text
+        oper_status = interface_element.xpath('../state/oper-status')[0].text
+
+        subinterface_indexes = interface_element.xpath('../subinterfaces/subinterface/index')
+        if len(subinterface_indexes) < 0: # If there are no subinterfaces
+            interfaces.append((name, admin_status, oper_status, None, None))
+            continue # Skip to the next interface
+
+        ipv4_data = extractIPDataFromInterface(interface_element, version="ipv4")
+        ipv6_data = extractIPDataFromInterface(interface_element, version="ipv6")
+        interfaces.append((name, admin_status, oper_status, ipv4_data, ipv6_data))
+
     return(interfaces)
 
-def getSubinterfacesWithNetconf(device, interface_name):
+def extractIPDataFromInterface(interface_element, version="ipv4"):
+    # XML Tags
+    ipvX_address_tag = (f"../subinterfaces/subinterface/{version}/addresses/address/state/ip")
+    ipvX_prefix_length_tag = (f"../subinterfaces/subinterface/{version}/addresses/address/state/prefix-length")
+
+    # Extraction using XPath
+    ipvX_address_node = interface_element.xpath(ipvX_address_tag)
+    ipvX_prefix_length_node = interface_element.xpath(ipvX_prefix_length_tag)
+
+    # Get data from nodes
+    if ipvX_address_node and ipvX_prefix_length_node:
+        ipvX_address = ipvX_address_node[0].text
+        ipvX_prefix_length = ipvX_prefix_length_node[0].text
+        ipvX_data = IPv4Interface(f"{ipvX_address}/{ipvX_prefix_length}") if version == "ipv4" else IPv6Interface(f"{ipvX_address}/{ipvX_prefix_length}")
+    else:
+        ipvX_data = None
+
+    return(ipvX_data)
+
+# -- Subinterface --
+def getSubinterfacesWithNetconf(device, interface_element):
     """
     Retrieve subinterfaces for a specific interface.
     Args:
         device (object): The network device object which contains ncclient manager.
-        interface_name (str): The name of the interface for which details are to be retrieved.
+        interface_element (str): The name of the interface for which details are to be retrieved.
     Returns:
         list: A list of dictionaries, each containing details of a subinterface.
 
@@ -190,72 +221,76 @@ def getSubinterfacesWithNetconf(device, interface_name):
     device_type = device.device_parameters['device_params']
     
     # FILTER
-    filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/get-interface.xml")
-    namespaces = {'ns': 'http://openconfig.net/yang/interfaces'}
-    interface_name_element = filter_xml.find(".//ns:name", namespaces)
-    interface_name_element.text = interface_name
-    rpc_filter = ET.tostring(filter_xml).decode('utf-8') 
+    filter = GetSubinterfacesOpenconfigFilter(interface_element)
 
     # RPC
-    rpc_reply = device.mngr.get(rpc_filter)
+    rpc_reply = device.mngr.get(str(filter))
     rpc_reply_etree = helper.convertToEtree(rpc_reply, device_type)
 
-    subinterfaces = []
-    for subinterface in rpc_reply_etree.findall('.//interfaces/interface/subinterfaces/subinterface'):
+    raw_subinterfaces = rpc_reply_etree.findall('.//interfaces/interface/subinterfaces/subinterface')
+    extracted_subinterfaces = []
+
+    for subinterface in raw_subinterfaces:
         subinterface_index = subinterface.find('.//index').text
 
-        ipv4_data = []
-        for ipv4_object in subinterface.findall('.//ipv4/addresses/address'):
-            ipv4_address = ipv4_object.find('state/ip')
-            ipv4_prefix_length = ipv4_object.find('state/prefix-length')
-            if ipv4_address is not None and ipv4_prefix_length is not None:
-                ipv4_data.append((IPv4Interface(ipv4_address.text + '/' + ipv4_prefix_length.text)))
+        ipv4_data = extractIPDataFromSubinterface(subinterface, version="ipv4")
+        ipv6_data = extractIPDataFromSubinterface(subinterface, version="ipv6")
+        extracted_subinterfaces.append({"subinterface_index": subinterface_index, "ipv4": ipv4_data, "ipv6": ipv6_data})
+    return(extracted_subinterfaces)
 
-        ipv6_data = []
-        for ipv6_object in subinterface.findall('.//ipv6/addresses/address'):
-            ipv6_address = ipv6_object.find('state/ip')
-            ipv6_prefix_length = ipv6_object.find('state/prefix-length')
-            if ipv6_address is not None and ipv6_prefix_length is not None:
-                ipv6_data.append((IPv6Interface(ipv6_address.text + '/' + ipv6_prefix_length.text)))
-        
-        subinterfaces.append({"subinterface_index": subinterface_index, "ipv4": ipv4_data, "ipv6": ipv6_data})
-    return(subinterfaces)
+def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
+    ipvX_object_tag = (f".//{version}/addresses/address")
+    ipvX_objects = subinterface_element.findall(ipvX_object_tag)
 
-def deleteIpWithNetconf(device, interface_name, subinterface_index, old_ip):
+    ipvX_data = []
+    for ipvX_object in ipvX_objects:
+        ipvX_address = ipvX_object.find('state/ip')
+        ipvX_prefix_length = ipvX_object.find('state/prefix-length')
+        if ipvX_address is not None and ipvX_prefix_length is not None: 
+            # cannot use "if ipvX_address and ipvX_prefix_length"
+            # because "FutureWarning: The behavior of this method will change in future versions. Use specific 'len(elem)' or 'elem is not None' test instead"
+            ipvX_data.append(IPv4Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}") if version == "ipv4" else IPv6Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}"))
+    return(ipvX_data)
+
+# -- Manipulation with IPs --
+def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip):
     """
     Delete an IP address from a specified interface.
     Args:
         device: The network device object which contains ncclient manager.
-        interface_name (str): The name of the interface from which the IP address will be deleted.
+        interface_element (str): The name of the interface from which the IP address will be deleted.
         subinterface_index (int): The index of the subinterface.
         old_ip (str): The IP address to be deleted.
     Returns:
         rpc_reply: The response from the device after attempting to delete the IP address.
     """
+
     # FILTER
-    filter = createFilter_EditIPAddress(interface_name, subinterface_index, old_ip, delete_ip=True)
+    filter = EditIPAddressOpenconfigFilter(interface_element, subinterface_index, old_ip, delete_ip=True)
 
     # RPC
-    rpc_reply = device.mngr.edit_config(filter, target=CONFIGURATION_TARGET_DATASTORE)
+    rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
     return(rpc_reply)
 
-def setIpWithNetconf(device, interface_name, subinterface_index, new_ip):
+def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
     """
     Set an IP address on a specified interface.
     Args:
         device: The network device object which contains ncclient manager.
-        interface_name (str): The name of the interface on which the IP address will be added.
+        interface_element (str): The name of the interface on which the IP address will be added.
         subinterface_index (int): The index of the subinterface.
         old_ip (str): The IP address to be added.
     Returns:
         rpc_reply: The response from the device after attempting to set the IP address.
     """   
+
     # FILTER
-    filter = createFilter_EditIPAddress(interface_name, subinterface_index, new_ip)
+    filter = EditIPAddressOpenconfigFilter(interface_element, subinterface_index, new_ip)
     
     # RPC
-    rpc_reply = device.mngr.edit_config(filter, target=CONFIGURATION_TARGET_DATASTORE)
+    rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
     return(rpc_reply)
+
 
 # ---------- QT: ----------
 class DeviceInterfacesDialog(QDialog):
@@ -305,9 +340,9 @@ class DeviceInterfacesDialog(QDialog):
         # Populate the table with the interfaces
         if self.interfaces:
             self.interfaces_table.setRowCount(len(self.interfaces))
-            for row, (interface_name, admin_state, oper_state, ipv4_data, ipv6_data) in enumerate(self.interfaces):      
+            for row, (interface_element, admin_state, oper_state, ipv4_data, ipv6_data) in enumerate(self.interfaces):      
                 # Interface name
-                self.interface_item = QTableWidgetItem(interface_name)
+                self.interface_item = QTableWidgetItem(interface_element)
                 self.interface_item.setFlags(self.interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
                 self.interfaces_table.setItem(row, 0, self.interface_item)
                 # Administrative state
@@ -352,12 +387,12 @@ class DeviceInterfacesDialog(QDialog):
 
     def showDialog(self):
         button = self.sender()
-        if button:
-            row_index = self.interfaces_table.indexAt(button.pos()) # Get the index of the row, in which was the button clicked
-            interface_id = self.interfaces_table.item(row_index.row(), 0).text() # Get the interface ID of the clicked row
+
+        row_index = self.interfaces_table.indexAt(button.pos()) # Get the index of the row, in which was the button clicked
+        interface_id = self.interfaces_table.item(row_index.row(), 0).text() # Get the interface ID of the clicked row
             
-            dialog = EditInterfaceDialog(self, self.device, interface_id)
-            dialog.exec()
+        dialog = EditInterfaceDialog(self, self.device, interface_id)
+        dialog.exec()
 
     def refreshDialog(self):
         helper.clearLayout(self.layout)
@@ -572,5 +607,3 @@ class EditSubinterfaceDialog(QDialog):
             self.device.setInterfaceIP(self.interface_id, self.subinterface_input.text(), self.new_ip)
             self.editInterfaceDialog_instance.refreshDialog()
         self.accept()
-            
-    

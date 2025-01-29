@@ -110,6 +110,21 @@ def prettyXml(input):
     xml_pretty = ET.tostring(xml_etree, pretty_print=True).decode()
     return (xml_pretty)
 
+def printRpcBulk(rpc_replies: list, action, devices: list):
+    # Zatim neotestovano
+
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    message = (
+        f"{timestamp}\n"
+        f"RPC replies for bulk action: \"{action}\" on devices \"{devices}\":\n"
+    )
+
+    for device, rpc_reply in zip(devices, rpc_replies):
+        rpc_reply_pretty = prettyXml(rpc_reply)
+        message += (device + ":\n" + rpc_reply_pretty + "\n")
+
+    print(message)
+
 def printRpc(rpc_reply, action, device):
     """
     Prints the RPC reply in a formatted manner along with a timestamp, action, and device information.

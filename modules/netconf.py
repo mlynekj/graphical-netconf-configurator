@@ -8,7 +8,6 @@ from pyangbind.lib.serialise import pybindIETFXMLEncoder
 # Custom
 import helper as helper
 
-#TMP potom uklidit
 # Qt
 from PySide6.QtWidgets import (
     QDialog, 
@@ -28,8 +27,7 @@ from PySide6.QtWidgets import (
     QToolBar,
     QMessageBox)
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QFont, QGuiApplication, QAction
-import ipaddress
+from PySide6.QtGui import QGuiApplication
 
 def establishNetconfConnection(device_parameters):
     """
@@ -72,27 +70,26 @@ def establishNetconfConnection(device_parameters):
  
 def demolishNetconfConnection(device):
     """ Tears down the spcified ncclient connection, by deleting the mng object. """
-    device.mngr.close_session()
-    # TODO: catch exceptions
+    rpc_reply = device.mngr.close_session()
+    return(rpc_reply)
+    # TODO: catch exceptions, probably in device class
 
 def commitNetconfChanges(device):
     """ Performs the "commit" operation using the specified ncclient connection. """
     rpc_reply = device.mngr.commit()
-    helper.printRpc(rpc_reply, "Commit changes", device.hostname)
     return(rpc_reply)
+    # TODO: catch exceptions, probably in device class
 
 def discardNetconfChanges(device):
-    # TODO: pass the device, not the mngr ?
     """ Performs the "discard-changes" operation using the specified ncclient connection. """
     rpc_reply = device.mngr.discard_changes()
     return(rpc_reply)
+    # TODO: catch exceptions, probably in device class
 
 def getNetconfCapabilities(device):
-    # TODO: pass the device, not the mngr ?
     """ Retrieves the capabilities of the specified ncclient connection. """
     capabilities = device.mngr.server_capabilities
     return(capabilities)
-
 
 
 # ---------- QT: ----------

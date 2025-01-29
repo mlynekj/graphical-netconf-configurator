@@ -165,7 +165,7 @@ class Device(QGraphicsPixmapItem):
 
         # DEVICE INFORMATION
         self.netconf_capabilities = self._getNetconfCapabilites()
-        self.interfaces = self._getInterfaces()
+        self.interfaces = self.getInterfaces()
         self.hostname = self._getHostname()
 
         # LABEL (Hostname)
@@ -213,7 +213,7 @@ class Device(QGraphicsPixmapItem):
         return(type(self)._device_type + str(type(self)._counter))
 
     def _deleteDevice(self):
-        netconf.demolishNetconfConnection(self) # Disconnect from NETCONF serve
+        rpc_reply = netconf.demolishNetconfConnection(self) # Disconnect from NETCONF server
 
         self.scene().removeItem(self)
     
@@ -221,28 +221,27 @@ class Device(QGraphicsPixmapItem):
             cable.removeCable()
 
         del type(self)._registry[self.id]
+        helper.printRpc(rpc_reply, "Close NETCONF connection", self.hostname)
         helper.printGeneral(f"Connection to device: {self.device_parameters['address']} has been closed.")
 
     def discardChanges(self):
         try:
             rpc_reply = netconf.discardNetconfChanges(self)
             helper.printRpc(rpc_reply, "Discard changes", self.hostname)
+
             self.has_pending_changes = False
-            signal_manager.allPendingChangesDiscarded.emit(self.id)
+            signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
         except Exception as e:
             helper.printGeneral(f"Error discarding changes: {e}")
             return
 
-    def commitChanges(self, bulk_commit=False):
+    def commitChanges(self):
         try:
-            if not bulk_commit:
-                rpc_reply = netconf.commitNetconfChanges(self)
-                helper.printRpc(rpc_reply, "Commit changes", self.hostname)
-                self.has_pending_changes = False
-                signal_manager.allPendingChangesCommitted.emit(self.id) # TODO:
-            else:
-                pass
-                # TODO: udelat logiku hromadnych commit - nejake jednotne vypsani zmen, hromadne nulovani flagu, atd.
+            rpc_reply = netconf.commitNetconfChanges(self)
+            helper.printRpc(rpc_reply, "Commit changes", self.hostname)
+
+            self.has_pending_changes = False
+            signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
         except Exception as e:
             helper.printGeneral(f"Error committing changes: {e}")
             return
@@ -305,7 +304,7 @@ class Device(QGraphicsPixmapItem):
 
         # Discard all pending changes
         discard_changes_action = QAction("Discard all pending changes from candidate datastore")
-        discrd_changes_action.triggered.connect(self._discardChanges)
+        discard_changes_action.triggered.connect(self.discardChanges)
         discard_changes_action.setToolTip("Discards all changes uploaded to the candidate datastore of the device.")
         menu.addAction(discard_changes_action)
 
@@ -334,8 +333,8 @@ class Device(QGraphicsPixmapItem):
         helper.printRpc(rpc_reply, "Set Hostname", self.hostname)
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
-    def _getInterfaces(self, getIPs=False):
-        return(interfaces.getInterfaceListWithNetconf(self, getIPs))
+    def getInterfaces(self, getIPs=False):
+        return(interfaces.getInterfacesWithNetconf(self, getIPs))
 
     def getSubinterfaces(self, interface_id):
         return(interfaces.getSubinterfacesWithNetconf(self, interface_id))
