@@ -1,6 +1,7 @@
 # Other
 import sys
 from io import StringIO
+from contextlib import contextmanager
 
 # QT
 from PySide6.QtCore import Qt, Signal, QObject, QRectF
@@ -62,6 +63,54 @@ class MainView(QGraphicsView):
         self.start_pos = None
 
         self._loadCursors()
+
+    @contextmanager
+    def generateClonedScene(self):
+        selected_items = self.scene.selectedItems()
+        if not selected_items:
+            yield(None)
+            return
+        
+        new_scene = QGraphicsScene()
+        cloned_devices = []
+        cloned_devices_ids = []
+        cloned_cables = []
+        device_id_map = {}
+
+        # Copy selected devices
+        for item in selected_items:
+            if isinstance(item, Device):
+                new_device = item.clone()
+                new_scene.addItem(new_device)
+                cloned_devices.append(new_device)
+                cloned_devices_ids.append(new_device.id)
+                device_id_map[item.id] = new_device
+
+        connected_pairs = set()
+        # Create cables
+        for cloned_device in cloned_devices:
+            for cable in cloned_device.cables:
+                if cable.device2.id not in cloned_devices_ids: # Check if the second device of the cable is in the scene, if not, skip
+                    print(f"skipuju: {cable.device1.id} {cable.device2.id} protoze {cable.device2.id} neni v cloned_devices_ids")
+                    continue
+
+                # make sure that only one cable is created between two devices (not two cables in both directions)
+                device_pair = tuple(sorted([cable.device1.id, cable.device2.id]))
+                if device_pair not in connected_pairs:
+                    device1_copy = device_id_map[cable.device1.id]
+                    device2_copy = device_id_map[cable.device2.id]
+                    cloned_cable = Cable(device1_copy, cable.device1_interface, device2_copy, cable.device2_interface)
+                    new_scene.addItem(cloned_cable)
+                    cloned_cables.append(cloned_cable)
+                    connected_pairs.add(device_pair)
+
+        try:
+            yield(new_scene)
+        finally:
+            for item in new_scene.items():
+                new_scene.removeItem(item)
+            new_scene.clear()
+
 
     # ---------- MOUSE BEHAVIOUR AND APPEREANCE FUNCTIONS ----------         
     def _loadCursors(self):
@@ -146,7 +195,6 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-
         self.setWindowTitle("Netconf Configurator")
         self.view = MainView()
         self.setCentralWidget(self.view)
@@ -165,7 +213,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
 
         # Protocols configuration dock
-        self.protocolsWidget = ProtocolsWidget()
+        self.protocolsWidget = ProtocolsWidget(self.view)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.protocolsWidget)
 
         # Pending changes dock
@@ -229,8 +277,10 @@ class ConsoleWidget(QDockWidget):
 
 # Left dock widget
 class ProtocolsWidget(QDockWidget):
-    def __init__(self):
+    def __init__(self, main_view):
         super().__init__("Configure protocols")
+
+        self.main_view = main_view
 
         title_label = QLabel("Configure protocols")
         title_label.setAlignment(Qt.AlignCenter)
@@ -257,8 +307,10 @@ class ProtocolsWidget(QDockWidget):
         self.setWidget(button_holder)
 
     def _showOSPFDialog(self):
-        dialog = ospf.OSPFDialog()
-        dialog.exec
+        with self.main_view.generateClonedScene() as cloned_scene:
+            if cloned_scene:
+                dialog = ospf.OSPFDialog(cloned_scene)
+                dialog.exec()
 
 
 # Right dock widget

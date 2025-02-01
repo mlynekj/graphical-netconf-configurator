@@ -44,90 +44,6 @@ import helper as helper
 from signals import signal_manager
 
 
-class AddDeviceDialog(QDialog):
-    def __init__(self, view):
-        super().__init__()
-
-        self.view = view
-        self.device_parameters = {}
-        self.setWindowTitle("Add a device")
-        self.setModal(True)
-        self.layout = QVBoxLayout()
-
-        # Input fields
-        self.addressTextInput = QLineEdit()
-        self.addressTextInput.setPlaceholderText("IP address:port")
-        self.layout.addWidget(self.addressTextInput)
-
-        self.usernameTextInput = QLineEdit()
-        self.usernameTextInput.setPlaceholderText("Username")
-        self.layout.addWidget(self.usernameTextInput)
-
-        self.passwordTextInput = QLineEdit()
-        self.passwordTextInput.setPlaceholderText("Password")
-        self.layout.addWidget(self.passwordTextInput)
-
-        self.deviceTypeComboInput = QComboBox()
-        self.deviceTypeComboInput.addItems(["Router", "Switch"])
-        self.layout.addWidget(self.deviceTypeComboInput)
-
-        self.deviceVendorComboInput = QComboBox()
-        self.deviceVendorComboInput.addItems(["Cisco IOS XE", "Juniper"])
-        self.layout.addWidget(self.deviceVendorComboInput)
-
-        # Buttons
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.buttons.accepted.connect(self._confirmConnection)
-        self.buttons.rejected.connect(self.reject)
-        self.layout.addWidget(self.buttons)
-
-        # Layout
-        self.setLayout(self.layout)
-
-        #DEBUG: Testing connection for debugging
-        if __debug__:
-            self.addressTextInput.setText("172.16.10.251")
-            self.usernameTextInput.setText("jakub")
-            self.passwordTextInput.setText("cisco")
-
-    def _confirmConnection(self):
-        # Address + Port
-        address_field = self.addressTextInput.text().split(":")
-        if len(address_field) == 2:
-            self.device_parameters["address"] = address_field[0]
-            self.device_parameters["port"] = address_field[1]
-        elif len(address_field) == 1:
-            self.device_parameters["address"] = self.addressTextInput.text()
-            self.device_parameters["port"] = 830
-        else:
-            raise ValueError("Invalid IP address format")
-
-        # Username + Password + Device vendor
-        self.device_parameters["username"] = self.usernameTextInput.text()
-        self.device_parameters["password"] = self.passwordTextInput.text()
-        if self.deviceVendorComboInput.currentText() == "Cisco IOS XE":
-            self.device_parameters["device_params"] = "iosxe"
-        elif self.deviceVendorComboInput.currentText() == "Juniper":
-            self.device_parameters["device_params"] = "junos"
-
-        # Device type
-        if self.deviceTypeComboInput.currentText() == "Router":
-            self._addRouter()
-        elif self.deviceTypeComboInput.currentText() == "Switch":
-            self._addSwitch()
-
-        self.accept()
-
-    def _addRouter(self):
-        router = Router(self.device_parameters)
-        self.view.scene.addItem(router)
-        return(router)
-    
-    def _addSwitch(self):
-        switch = Switch(self.device_parameters)
-        self.view.scene.addItem(switch)
-        return(switch)
-
 class Device(QGraphicsPixmapItem):
     _counter = 0 # Used to generate device IDs
     _registry = {} # Used to store device instances
@@ -185,6 +101,9 @@ class Device(QGraphicsPixmapItem):
 
         # REGISTRY
         type(self)._registry[self.id] = self
+
+    def clone(self):
+        return ClonedDevice(self)
 
     def _getNetconfCapabilites(self):
         return(netconf.getNetconfCapabilities(self))
@@ -393,3 +312,115 @@ class Switch(Device):
         self.setPixmap(QPixmap.fromImage(switch_icon_img))
 
         # Switch specific functions go here
+
+class ClonedDevice(QGraphicsPixmapItem):
+    def __init__(self, original_device):
+        super().__init__()
+
+        self.original_device = original_device
+
+        # GRAPHICS
+        self.setPixmap(original_device.pixmap())
+        self.setFlag(QGraphicsItem.ItemIsMovable, False) # If it would be desirable to move the devices in the cloned scene, it would be necessary to implement updating of cloned_cables position
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setTransformOriginPoint(self.boundingRect().center())
+        self.setPos(original_device.pos())
+        self.setZValue(1)
+
+        # LABEL (Hostname)
+        self.label = QGraphicsTextItem(self)
+        self.label.setFont(QFont('Arial', 10))
+        self.label.setPlainText(original_device.label.toPlainText())
+        self.label.setPos(original_device.label.pos())
+
+        # CABLES LIST
+        self.cables = original_device.cables.copy()
+
+        # ID
+        self.id = original_device.id
+
+
+# ---------- QT: ----------
+class AddDeviceDialog(QDialog):
+    def __init__(self, view):
+        super().__init__()
+
+        self.view = view
+        self.device_parameters = {}
+        self.setWindowTitle("Add a device")
+        self.setModal(True)
+        self.layout = QVBoxLayout()
+
+        # Input fields
+        self.addressTextInput = QLineEdit()
+        self.addressTextInput.setPlaceholderText("IP address:port")
+        self.layout.addWidget(self.addressTextInput)
+
+        self.usernameTextInput = QLineEdit()
+        self.usernameTextInput.setPlaceholderText("Username")
+        self.layout.addWidget(self.usernameTextInput)
+
+        self.passwordTextInput = QLineEdit()
+        self.passwordTextInput.setPlaceholderText("Password")
+        self.layout.addWidget(self.passwordTextInput)
+
+        self.deviceTypeComboInput = QComboBox()
+        self.deviceTypeComboInput.addItems(["Router", "Switch"])
+        self.layout.addWidget(self.deviceTypeComboInput)
+
+        self.deviceVendorComboInput = QComboBox()
+        self.deviceVendorComboInput.addItems(["Cisco IOS XE", "Juniper"])
+        self.layout.addWidget(self.deviceVendorComboInput)
+
+        # Buttons
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons.accepted.connect(self._confirmConnection)
+        self.buttons.rejected.connect(self.reject)
+        self.layout.addWidget(self.buttons)
+
+        # Layout
+        self.setLayout(self.layout)
+
+        #DEBUG: Testing connection for debugging
+        if __debug__:
+            self.addressTextInput.setText("172.16.10.251")
+            self.usernameTextInput.setText("jakub")
+            self.passwordTextInput.setText("cisco")
+
+    def _confirmConnection(self):
+        # Address + Port
+        address_field = self.addressTextInput.text().split(":")
+        if len(address_field) == 2:
+            self.device_parameters["address"] = address_field[0]
+            self.device_parameters["port"] = address_field[1]
+        elif len(address_field) == 1:
+            self.device_parameters["address"] = self.addressTextInput.text()
+            self.device_parameters["port"] = 830
+        else:
+            raise ValueError("Invalid IP address format")
+
+        # Username + Password + Device vendor
+        self.device_parameters["username"] = self.usernameTextInput.text()
+        self.device_parameters["password"] = self.passwordTextInput.text()
+        if self.deviceVendorComboInput.currentText() == "Cisco IOS XE":
+            self.device_parameters["device_params"] = "iosxe"
+        elif self.deviceVendorComboInput.currentText() == "Juniper":
+            self.device_parameters["device_params"] = "junos"
+
+        # Device type
+        if self.deviceTypeComboInput.currentText() == "Router":
+            self._addRouter()
+        elif self.deviceTypeComboInput.currentText() == "Switch":
+            self._addSwitch()
+
+        self.accept()
+
+    def _addRouter(self):
+        router = Router(self.device_parameters)
+        self.view.scene.addItem(router)
+        return(router)
+    
+    def _addSwitch(self):
+        switch = Switch(self.device_parameters)
+        self.view.scene.addItem(switch)
+        return(switch)

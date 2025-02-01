@@ -40,6 +40,8 @@ class Cable(QGraphicsLineItem):
         self.device2 = device2
         self.device1_interface = device1_interface
         self.device2_interface = device2_interface
+        self.device1.id = device1.id
+        self.device2.id = device2.id
 
         self.device1.cables.append(self)
         self.device2.cables.append(self)
