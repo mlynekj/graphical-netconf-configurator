@@ -167,7 +167,7 @@ def getInterfacesWithNetconf(device, getIPs=False):
             admin_status = interface_element.xpath('../state/admin-status')[0].text
             oper_status = interface_element.xpath('../state/oper-status')[0].text
             interfaces.append((name, admin_status, oper_status))
-            return(interfaces)
+        return(interfaces)
         
     # If the getIPs flag is set, retrieve the first IP address for each interface (used for DeviceInterfacesDialog)
     for interface_element in interface_elements:
