@@ -71,45 +71,43 @@ class MainView(QGraphicsView):
             yield(None)
             return
         
-        new_scene = QGraphicsScene()
+        cloned_scene = QGraphicsScene()
         cloned_devices = []
         cloned_devices_ids = []
-        cloned_cables = []
         device_id_map = {}
 
-        # Copy selected devices
+        # Create cloned devices, based selection
         for item in selected_items:
             if isinstance(item, Device):
                 new_device = item.clone()
-                new_scene.addItem(new_device)
+                cloned_scene.addItem(new_device)
                 cloned_devices.append(new_device)
                 cloned_devices_ids.append(new_device.id)
                 device_id_map[item.id] = new_device
 
+        # Create cables between cloned devices, if the cables exist in the original scene
         connected_pairs = set()
-        # Create cables
         for cloned_device in cloned_devices:
             for cable in cloned_device.cables:
-                if cable.device2.id not in cloned_devices_ids: # Check if the second device of the cable is in the scene, if not, skip
-                    print(f"skipuju: {cable.device1.id} {cable.device2.id} protoze {cable.device2.id} neni v cloned_devices_ids")
+                if cable.device2.id not in cloned_devices_ids: # Check if both devices of the cable are in the cloned devices, if not, skip
                     continue
 
-                # make sure that only one cable is created between two devices (not two cables in both directions)
+                # make sure that only one cable is created between two devices (not two cables in opposing directions)
                 device_pair = tuple(sorted([cable.device1.id, cable.device2.id]))
                 if device_pair not in connected_pairs:
                     device1_copy = device_id_map[cable.device1.id]
                     device2_copy = device_id_map[cable.device2.id]
-                    cloned_cable = Cable(device1_copy, cable.device1_interface, device2_copy, cable.device2_interface)
-                    new_scene.addItem(cloned_cable)
-                    cloned_cables.append(cloned_cable)
+                    cloned_cable = Cable(device1_copy, cable.device1_interface, device2_copy, cable.device2_interface) # The cable must be created with reference to the cloned devices
+                    cloned_scene.addItem(cloned_cable)
                     connected_pairs.add(device_pair)
 
+        # Needed for contextmanager (when the dialog is closed, the scene is cleared and all items are removed)
         try:
-            yield(new_scene)
+            yield(cloned_scene)
         finally:
-            for item in new_scene.items():
-                new_scene.removeItem(item)
-            new_scene.clear()
+            for item in cloned_scene.items():
+                cloned_scene.removeItem(item)
+            cloned_scene.clear()
 
 
     # ---------- MOUSE BEHAVIOUR AND APPEREANCE FUNCTIONS ----------         

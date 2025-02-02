@@ -383,7 +383,7 @@ class AddDeviceDialog(QDialog):
 
         #DEBUG: Testing connection for debugging
         if __debug__:
-            self.addressTextInput.setText("172.16.10.251")
+            self.addressTextInput.setText("172.16.10.81")
             self.usernameTextInput.setText("jakub")
             self.passwordTextInput.setText("cisco")
 
