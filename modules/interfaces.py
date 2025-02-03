@@ -197,6 +197,8 @@ def extractIPDataFromInterface(interface_element, version="ipv4"):
 
     # Get data from nodes
     if ipvX_address_node and ipvX_prefix_length_node:
+        for node in ipvX_address_node:
+            print(interface_element, node.text) # this works, reimplement interface getter to store entire interfaces database in the "Device" objects
         ipvX_address = ipvX_address_node[0].text
         ipvX_prefix_length = ipvX_prefix_length_node[0].text
         ipvX_data = IPv4Interface(f"{ipvX_address}/{ipvX_prefix_length}") if version == "ipv4" else IPv6Interface(f"{ipvX_address}/{ipvX_prefix_length}")

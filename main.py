@@ -310,6 +310,7 @@ class ProtocolsWidget(QDockWidget):
                 dialog = ospf.OSPFDialog(cloned_scene)
                 dialog.exec()
             else:
+                # TODO: zmenit potom tak aby se dialog nezobrazil pokud neni nic vybrano - zobrazit hlasku
                 dialog = ospf.OSPFDialog()
                 dialog.exec()
 
