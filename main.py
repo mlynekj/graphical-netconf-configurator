@@ -309,6 +309,9 @@ class ProtocolsWidget(QDockWidget):
             if cloned_scene:
                 dialog = ospf.OSPFDialog(cloned_scene)
                 dialog.exec()
+            else:
+                dialog = ospf.OSPFDialog()
+                dialog.exec()
 
 
 # Right dock widget
