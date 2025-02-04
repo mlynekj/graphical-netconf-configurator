@@ -134,18 +134,10 @@ class EditIPAddressOpenconfigFilter:
 
 
 # ---------- OPERATIONS: ----------
-# -- Interface --
-def getInterfacesWithNetconf(device, getIPs=False):
+# -- Retrieval --
+def getInterfacesWithNetconf(device):
     """
-    Retrieve the list of interfaces from a network device, optionally including IP address information.
-    Args:
-        device (object): The network device object which contains ncclient manager.
-        getIPs (bool, optional): If True, include IP address information for each interface. Defaults to False.
-    Returns:
-        list: A list of tuples representing the interfaces.
-
-        [(name, admin_status, oper_status, ipv4_data, ipv6_data), ...]
-        [('ge-0/0/0', 'UP', 'UP', IPv4Interface('192.168.1.1/24'), IPv6Interface('2001:db8::1/64')), ('ge-0/0/1', 'UP', 'UP', None, None)]
+    TODO:
     """
 
     device_type = device.device_parameters['device_params']
@@ -157,88 +149,33 @@ def getInterfacesWithNetconf(device, getIPs=False):
     rpc_reply = device.mngr.get(str(filter))
     rpc_reply_etree = helper.convertToEtree(rpc_reply, device_type)
 
-    interfaces = []
+    interfaces = {}
     interface_elements = rpc_reply_etree.xpath('//interfaces/interface/name')
     
-    # If the getIPs flag is NOT set, retrieve only the interface names and states
-    if not getIPs:
-        for interface_element in interface_elements:
-            name = interface_element.text
-            admin_status = interface_element.xpath('../state/admin-status')[0].text
-            oper_status = interface_element.xpath('../state/oper-status')[0].text
-            interfaces.append((name, admin_status, oper_status))
-        return(interfaces)
-        
-    # If the getIPs flag is set, retrieve the first IP address for each interface (used for DeviceInterfacesDialog)
     for interface_element in interface_elements:
         name = interface_element.text
         admin_status = interface_element.xpath('../state/admin-status')[0].text
         oper_status = interface_element.xpath('../state/oper-status')[0].text
 
+        subinterfaces = {}
         subinterface_indexes = interface_element.xpath('../subinterfaces/subinterface/index')
-        if len(subinterface_indexes) < 0: # If there are no subinterfaces
-            interfaces.append((name, admin_status, oper_status, None, None))
-            continue # Skip to the next interface
+        for subinterface_index in subinterface_indexes:
+            subinterface_element = subinterface_index.getparent()
+            
+            ipv4_data = extractIPDataFromSubinterface(subinterface_element, version="ipv4")
+            ipv6_data = extractIPDataFromSubinterface(subinterface_element, version="ipv6")
+            subinterfaces[subinterface_index.text] = {
+                'ipv4_data': ipv4_data,
+                'ipv6_data': ipv6_data
+            }
 
-        ipv4_data = extractIPDataFromInterface(interface_element, version="ipv4")
-        ipv6_data = extractIPDataFromInterface(interface_element, version="ipv6")
-        interfaces.append((name, admin_status, oper_status, ipv4_data, ipv6_data))
+        interfaces[name] = {
+            'admin_status': admin_status,
+            'oper_status': oper_status,
+            'subinterfaces': subinterfaces
+        }
 
     return(interfaces)
-
-def extractIPDataFromInterface(interface_element, version="ipv4"):
-    # XML Tags
-    ipvX_address_tag = (f"../subinterfaces/subinterface/{version}/addresses/address/state/ip")
-    ipvX_prefix_length_tag = (f"../subinterfaces/subinterface/{version}/addresses/address/state/prefix-length")
-
-    # Extraction using XPath
-    ipvX_address_node = interface_element.xpath(ipvX_address_tag)
-    ipvX_prefix_length_node = interface_element.xpath(ipvX_prefix_length_tag)
-
-    # Get data from nodes
-    if ipvX_address_node and ipvX_prefix_length_node:
-        for node in ipvX_address_node:
-            print(interface_element, node.text) # this works, reimplement interface getter to store entire interfaces database in the "Device" objects
-        ipvX_address = ipvX_address_node[0].text
-        ipvX_prefix_length = ipvX_prefix_length_node[0].text
-        ipvX_data = IPv4Interface(f"{ipvX_address}/{ipvX_prefix_length}") if version == "ipv4" else IPv6Interface(f"{ipvX_address}/{ipvX_prefix_length}")
-    else:
-        ipvX_data = None
-
-    return(ipvX_data)
-
-# -- Subinterface --
-def getSubinterfacesWithNetconf(device, interface_element):
-    """
-    Retrieve subinterfaces for a specific interface.
-    Args:
-        device (object): The network device object which contains ncclient manager.
-        interface_element (str): The name of the interface for which details are to be retrieved.
-    Returns:
-        list: A list of dictionaries, each containing details of a subinterface.
-
-        [{'subinterface_index': '0', 'ipv4': [IPv4Interface('1.1.1.2/24')], 'ipv6': [IPv6Interface('2001::1/64')]}]
-    """
-
-    device_type = device.device_parameters['device_params']
-    
-    # FILTER
-    filter = GetSubinterfacesOpenconfigFilter(interface_element)
-
-    # RPC
-    rpc_reply = device.mngr.get(str(filter))
-    rpc_reply_etree = helper.convertToEtree(rpc_reply, device_type)
-
-    raw_subinterfaces = rpc_reply_etree.findall('.//interfaces/interface/subinterfaces/subinterface')
-    extracted_subinterfaces = []
-
-    for subinterface in raw_subinterfaces:
-        subinterface_index = subinterface.find('.//index').text
-
-        ipv4_data = extractIPDataFromSubinterface(subinterface, version="ipv4")
-        ipv6_data = extractIPDataFromSubinterface(subinterface, version="ipv6")
-        extracted_subinterfaces.append({"subinterface_index": subinterface_index, "ipv4": ipv4_data, "ipv6": ipv6_data})
-    return(extracted_subinterfaces)
 
 def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
     ipvX_object_tag = (f".//{version}/addresses/address")
@@ -331,18 +268,22 @@ class DeviceInterfacesDialog(QDialog):
                                                          "IPv6",
                                                          ""])
 
-        # Get interfaces
+        # Retrieve the interfaces from the device
         try:
-            self.interfaces = self.device.getInterfaces(getIPs=True)
+            self.interfaces = self.device.interfaces
         except Exception as e:
-            self.interfaces = []
+            self.interfaces = {}
             self.error_label = QLabel(f"Failed to retrieve self.interfaces: {e}")
             self.table_layout.addWidget(self.error_label)
 
         # Populate the table with the interfaces
         if self.interfaces:
             self.interfaces_table.setRowCount(len(self.interfaces))
-            for row, (interface_element, admin_state, oper_state, ipv4_data, ipv6_data) in enumerate(self.interfaces):      
+            for row, (interface_element, interface_data) in enumerate(self.interfaces.items()):      
+                admin_state = interface_data['admin_status']
+                oper_state = interface_data['oper_status']
+                ipv4_data, ipv6_data = self.getFirstIPAddresses(interface_data['subinterfaces'])
+
                 # Interface name
                 self.interface_item = QTableWidgetItem(interface_element)
                 self.interface_item.setFlags(self.interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
@@ -387,6 +328,28 @@ class DeviceInterfacesDialog(QDialog):
         close_button.clicked.connect(self.close)
         self.layout.addWidget(close_button)
 
+    def getFirstIPAddresses(self, subinterfaces):
+        """
+        Retrieve the first IPv4 and IPv6 addresses from a dictionary of subinterfaces.
+        Args:
+            subinterfaces (dict): A dictionary where keys are subinterface identifiers and values are dictionaries
+                                  containing 'ipv4_data' and 'ipv6_data' lists.
+        Returns:
+            tuple: A tuple containing the first IPv4 address (str) and the first IPv6 address (str) found in the subinterfaces.
+                   If no IPv4 or IPv6 address is found, the corresponding value in the tuple will be an empty string.
+        """
+
+        ipv4_data = ""
+        ipv6_data = ""
+        for subinterface in subinterfaces.values():
+            if subinterface['ipv4_data'] and not ipv4_data:
+                ipv4_data = subinterface['ipv4_data'][0]
+            if subinterface['ipv6_data'] and not ipv6_data:
+                ipv6_data = subinterface['ipv6_data'][0]
+            if ipv4_data and ipv6_data:
+                break
+        return ipv4_data, ipv6_data
+
     def showDialog(self):
         button = self.sender()
 
@@ -424,52 +387,72 @@ class EditInterfaceDialog(QDialog):
         self.fillLayout()
         self.setLayout(self.layout)
 
-    def createSubinterfaceTable(self, subinterface):
-        """
-        Create a table containing IPv4 and IPv6 addresses for specified subinterface + [Edit] and [Delete] buttons for each row.
+    def fillLayout(self):
+        # Toolbar
+        self.toolbar = QToolBar("Edit interface", self)
+        self.action_addSubinterface = QAction("Add subinterface", self)
+        self.action_addSubinterface.triggered.connect(lambda _, index=None : self.showDialog(index))
+        self.toolbar.addAction(self.action_addSubinterface)
+        self.layout.addWidget(self.toolbar)
 
-        Args:
-            interface_id (int): The ID of the interface to which the subinterface belongs.
-            subinterface (dict): A dictionary containing subinterface details.
-            - 'ipv4': A list of "IPv4Interface" objects
-            - 'ipv6': A list of "IPv6Interface" objects
-        Returns:
-            QTableWidget: Table populated with subinterface information and buttons.
+        # Get subinterfaces, create a layout for each subinterface containg: Header, Table
+        self.subinterfaces = self.device.interfaces[self.interface_id]['subinterfaces']
+        for subinterface_index, subinterface_data in self.subinterfaces.items():
+            self.subinterface_layout = QVBoxLayout()
+            
+            # Header ("Subinterface: x | [Add IP address]")
+            self.subinterface_label = QLabel(f"Subinterface: {subinterface_index}")
+            self.subinterface_label.setFont(QFont("Arial", 16))
+            self.add_ip_button = QPushButton("Add IP address")
+            self.add_ip_button.clicked.connect(lambda _, index=subinterface_index : self.showDialog(index))
+            self.header_layout = QHBoxLayout()
+            self.header_layout.addWidget(self.subinterface_label)
+            self.header_layout.addWidget(self.add_ip_button)
+            self.subinterface_layout.addLayout(self.header_layout)
+
+            # Table
+            self.subinterface_layout.addWidget(self.createSubinterfaceTable(subinterface_index, subinterface_data))
+            
+            self.layout.addLayout(self.subinterface_layout)
+
+    def createSubinterfaceTable(self, subinterface_index, subinterface_data):
+        """
+        TODO:
         """
 
         # Create the table, set basic properties
         subinterface_table = QTableWidget()
         subinterface_table.setColumnCount(3)
-        subinterface_table.setRowCount(len(subinterface['ipv4']) + len(subinterface['ipv6']))
+        subinterface_table.setRowCount(len(subinterface_data['ipv4_data']) + len(subinterface_data['ipv6_data']))
         subinterface_table.setHorizontalHeaderLabels(["Address", "", ""])
         subinterface_table.horizontalHeader().setStretchLastSection(True)
         subinterface_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         row = 0
-        for ipv4_data in subinterface['ipv4']:
+        for ipv4_data in subinterface_data['ipv4_data']:
             # IPv4 address
-            subinterface_table.setItem(row, 0, QTableWidgetItem(str(ipv4_data.ip)+"/"+str(ipv4_data.network.prefixlen)))
+            subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv4_data.ip}/{ipv4_data.network.prefixlen}"))
             # Edit button
             self.edit_ip_button_item = QPushButton("Edit")
-            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface['subinterface_index'], ip = ipv4_data : self.showDialog(index, ip)) # _ = unused argument
+            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data : self.showDialog(index, ip)) # _ = unused argument
             subinterface_table.setCellWidget(row, 1, self.edit_ip_button_item)
             # Delete button
             self.delete_ip_button_item = QPushButton("Delete")
-            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface['subinterface_index'], ip = ipv4_data : self.deleteIP(index, ip))
+            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data : self.deleteIP(index, ip))
             subinterface_table.setCellWidget(row, 2, self.delete_ip_button_item)
             
             row += 1
         
-        for ipv6_data in subinterface['ipv6']:
+        for ipv6_data in subinterface_data['ipv6_data']:
             # IPv6 address
-            subinterface_table.setItem(row, 0, QTableWidgetItem(str(ipv6_data.ip)+"/"+str(ipv6_data.network.prefixlen)))
+            subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv6_data.ip}/{ipv6_data.network.prefixlen}"))
             # Edit button
             self.edit_ip_button_item = QPushButton("Edit")
-            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface['subinterface_index'], ip = ipv6_data : self.showDialog(index, ip)) # _ = unused argument
+            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data : self.showDialog(index, ip)) # _ = unused argument
             subinterface_table.setCellWidget(row, 1, self.edit_ip_button_item)
             # Delete button
             self.delete_ip_button_item = QPushButton("Delete")
-            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface['subinterface_index'], ip = ipv6_data : self.deleteIP(index, ip))
+            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data : self.deleteIP(index, ip))
             subinterface_table.setCellWidget(row, 2, self.delete_ip_button_item)
 
             row += 1
@@ -482,36 +465,8 @@ class EditInterfaceDialog(QDialog):
     def closeEvent(self, event):
         """ Refresh the parent dialog when this dialog is closed. """
         #self.instance.refreshDialog()
-        # refresh of dialog no longer needed. When working with candidate datastore, the change is not immediately visible.
+        # OBSOLETE: refresh of dialog no longer needed. When working with candidate datastore, the change is not immediately visible. Probably delete this function.
         super().closeEvent(event)
-
-    def fillLayout(self):
-        # Toolbar
-        self.toolbar = QToolBar("Edit interface", self)
-        self.action_addSubinterface = QAction("Add subinterface", self)
-        self.action_addSubinterface.triggered.connect(lambda _, index=None : self.showDialog(index))
-        self.toolbar.addAction(self.action_addSubinterface)
-        self.layout.addWidget(self.toolbar)
-
-        # Get subinterfaces, create a layout for each subinterface containg: Header, Table
-        self.subinterfaces = self.device.getSubinterfaces(self.interface_id)
-        for subinterface in self.subinterfaces:
-            self.subinterface_layout = QVBoxLayout()
-            
-            # Header ("Subinterface: x | [Add IP address]")
-            self.subinterface_label = QLabel("Subinterface: " + subinterface['subinterface_index'])
-            self.subinterface_label.setFont(QFont("Arial", 16))
-            self.add_ip_button = QPushButton("Add IP address")
-            self.add_ip_button.clicked.connect(lambda _, index=subinterface['subinterface_index'] : self.showDialog(index))
-            self.header_layout = QHBoxLayout()
-            self.header_layout.addWidget(self.subinterface_label)
-            self.header_layout.addWidget(self.add_ip_button)
-            self.subinterface_layout.addLayout(self.header_layout)
-
-            # Table
-            self.subinterface_layout.addWidget(self.createSubinterfaceTable(subinterface))
-            
-            self.layout.addLayout(self.subinterface_layout)
 
     def showDialog(self, subinterface_index, ip = None):       
         self.editSubinterfaceDialog = EditSubinterfaceDialog(self, self.device, self.interface_id, subinterface_index, ip)

@@ -147,6 +147,7 @@ class Device(QGraphicsPixmapItem):
         try:
             rpc_reply = netconf.discardNetconfChanges(self)
             helper.printRpc(rpc_reply, "Discard changes", self.hostname)
+            self.interfaces = self.getInterfaces() # Refresh interfaces after discard
 
             self.has_pending_changes = False
             signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
@@ -158,6 +159,7 @@ class Device(QGraphicsPixmapItem):
         try:
             rpc_reply = netconf.commitNetconfChanges(self)
             helper.printRpc(rpc_reply, "Commit changes", self.hostname)
+            self.interfaces = self.getInterfaces() # Refresh interfaces after commit
 
             self.has_pending_changes = False
             signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
@@ -252,11 +254,8 @@ class Device(QGraphicsPixmapItem):
         helper.printRpc(rpc_reply, "Set Hostname", self.hostname)
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
-    def getInterfaces(self, getIPs=False):
-        return(interfaces.getInterfacesWithNetconf(self, getIPs))
-
-    def getSubinterfaces(self, interface_id):
-        return(interfaces.getSubinterfacesWithNetconf(self, interface_id))
+    def getInterfaces(self):
+        return(interfaces.getInterfacesWithNetconf(self))
     
     def deleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
         rpc_reply = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
