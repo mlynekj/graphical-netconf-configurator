@@ -261,11 +261,13 @@ class Device(QGraphicsPixmapItem):
         rpc_reply = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
         helper.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}")
         helper.printRpc(rpc_reply, "Delete IP", self.hostname)
+        # TODO: add entry to self.interfaces with the flag commited=False
 
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
         rpc_reply = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
         helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}")
         helper.printRpc(rpc_reply, "Set IP", self.hostname)
+        # TODO: add entry to self.interfaces with the flag commited=False
 
     def replaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
         rpc_reply_delete = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
@@ -273,6 +275,7 @@ class Device(QGraphicsPixmapItem):
         helper.addPendingChange(self, f"Replace IP: {old_ip} with {new_ip} on interface: {interface_id}.{subinterface_index}")
         helper.printRpc(rpc_reply_delete, "Delete IP", self.hostname)
         helper.printRpc(rpc_reply_set, "Set IP", self.hostname)
+        # TODO: add entry to self.interfaces with the flag commited=False
     
     # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod

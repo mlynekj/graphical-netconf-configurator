@@ -1,5 +1,7 @@
 # Interfaces Dictionary
 
+NOTE: outdated
+
 Instance of a Device stores all interface parameters in a dictionary called interfaces. The dictionary is structured as follows:
 
 ```python

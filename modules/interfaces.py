@@ -46,25 +46,6 @@ class GetInterfacesOpenconfigFilter:
         """
         return(ET.tostring(self.filter_xml).decode('utf-8'))
 
-class GetSubinterfacesOpenconfigFilter:
-    def __init__(self, interface_element):
-        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/get-interface.xml")
-        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces'}
-
-        interface_name_element = self.filter_xml.find(".//ns:name", self.namespaces)
-        interface_name_element.text = interface_element
-
-    def __str__(self):
-        """
-        This method converts the filter_xml attribute to a string using the
-        ElementTree tostring method and decodes it to UTF-8.
-        This is needed for dispatching RPCs with ncclient.
-
-        Returns:
-            str: The string representation of the filter_xml attribute.
-        """
-        return(ET.tostring(self.filter_xml).decode('utf-8'))
-
 class EditIPAddressOpenconfigFilter:
     def __init__(self, interface, subinterface_index, ip, delete_ip=False):
         self.interface = interface
@@ -188,7 +169,8 @@ def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
         if ipvX_address is not None and ipvX_prefix_length is not None: 
             # cannot use "if ipvX_address and ipvX_prefix_length"
             # because "FutureWarning: The behavior of this method will change in future versions. Use specific 'len(elem)' or 'elem is not None' test instead"
-            ipvX_data.append(IPv4Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}") if version == "ipv4" else IPv6Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}"))
+            ip_interface = IPv4Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}") if version == "ipv4" else IPv6Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}")
+            ipvX_data.append({'value': ip_interface, 'commited': True})
     return(ipvX_data)
 
 # -- Manipulation with IPs --
@@ -330,22 +312,16 @@ class DeviceInterfacesDialog(QDialog):
 
     def getFirstIPAddresses(self, subinterfaces):
         """
-        Retrieve the first IPv4 and IPv6 addresses from a dictionary of subinterfaces.
-        Args:
-            subinterfaces (dict): A dictionary where keys are subinterface identifiers and values are dictionaries
-                                  containing 'ipv4_data' and 'ipv6_data' lists.
-        Returns:
-            tuple: A tuple containing the first IPv4 address (str) and the first IPv6 address (str) found in the subinterfaces.
-                   If no IPv4 or IPv6 address is found, the corresponding value in the tuple will be an empty string.
+        TODO:
         """
 
         ipv4_data = ""
         ipv6_data = ""
         for subinterface in subinterfaces.values():
             if subinterface['ipv4_data'] and not ipv4_data:
-                ipv4_data = subinterface['ipv4_data'][0]
+                ipv4_data = subinterface['ipv4_data'][0]['value']
             if subinterface['ipv6_data'] and not ipv6_data:
-                ipv6_data = subinterface['ipv6_data'][0]
+                ipv6_data = subinterface['ipv6_data'][0]['value']
             if ipv4_data and ipv6_data:
                 break
         return ipv4_data, ipv6_data
@@ -431,28 +407,28 @@ class EditInterfaceDialog(QDialog):
         row = 0
         for ipv4_data in subinterface_data['ipv4_data']:
             # IPv4 address
-            subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv4_data.ip}/{ipv4_data.network.prefixlen}"))
+            subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}"))
             # Edit button
             self.edit_ip_button_item = QPushButton("Edit")
-            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data : self.showDialog(index, ip)) # _ = unused argument
+            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.showDialog(index, ip)) # _ = unused argument
             subinterface_table.setCellWidget(row, 1, self.edit_ip_button_item)
             # Delete button
             self.delete_ip_button_item = QPushButton("Delete")
-            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data : self.deleteIP(index, ip))
+            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.deleteIP(index, ip))
             subinterface_table.setCellWidget(row, 2, self.delete_ip_button_item)
             
             row += 1
         
         for ipv6_data in subinterface_data['ipv6_data']:
             # IPv6 address
-            subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv6_data.ip}/{ipv6_data.network.prefixlen}"))
+            subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv6_data['value'].ip}/{ipv6_data['value'].network.prefixlen}"))
             # Edit button
             self.edit_ip_button_item = QPushButton("Edit")
-            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data : self.showDialog(index, ip)) # _ = unused argument
+            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data['value'] : self.showDialog(index, ip)) # _ = unused argument
             subinterface_table.setCellWidget(row, 1, self.edit_ip_button_item)
             # Delete button
             self.delete_ip_button_item = QPushButton("Delete")
-            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data : self.deleteIP(index, ip))
+            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data['value'] : self.deleteIP(index, ip))
             subinterface_table.setCellWidget(row, 2, self.delete_ip_button_item)
 
             row += 1
