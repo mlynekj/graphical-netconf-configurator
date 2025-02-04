@@ -81,7 +81,7 @@ class Device(QGraphicsPixmapItem):
 
         # DEVICE INFORMATION
         self.netconf_capabilities = self._getNetconfCapabilites()
-        self.interfaces = self.getInterfaces()
+        self.interfaces = self.getInterfaces() # Documented in doc/interfaces_dictionary.md
         self.hostname = self._getHostname()
 
         # LABEL (Hostname)
