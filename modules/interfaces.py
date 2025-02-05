@@ -214,6 +214,15 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
 
 
 # ---------- QT: ----------
+def checkFlag(flag):
+    if flag == "commited":
+        return "white"
+    elif flag == "uncommited":
+        return "yellow"
+    elif flag == "deleted":
+        return "red"
+    
+
 class DeviceInterfacesDialog(QDialog):
     def __init__(self, device):
         super().__init__()
@@ -253,7 +262,6 @@ class DeviceInterfacesDialog(QDialog):
         # Retrieve the interfaces from the device
         try:
             self.interfaces = self.device.interfaces
-            print(self.interfaces)
         except Exception as e:
             self.interfaces = {}
             self.error_label = QLabel(f"Failed to retrieve self.interfaces: {e}")
@@ -268,43 +276,41 @@ class DeviceInterfacesDialog(QDialog):
                 ipv4_data, ipv6_data = self.getFirstIPAddresses(interface_data['subinterfaces'])
 
                 # Flag: commited, uncommited, deleted
-                # TODO: IPV6
-                if ipv4_data and ipv4_data['flag'] == "uncommited":
-                    bg_color = "yellow"
-                elif ipv4_data and ipv4_data['flag'] == "deleted":
-                    bg_color = "red"
-                else:
-                    bg_color = "white"
+                bg_color = "white"
+                if ipv4_data:
+                    bg_color = checkFlag(ipv4_data['flag'])
+                if ipv6_data:
+                    bg_color = checkFlag(ipv6_data['flag'])
 
                 # Interface name
-                self.interface_item = QTableWidgetItem(interface_element)
-                self.interface_item.setFlags(self.interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
-                self.interface_item.setBackground(QBrush(QColor(bg_color)))
-                self.interfaces_table.setItem(row, 0, self.interface_item)
+                interface_item = QTableWidgetItem(interface_element)
+                interface_item.setFlags(interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
+                interface_item.setBackground(QBrush(QColor(bg_color)))
+                self.interfaces_table.setItem(row, 0, interface_item)
                 # Administrative state
-                self.admin_state_item = QTableWidgetItem(admin_state)
-                self.admin_state_item.setFlags(self.admin_state_item.flags() ^ Qt.ItemIsEditable)
-                self.admin_state_item.setBackground(QBrush(QColor(bg_color)))
-                self.interfaces_table.setItem(row, 1, self.admin_state_item)
+                admin_state_item = QTableWidgetItem(admin_state)
+                admin_state_item.setFlags(admin_state_item.flags() ^ Qt.ItemIsEditable)
+                admin_state_item.setBackground(QBrush(QColor(bg_color)))
+                self.interfaces_table.setItem(row, 1, admin_state_item)
                 # Operational state
-                self.oper_state_item = QTableWidgetItem(oper_state)
-                self.oper_state_item.setFlags(self.oper_state_item.flags() ^ Qt.ItemIsEditable)
-                self.oper_state_item.setBackground(QBrush(QColor(bg_color)))
-                self.interfaces_table.setItem(row, 2, self.oper_state_item)
+                oper_state_item = QTableWidgetItem(oper_state)
+                oper_state_item.setFlags(oper_state_item.flags() ^ Qt.ItemIsEditable)
+                oper_state_item.setBackground(QBrush(QColor(bg_color)))
+                self.interfaces_table.setItem(row, 2, oper_state_item)
                 # IPv4 
-                self.ipv4_item = QTableWidgetItem(str(ipv4_data['value']) if ipv4_data else "")
-                self.ipv4_item.setFlags(self.ipv4_item.flags() ^ Qt.ItemIsEditable)
-                self.ipv4_item.setBackground(QBrush(QColor(bg_color)))
-                self.interfaces_table.setItem(row, 3, self.ipv4_item)
+                ipv4_item = QTableWidgetItem(str(ipv4_data['value']) if ipv4_data else "")
+                ipv4_item.setFlags(ipv4_item.flags() ^ Qt.ItemIsEditable)
+                ipv4_item.setBackground(QBrush(QColor(bg_color)))
+                self.interfaces_table.setItem(row, 3, ipv4_item)
                 # IPv6
-                self.ipv6_item = QTableWidgetItem(str(ipv6_data['value']) if ipv6_data else "")
-                self.ipv6_item.setFlags(self.ipv6_item.flags() ^ Qt.ItemIsEditable)
-                self.ipv6_item.setBackground(QBrush(QColor(bg_color)))
-                self.interfaces_table.setItem(row, 4, self.ipv6_item)
+                ipv6_item = QTableWidgetItem(str(ipv6_data['value']) if ipv6_data else "")
+                ipv6_item.setFlags(ipv6_item.flags() ^ Qt.ItemIsEditable)
+                ipv6_item.setBackground(QBrush(QColor(bg_color)))
+                self.interfaces_table.setItem(row, 4, ipv6_item)
                 # Edit button
-                self.button_item = QPushButton("Edit")
-                self.button_item.clicked.connect(self.showDialog)
-                self.interfaces_table.setCellWidget(row, 5, self.button_item)      
+                button_item = QPushButton("Edit")
+                button_item.clicked.connect(self.showDialog)
+                self.interfaces_table.setCellWidget(row, 5, button_item)      
         else :
             self.interfaces_table.setRowCount(1)
             self.interfaces_table.setColumnCount(1)
@@ -389,22 +395,22 @@ class EditInterfaceDialog(QDialog):
         # Get subinterfaces, create a layout for each subinterface containg: Header, Table
         self.subinterfaces = self.device.interfaces[self.interface_id]['subinterfaces']
         for subinterface_index, subinterface_data in self.subinterfaces.items():
-            self.subinterface_layout = QVBoxLayout()
+            subinterface_layout = QVBoxLayout()
             
             # Header ("Subinterface: x | [Add IP address]")
-            self.subinterface_label = QLabel(f"Subinterface: {subinterface_index}")
-            self.subinterface_label.setFont(QFont("Arial", 16))
-            self.add_ip_button = QPushButton("Add IP address")
-            self.add_ip_button.clicked.connect(lambda _, index=subinterface_index : self.showDialog(index))
-            self.header_layout = QHBoxLayout()
-            self.header_layout.addWidget(self.subinterface_label)
-            self.header_layout.addWidget(self.add_ip_button)
-            self.subinterface_layout.addLayout(self.header_layout)
+            subinterface_label = QLabel(f"Subinterface: {subinterface_index}")
+            subinterface_label.setFont(QFont("Arial", 16))
+            add_ip_button = QPushButton("Add IP address")
+            add_ip_button.clicked.connect(lambda _, index=subinterface_index : self.showDialog(index))
+            header_layout = QHBoxLayout()
+            header_layout.addWidget(subinterface_label)
+            header_layout.addWidget(add_ip_button)
+            subinterface_layout.addLayout(header_layout)
 
             # Table
-            self.subinterface_layout.addWidget(self.createSubinterfaceTable(subinterface_index, subinterface_data))
+            subinterface_layout.addWidget(self.createSubinterfaceTable(subinterface_index, subinterface_data))
             
-            self.layout.addLayout(self.subinterface_layout)
+            self.layout.addLayout(subinterface_layout)
 
     def createSubinterfaceTable(self, subinterface_index, subinterface_data):
         """
@@ -422,39 +428,41 @@ class EditInterfaceDialog(QDialog):
         row = 0
         for ipv4_data in subinterface_data['ipv4_data']:
             # Flag: commited, uncommited, deleted
-            if ipv4_data['flag'] == "uncommited":
-                bg_color = "yellow"
-            elif ipv4_data['flag'] == "deleted":
-                bg_color = "red"
-            else:
-                bg_color = "white"
+            bg_color = "white"
+            if ipv4_data:
+                bg_color = checkFlag(ipv4_data['flag'])
 
             # IPv4 address
-            self.ip_item = QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}")
-            self.ip_item.setBackground(QBrush(QColor(bg_color)))
-            subinterface_table.setItem(row, 0, self.ip_item)
+            ip_item = QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}")
+            ip_item.setBackground(QBrush(QColor(bg_color)))
+            subinterface_table.setItem(row, 0, ip_item)
             # Edit button
-            self.edit_ip_button_item = QPushButton("Edit")
-            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.showDialog(index, ip)) # _ = unused argument
-            subinterface_table.setCellWidget(row, 1, self.edit_ip_button_item)
+            edit_ip_button_item = QPushButton("Edit")
+            edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.showDialog(index, ip)) # _ = unused argument
+            subinterface_table.setCellWidget(row, 1, edit_ip_button_item)
             # Delete button
-            self.delete_ip_button_item = QPushButton("Delete")
-            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.deleteIP(index, ip))
-            subinterface_table.setCellWidget(row, 2, self.delete_ip_button_item)
+            delete_ip_button_item = QPushButton("Delete")
+            delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.deleteIP(index, ip))
+            subinterface_table.setCellWidget(row, 2, delete_ip_button_item)
             
             row += 1
         
         for ipv6_data in subinterface_data['ipv6_data']:
+            # Flag: commited, uncommited, deleted
+            bg_color = "white"
+            if ipv6_data:
+                bg_color = checkFlag(ipv6_data['flag'])
+
             # IPv6 address
             subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv6_data['value'].ip}/{ipv6_data['value'].network.prefixlen}"))
             # Edit button
-            self.edit_ip_button_item = QPushButton("Edit")
-            self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data['value'] : self.showDialog(index, ip)) # _ = unused argument
-            subinterface_table.setCellWidget(row, 1, self.edit_ip_button_item)
+            edit_ip_button_item = QPushButton("Edit")
+            edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data['value'] : self.showDialog(index, ip)) # _ = unused argument
+            subinterface_table.setCellWidget(row, 1, edit_ip_button_item)
             # Delete button
-            self.delete_ip_button_item = QPushButton("Delete")
-            self.delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data['value'] : self.deleteIP(index, ip))
-            subinterface_table.setCellWidget(row, 2, self.delete_ip_button_item)
+            delete_ip_button_item = QPushButton("Delete")
+            delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data['value'] : self.deleteIP(index, ip))
+            subinterface_table.setCellWidget(row, 2, delete_ip_button_item)
 
             row += 1
         return subinterface_table
