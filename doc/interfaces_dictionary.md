@@ -29,7 +29,12 @@ Device.interfaces = {
         "admin_status": "UP",
         "oper_status": "UP",
         "subinterfaces": {
-            "16384": {"ipv4_data": [IPv4Interface("127.0.0.1/32")], "ipv6_data": []},
+            "16384": {
+                "ipv4_data": [
+                    {"value": IPv4Interface("127.0.0.1/32"), "flag": "commited"}
+                ],
+                "ipv6_data": [],
+            },
             "16385": {"ipv4_data": [], "ipv6_data": []},
         },
     },
@@ -42,7 +47,12 @@ Device.interfaces = {
         "admin_status": "UP",
         "oper_status": "UP",
         "subinterfaces": {
-            "0": {"ipv4_data": [IPv4Interface("172.16.10.83/24")], "ipv6_data": []}
+            "0": {
+                "ipv4_data": [
+                    {"value": IPv4Interface("172.16.10.83/24"), "flag": "commited"}
+                ],
+                "ipv6_data": [],
+            }
         },
     },
     "em1": {
@@ -51,13 +61,16 @@ Device.interfaces = {
         "subinterfaces": {
             "0": {
                 "ipv4_data": [
-                    IPv4Interface("10.0.0.4/8"),
-                    IPv4Interface("128.0.0.1/2"),
-                    IPv4Interface("128.0.0.4/2"),
+                    {"value": IPv4Interface("10.0.0.4/8"), "flag": "deleted"},
+                    {"value": IPv4Interface("128.0.0.1/2"), "flag": "uncommited"},
+                    {"value": IPv4Interface("128.0.0.4/2"), "flag": "commited"},
                 ],
                 "ipv6_data": [
-                    IPv6Interface("fe80::5254:ff:fe12:bdfe/64"),
-                    IPv6Interface("fec0::a:0:0:4/64"),
+                    {
+                        "value": IPv6Interface("fe80::5254:ff:fe12:bdfe/64"),
+                        "flag": "commited",
+                    },
+                    {"value": IPv6Interface("fec0::a:0:0:4/64"), "flag": "commited"},
                 ],
             }
         },
@@ -67,7 +80,12 @@ Device.interfaces = {
         "admin_status": "UP",
         "oper_status": "UP",
         "subinterfaces": {
-            "1": {"ipv4_data": [IPv4Interface("128.0.0.127/2")], "ipv6_data": []}
+            "1": {
+                "ipv4_data": [
+                    {"value": IPv4Interface("128.0.0.127/2"), "flag": "commited"}
+                ],
+                "ipv6_data": [],
+            }
         },
     },
     "demux0": {"admin_status": "UP", "oper_status": "UP", "subinterfaces": {}},
@@ -108,7 +126,20 @@ Device.interfaces = {
     "ge-0/0/0": {
         "admin_status": "UP",
         "oper_status": "UP",
-        "subinterfaces": {"16386": {"ipv4_data": [], "ipv6_data": []}},
+        "subinterfaces": {
+            "0": {
+                "ipv4_data": [
+                    {"value": IPv4Interface("10.0.0.1/24"), "flag": "commited"}
+                ],
+                "ipv6_data": [
+                    {"value": IPv6Interface("2001::fe80/64"), "flag": "commited"},
+                    {
+                        "value": IPv6Interface("fe80::5200:ff:fe03:1/64"),
+                        "flag": "commited",
+                    },
+                ],
+            }
+        },
     },
     "ge-0/0/1": {
         "admin_status": "UP",
