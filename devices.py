@@ -269,6 +269,11 @@ class Device(QGraphicsPixmapItem):
             all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"]
             matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
             matching_entry["flag"] = "deleted"
+        elif old_ip.version == 6:
+            # find the entry to be deleted in the self.interfaces dictionary
+            all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"]
+            matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
+            matching_entry["flag"] = "deleted"
 
 
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):

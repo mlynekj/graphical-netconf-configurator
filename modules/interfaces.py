@@ -102,8 +102,8 @@ class EditIPAddressOpenconfigFilter:
         for ipvX in ipvX_element: # Opening and closing tags
             ipvX.tag = ipvX.tag.replace("ipvX", "ipv6")
 
-        ipv4_element = self.filter_xml.find(".//oc-ip:ipv6", self.namespaces)
-        address_element = ipv4_element.find(".//oc-ip:address", self.namespaces)
+        ipv6_element = self.filter_xml.find(".//oc-ip:ipv6", self.namespaces)
+        address_element = ipv6_element.find(".//oc-ip:address", self.namespaces)
         address_element.set("operation", "delete") if self.delete_ip else None
         
         ip_elements = address_element.findall(".//oc-ip:ip", self.namespaces) # The IP address element is stored in TWO places in the XML
