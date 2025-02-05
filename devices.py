@@ -264,7 +264,12 @@ class Device(QGraphicsPixmapItem):
         rpc_reply = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
         helper.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}")
         helper.printRpc(rpc_reply, "Delete IP", self.hostname)
-        # TODO: add entry to self.interfaces with the flag commited=False
+        if old_ip.version == 4:
+            # find the entry to be deleted in the self.interfaces dictionary
+            all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"]
+            matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
+            matching_entry["flag"] = "deleted"
+
 
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
         rpc_reply = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)

@@ -214,7 +214,7 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
 
 
 # ---------- QT: ----------
-def checkFlag(flag):
+def getBgColorFromFlag(flag):
     if flag == "commited":
         return "white"
     elif flag == "uncommited":
@@ -278,9 +278,9 @@ class DeviceInterfacesDialog(QDialog):
                 # Flag: commited, uncommited, deleted
                 bg_color = "white"
                 if ipv4_data:
-                    bg_color = checkFlag(ipv4_data['flag'])
+                    bg_color = getBgColorFromFlag(ipv4_data['flag'])
                 if ipv6_data:
-                    bg_color = checkFlag(ipv6_data['flag'])
+                    bg_color = getBgColorFromFlag(ipv6_data['flag'])
 
                 # Interface name
                 interface_item = QTableWidgetItem(interface_element)
@@ -430,7 +430,7 @@ class EditInterfaceDialog(QDialog):
             # Flag: commited, uncommited, deleted
             bg_color = "white"
             if ipv4_data:
-                bg_color = checkFlag(ipv4_data['flag'])
+                bg_color = getBgColorFromFlag(ipv4_data['flag'])
 
             # IPv4 address
             ip_item = QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}")
@@ -439,10 +439,20 @@ class EditInterfaceDialog(QDialog):
             # Edit button
             edit_ip_button_item = QPushButton("Edit")
             edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.showDialog(index, ip)) # _ = unused argument
+            if ipv4_data['flag'] == "deleted": # Dont allow to edit deleted IP addresses - prompt the user to create a new one instead
+                edit_ip_button_item.setEnabled(False)
+                edit_ip_button_item.setToolTip("Cannot edit deleted IP address. Create a new one instead.")
+            else:
+                edit_ip_button_item.setEnabled(True)
             subinterface_table.setCellWidget(row, 1, edit_ip_button_item)
             # Delete button
             delete_ip_button_item = QPushButton("Delete")
             delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.deleteIP(index, ip))
+            if ipv4_data['flag'] == "deleted": # Dont allow to delete already deleted IP addresses - prompt the user to create a new one instead
+                delete_ip_button_item.setEnabled(False)
+                delete_ip_button_item.setToolTip("Cannot delete an already deleted IP address. Create a new one instead.")
+            else:
+                delete_ip_button_item.setEnabled(True)
             subinterface_table.setCellWidget(row, 2, delete_ip_button_item)
             
             row += 1
@@ -451,17 +461,29 @@ class EditInterfaceDialog(QDialog):
             # Flag: commited, uncommited, deleted
             bg_color = "white"
             if ipv6_data:
-                bg_color = checkFlag(ipv6_data['flag'])
+                bg_color = getBgColorFromFlag(ipv6_data['flag'])
 
             # IPv6 address
-            subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv6_data['value'].ip}/{ipv6_data['value'].network.prefixlen}"))
+            ip_item = QTableWidgetItem(f"{ipv6_data['value'].ip}/{ipv6_data['value'].network.prefixlen}")
+            ip_item.setBackground(QBrush(QColor(bg_color)))
+            subinterface_table.setItem(row, 0, ip_item)
             # Edit button
             edit_ip_button_item = QPushButton("Edit")
             edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data['value'] : self.showDialog(index, ip)) # _ = unused argument
+            if ipv6_data['flag'] == "deleted": # Dont allow to edit deleted IP addresses - prompt the user to create a new one instead
+                edit_ip_button_item.setEnabled(False)
+                edit_ip_button_item.setToolTip("Cannot edit deleted IP address. Create a new one instead.")
+            else:
+                edit_ip_button_item.setEnabled(True)
             subinterface_table.setCellWidget(row, 1, edit_ip_button_item)
             # Delete button
             delete_ip_button_item = QPushButton("Delete")
             delete_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv6_data['value'] : self.deleteIP(index, ip))
+            if ipv6_data['flag'] == "deleted": # Dont allow to delete already deleted IP addresses - prompt the user to create a new one instead
+                delete_ip_button_item.setEnabled(False)
+                delete_ip_button_item.setToolTip("Cannot edit deleted IP address. Create a new one instead.")
+            else:
+                delete_ip_button_item.setEnabled(True)
             subinterface_table.setCellWidget(row, 2, delete_ip_button_item)
 
             row += 1
@@ -469,7 +491,7 @@ class EditInterfaceDialog(QDialog):
     
     def deleteIP(self, subinterface_index, old_ip):
         self.device.deleteInterfaceIP(self.interface_id, subinterface_index, old_ip)
-        #self.refreshDialog()
+        self.refreshDialog()
 
     def closeEvent(self, event):
         """ Refresh the parent dialog when this dialog is closed. """
