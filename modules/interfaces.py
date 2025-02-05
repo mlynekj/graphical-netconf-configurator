@@ -25,9 +25,9 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QStyle,
     QToolBar,
-    QMessageBox)
+    QMessageBox,)
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QFont, QGuiApplication, QAction
+from PySide6.QtGui import QFont, QGuiApplication, QAction, QBrush, QColor
 import ipaddress
 
 # ---------- FILTERS: ----------
@@ -170,7 +170,7 @@ def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
             # cannot use "if ipvX_address and ipvX_prefix_length"
             # because "FutureWarning: The behavior of this method will change in future versions. Use specific 'len(elem)' or 'elem is not None' test instead"
             ip_interface = IPv4Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}") if version == "ipv4" else IPv6Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}")
-            ipvX_data.append({'value': ip_interface, 'commited': True})
+            ipvX_data.append({'value': ip_interface, 'flag': 'commited'})
     return(ipvX_data)
 
 # -- Manipulation with IPs --
@@ -253,6 +253,7 @@ class DeviceInterfacesDialog(QDialog):
         # Retrieve the interfaces from the device
         try:
             self.interfaces = self.device.interfaces
+            print(self.interfaces)
         except Exception as e:
             self.interfaces = {}
             self.error_label = QLabel(f"Failed to retrieve self.interfaces: {e}")
@@ -266,25 +267,39 @@ class DeviceInterfacesDialog(QDialog):
                 oper_state = interface_data['oper_status']
                 ipv4_data, ipv6_data = self.getFirstIPAddresses(interface_data['subinterfaces'])
 
+                # Flag: commited, uncommited, deleted
+                # TODO: IPV6
+                if ipv4_data and ipv4_data['flag'] == "uncommited":
+                    bg_color = "yellow"
+                elif ipv4_data and ipv4_data['flag'] == "deleted":
+                    bg_color = "red"
+                else:
+                    bg_color = "white"
+
                 # Interface name
                 self.interface_item = QTableWidgetItem(interface_element)
                 self.interface_item.setFlags(self.interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
+                self.interface_item.setBackground(QBrush(QColor(bg_color)))
                 self.interfaces_table.setItem(row, 0, self.interface_item)
                 # Administrative state
                 self.admin_state_item = QTableWidgetItem(admin_state)
                 self.admin_state_item.setFlags(self.admin_state_item.flags() ^ Qt.ItemIsEditable)
+                self.admin_state_item.setBackground(QBrush(QColor(bg_color)))
                 self.interfaces_table.setItem(row, 1, self.admin_state_item)
                 # Operational state
                 self.oper_state_item = QTableWidgetItem(oper_state)
                 self.oper_state_item.setFlags(self.oper_state_item.flags() ^ Qt.ItemIsEditable)
+                self.oper_state_item.setBackground(QBrush(QColor(bg_color)))
                 self.interfaces_table.setItem(row, 2, self.oper_state_item)
                 # IPv4 
-                self.ipv4_item = QTableWidgetItem(str(ipv4_data) if ipv4_data is not None else "")
+                self.ipv4_item = QTableWidgetItem(str(ipv4_data['value']) if ipv4_data else "")
                 self.ipv4_item.setFlags(self.ipv4_item.flags() ^ Qt.ItemIsEditable)
+                self.ipv4_item.setBackground(QBrush(QColor(bg_color)))
                 self.interfaces_table.setItem(row, 3, self.ipv4_item)
                 # IPv6
-                self.ipv6_item = QTableWidgetItem(str(ipv6_data) if ipv6_data is not None else "")
+                self.ipv6_item = QTableWidgetItem(str(ipv6_data['value']) if ipv6_data else "")
                 self.ipv6_item.setFlags(self.ipv6_item.flags() ^ Qt.ItemIsEditable)
+                self.ipv6_item.setBackground(QBrush(QColor(bg_color)))
                 self.interfaces_table.setItem(row, 4, self.ipv6_item)
                 # Edit button
                 self.button_item = QPushButton("Edit")
@@ -319,9 +334,9 @@ class DeviceInterfacesDialog(QDialog):
         ipv6_data = ""
         for subinterface in subinterfaces.values():
             if subinterface['ipv4_data'] and not ipv4_data:
-                ipv4_data = subinterface['ipv4_data'][0]['value']
+                ipv4_data = subinterface['ipv4_data'][0]
             if subinterface['ipv6_data'] and not ipv6_data:
-                ipv6_data = subinterface['ipv6_data'][0]['value']
+                ipv6_data = subinterface['ipv6_data'][0]
             if ipv4_data and ipv6_data:
                 break
         return ipv4_data, ipv6_data
@@ -406,8 +421,18 @@ class EditInterfaceDialog(QDialog):
 
         row = 0
         for ipv4_data in subinterface_data['ipv4_data']:
+            # Flag: commited, uncommited, deleted
+            if ipv4_data['flag'] == "uncommited":
+                bg_color = "yellow"
+            elif ipv4_data['flag'] == "deleted":
+                bg_color = "red"
+            else:
+                bg_color = "white"
+
             # IPv4 address
-            subinterface_table.setItem(row, 0, QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}"))
+            self.ip_item = QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}")
+            self.ip_item.setBackground(QBrush(QColor(bg_color)))
+            subinterface_table.setItem(row, 0, self.ip_item)
             # Edit button
             self.edit_ip_button_item = QPushButton("Edit")
             self.edit_ip_button_item.clicked.connect(lambda _, index=subinterface_index, ip = ipv4_data['value'] : self.showDialog(index, ip)) # _ = unused argument
@@ -440,8 +465,7 @@ class EditInterfaceDialog(QDialog):
 
     def closeEvent(self, event):
         """ Refresh the parent dialog when this dialog is closed. """
-        #self.instance.refreshDialog()
-        # OBSOLETE: refresh of dialog no longer needed. When working with candidate datastore, the change is not immediately visible. Probably delete this function.
+        self.instance.refreshDialog()
         super().closeEvent(event)
 
     def showDialog(self, subinterface_index, ip = None):       
