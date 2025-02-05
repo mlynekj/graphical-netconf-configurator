@@ -354,8 +354,14 @@ class ClonedDevice(QGraphicsPixmapItem):
         # CABLES LIST
         self.cables = original_device.cables.copy()
 
+        # INTERFACES
+        self.interfaces = original_device.interfaces
+
         # ID
         self.id = original_device.id
+
+        # OSPF SPECIFIC
+        self.passive_interfaces = []
 
 
 # ---------- QT: ----------

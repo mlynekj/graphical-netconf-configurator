@@ -222,6 +222,14 @@ def getBgColorFromFlag(flag):
     elif flag == "deleted":
         return "red"
     
+def getTooltipFromFlag(flag):
+    if flag == "commited":
+        return ""
+    elif flag == "uncommited":
+        return "This device has some IP addresses in the candidate datastore, which are not yet active. The changes will be put into effect after commit."
+    elif flag == "deleted":
+        return "This device has some IP addresses set for deletion. The deletion will be put into effect after commit."
+    
 
 class DeviceInterfacesDialog(QDialog):
     def __init__(self, device):
@@ -277,35 +285,44 @@ class DeviceInterfacesDialog(QDialog):
 
                 # Flag: commited, uncommited, deleted
                 bg_color = "white"
+                tooltip = ""
                 if ipv4_data:
                     bg_color = getBgColorFromFlag(ipv4_data['flag'])
+                    tooltip = getTooltipFromFlag(ipv4_data['flag'])
                 if ipv6_data:
                     bg_color = getBgColorFromFlag(ipv6_data['flag'])
+                    tooltip = getTooltipFromFlag(ipv6_data['flag'])
+
 
                 # Interface name
                 interface_item = QTableWidgetItem(interface_element)
                 interface_item.setFlags(interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
                 interface_item.setBackground(QBrush(QColor(bg_color)))
+                interface_item.setToolTip(tooltip)
                 self.interfaces_table.setItem(row, 0, interface_item)
                 # Administrative state
                 admin_state_item = QTableWidgetItem(admin_state)
                 admin_state_item.setFlags(admin_state_item.flags() ^ Qt.ItemIsEditable)
                 admin_state_item.setBackground(QBrush(QColor(bg_color)))
+                admin_state_item.setToolTip(tooltip)
                 self.interfaces_table.setItem(row, 1, admin_state_item)
                 # Operational state
                 oper_state_item = QTableWidgetItem(oper_state)
                 oper_state_item.setFlags(oper_state_item.flags() ^ Qt.ItemIsEditable)
                 oper_state_item.setBackground(QBrush(QColor(bg_color)))
+                oper_state_item.setToolTip(tooltip)
                 self.interfaces_table.setItem(row, 2, oper_state_item)
                 # IPv4 
                 ipv4_item = QTableWidgetItem(str(ipv4_data['value']) if ipv4_data else "")
                 ipv4_item.setFlags(ipv4_item.flags() ^ Qt.ItemIsEditable)
                 ipv4_item.setBackground(QBrush(QColor(bg_color)))
+                ipv4_item.setToolTip(tooltip)
                 self.interfaces_table.setItem(row, 3, ipv4_item)
                 # IPv6
                 ipv6_item = QTableWidgetItem(str(ipv6_data['value']) if ipv6_data else "")
                 ipv6_item.setFlags(ipv6_item.flags() ^ Qt.ItemIsEditable)
                 ipv6_item.setBackground(QBrush(QColor(bg_color)))
+                ipv6_item.setToolTip(tooltip)
                 self.interfaces_table.setItem(row, 4, ipv6_item)
                 # Edit button
                 button_item = QPushButton("Edit")

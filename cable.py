@@ -230,9 +230,9 @@ class CableEditMode(QObject):
     
     def _promptInterfaceSelection(self, device, callback):
         menu = QMenu()
-        for interface in device.interfaces:
-            interface_action = QAction(interface[0], menu)
-            interface_action.triggered.connect(lambda _, intf=interface[0]: callback(intf)) # First argument (checked state of the button) is ignored
+        for interface in device.interfaces.keys():
+            interface_action = QAction(interface, menu)
+            interface_action.triggered.connect(lambda _, intf=interface: callback(intf)) # First argument (checked state of the button) is ignored
             menu.addAction(interface_action)
         menu.exec(QCursor.pos())
 

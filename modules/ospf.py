@@ -17,15 +17,16 @@ from PySide6.QtWidgets import (
     QToolBar,
     QMessageBox,
     QGraphicsView,
-    QGraphicsScene)
-from PySide6.QtCore import Qt, QSize
+    QGraphicsScene,
+    QCheckBox)
+from PySide6.QtCore import Qt, QSize, Slot
 from PySide6.QtGui import QFont, QGuiApplication, QAction
 
 from ui.ui_ospfdialog import Ui_OSPFDialog
 
 # Other
 import ipaddress
-
+from devices import ClonedDevice
 import sys
 from PySide6.QtCore import QFile
 
@@ -39,47 +40,58 @@ class OSPFDialog(QDialog):
 
         self.ui.graphicsView.setScene(self.scene)
 
-# class OSPFDialog(QDialog):
-#     # TODO: potom rozdelit do tridy asi "ProtocolDialog" a pak z ni dedit OSPFDialog, BGPDialog, ...
-#     def __init__(self, scene=None):
-#         super().__init__()
+        # Passive interfaces
+        self.ui.passive_interfaces_table.setColumnCount(2)
+        self.ui.passive_interfaces_table.setHorizontalHeaderLabels(["Interface", "Passive"])
+        self.ui.passive_interfaces_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.ui.passive_interfaces_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
 
-#         self.setWindowTitle("OSPF Configuration")
-#         self.setGeometry(100, 100, 800, 600)
+        # Networks
+        self.ui.networks_table.setColumnCount(2)
+        self.ui.networks_table.setHorizontalHeaderLabels(["Network", ""])
+        self.ui.networks_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.ui.networks_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
 
-#         self.main_layout = QHBoxLayout()
+        # When a device is selected on the scene, connect the signal to the slot onSelectionChanged
+        self.scene.selectionChanged.connect(self.onSelectionChanged)
 
-#         # Left side
-#         self.left_widget = QWidget()
-#         self.left_layout = QVBoxLayout()
-#         self.left_widget.setLayout(self.left_layout)
+    @Slot()
+    def onSelectionChanged(self):
+        selected_items = self.scene.selectedItems()
+        for item in selected_items:
+            if isinstance(item, ClonedDevice):
+                self.fillPassiveInterfacesTable(item)
 
-#         self.process_id_group = QWidget()
-#         self.process_id_layout = QVBoxLayout()
-#         self.process_id_group.setLayout(self.process_id_layout)
-
-#         self.process_id_label = QLabel("Process ID")
-#         self.left_layout.addWidget(self.process_id_label)
-#         self.process_id_input = QLineEdit()
-#         self.left_layout.addWidget(self.process_id_input)
-
+    def fillPassiveInterfacesTable(self, device):
+        interfaces = device.interfaces
+        passive_interfaces = device.passive_interfaces
+        if interfaces:
+            self.ui.passive_interfaces_table.setRowCount(len(interfaces))
+            for row, (interface) in enumerate(interfaces.items()):      
+                # Interface name
+                interface_item = QTableWidgetItem(interface[0])
+                interface_item.setFlags(interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
+                self.ui.passive_interfaces_table.setItem(row, 0, interface_item)
+                
+                # Checkbox
+                checkbox_item = QCheckBox()
+                if interface[0] in passive_interfaces:
+                    checkbox_item.setChecked(True)
+                else:
+                    checkbox_item.setChecked(False)
+                checkbox_item.clicked.connect(lambda state, row=row: self.onCheckboxChanged(row, device))
+                self.ui.passive_interfaces_table.setCellWidget(row, 1, checkbox_item)
+                self.ui.passive_interfaces_table.cellWidget(row, 1).setStyleSheet("QCheckBox { margin-left: auto; margin-right: auto; }") # Center horizontally
+        else :
+            self.ui.passive_interfaces_table.setRowCount(1)
+            self.ui.passive_interfaces_table.setColumnCount(1)
+            self.ui.passive_interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
         
-#         self.left_layout.addWidget(QPushButton("Button 1"))
-#         self.main_layout.addWidget(self.left_widget)
+    def onCheckboxChanged(self, row, device):
+        if self.ui.passive_interfaces_table.cellWidget(row, 1).isChecked():
+            device.passive_interfaces.append(self.ui.passive_interfaces_table.item(row, 0).text())
+        else:
+            device.passive_interfaces.remove(self.ui.passive_interfaces_table.item(row, 0).text())
 
-#         # Center
-#         self.graphics_view = QGraphicsView()
-#         self.scene = scene if scene else QGraphicsScene()
-#         self.graphics_view.setScene(self.scene)
-#         self.main_layout.addWidget(self.graphics_view)
-
-
-#         # Right side
-#         self.right_widget = QWidget()
-#         self.right_layout = QVBoxLayout()
-#         self.right_widget.setLayout(self.right_layout)
-#         self.right_layout.addWidget(QLabel("Right Widget"))
-#         self.right_layout.addWidget(QPushButton("Button 2"))
-#         self.main_layout.addWidget(self.right_widget)
-
-#         self.setLayout(self.main_layout)
+    def fillNetworksTable(self, device):
+        pass
