@@ -362,6 +362,29 @@ class ClonedDevice(QGraphicsPixmapItem):
 
         # OSPF SPECIFIC
         self.passive_interfaces = []
+        self.networks = {}
+
+    def getOSPFNetworks(self, device):
+        """
+        Example of return value: doc/ospf_networks.md
+        """
+        # TODO: refactor this mess
+        interfaces = device.interfaces
+        
+        device_ospf_networks = {} # {interface_name: [networks]}
+        for interface_name, interface_data in interfaces.items(): # Need the key
+            subinterfaces = interface_data.get("subinterfaces", {})
+            if subinterfaces:
+                for subinterface_data in subinterfaces.values(): # Dont need the key
+                    interface_ospf_networks = []
+                    for ipv4 in subinterface_data.get("ipv4_data", []):
+                        interface_ospf_networks.append(ipv4["value"].network)
+                    for ipv6 in subinterface_data.get("ipv6_data", []):
+                        interface_ospf_networks.append(ipv6["value"].network)
+        
+                device_ospf_networks[interface_name] = interface_ospf_networks
+        
+        return device_ospf_networks
 
 
 # ---------- QT: ----------

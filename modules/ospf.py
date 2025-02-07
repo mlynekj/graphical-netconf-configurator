@@ -102,32 +102,10 @@ class OSPFDialog(QDialog):
     def fillNetworksTable(self, device):
         self.ui.networks_table.setRowCount(0)
         
-        networks = self.getOSPFNetworks(device)
+        networks = device.getOSPFNetworks(device)
         for interface_name, interface_networks in networks.items():
             for network in interface_networks:
                 self.addNetworkToTable(network, interface_name)
-
-    def getOSPFNetworks(self, device):
-        """
-        Example of return value: doc/ospf_networks.md
-        """
-        # TODO: refactor this mess
-        interfaces = device.interfaces
-        
-        device_ospf_networks = {} # {interface_name: [networks]}
-        for interface_name, interface_data in interfaces.items(): # Need the key
-            subinterfaces = interface_data.get("subinterfaces", {})
-            if subinterfaces:
-                for subinterface_data in subinterfaces.values(): # Dont need the key
-                    interface_ospf_networks = []
-                    for ipv4 in subinterface_data.get("ipv4_data", []):
-                        interface_ospf_networks.append(ipv4["value"].network)
-                    for ipv6 in subinterface_data.get("ipv6_data", []):
-                        interface_ospf_networks.append(ipv6["value"].network)
-        
-                device_ospf_networks[interface_name] = interface_ospf_networks
-        
-        return device_ospf_networks
     
     def addNetworkToTable(self, network, interface_name):
         rowPosition = self.ui.networks_table.rowCount()
