@@ -102,7 +102,7 @@ class OSPFDialog(QDialog):
     def fillNetworksTable(self, device):
         self.ui.networks_table.setRowCount(0)
         
-        networks = device.getOSPFNetworks(device)
+        networks = device.ospf_networks
         for interface_name, interface_networks in networks.items():
             for network in interface_networks:
                 self.addNetworkToTable(network, interface_name)
