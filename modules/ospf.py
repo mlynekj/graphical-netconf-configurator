@@ -66,6 +66,10 @@ class OSPFDialog(QDialog):
 
     @Slot()
     def onSelectionChanged(self):
+        """
+        Slot function that gets called when a device is clicked on in the cloned scene.
+        Sets the selected device to the selected item and refreshes the passive interfaces and OSPF networks tables.
+        """
         selected_items = self.scene.selectedItems()
         for item in selected_items:
             if isinstance(item, ClonedDevice):
@@ -74,6 +78,11 @@ class OSPFDialog(QDialog):
                 self.refreshOSPFNetworksTable()
 
     def refreshPassiveInterfacesTable(self):
+        """
+        Loads and refreshes the passive interfaces table in the UI.
+        Information about the passive interfaces is taken from the selected device list - "passive_interfaces".
+        """
+
         interfaces = self.selected_device.interfaces
         passive_interfaces = self.selected_device.passive_interfaces
         if interfaces:
@@ -99,20 +108,33 @@ class OSPFDialog(QDialog):
             self.ui.passive_interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
         
     def onPassiveInterfaceCheckboxChange(self, row):
+        """
+        Checks for the state of the checkbox in the passive interfaces table (for each interface) and updates the selected device's "passive_interfaces" list.
+        """
+
         if self.ui.passive_interfaces_table.cellWidget(row, 1).isChecked():
             self.selected_device.passive_interfaces.append(self.ui.passive_interfaces_table.item(row, 0).text())
         else:
             self.selected_device.passive_interfaces.remove(self.ui.passive_interfaces_table.item(row, 0).text())
 
     def refreshOSPFNetworksTable(self):
+        """
+        Loads and refreshes the OSPF networks in the UI.
+        Information about the OSPF networks is taken from the selected device's list - "ospf_networks".
+        """
+                
         self.ui.networks_table.setRowCount(0)
         
         networks = self.selected_device.ospf_networks
         for interface_name, interface_networks in networks.items():
             for network in interface_networks:
-                self.insertNetworkIntoTable(network, interface_name)
+                self._insertNetworkIntoTable(network, interface_name)
     
-    def insertNetworkIntoTable(self, network, interface_name):
+    def _insertNetworkIntoTable(self, network, interface_name):
+        """
+        Helper function to insert a network into the OSPF networks table. Should be called only from refreshOSPFNetworksTable().
+        """
+
         rowPosition = self.ui.networks_table.rowCount()
         self.ui.networks_table.insertRow(rowPosition)
         self.ui.networks_table.setItem(rowPosition, 0, QTableWidgetItem(str(network)))
