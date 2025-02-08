@@ -385,6 +385,12 @@ class ClonedDevice(QGraphicsPixmapItem):
                 device_ospf_networks[interface_name] = interface_ospf_networks
         
         return device_ospf_networks
+    
+    def addOSPFNetwork(self, network, interface_name):
+        self.ospf_networks[interface_name].append(network)
+
+    def removeOSPFNetwork(self, network, interface_name):
+        self.ospf_networks[interface_name].remove(network)
 
 
 # ---------- QT: ----------

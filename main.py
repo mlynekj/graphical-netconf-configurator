@@ -22,7 +22,8 @@ from PySide6.QtWidgets import (
     QWidget,
     QPushButton,
     QHeaderView,
-    QLabel)
+    QLabel,
+    QMessageBox)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
@@ -310,9 +311,7 @@ class ProtocolsWidget(QDockWidget):
                 dialog = ospf.OSPFDialog(cloned_scene)
                 dialog.exec()
             else:
-                # TODO: zmenit potom tak aby se dialog nezobrazil pokud neni nic vybrano - zobrazit hlasku
-                dialog = ospf.OSPFDialog()
-                dialog.exec()
+                QMessageBox.warning(self, "Warning", "Select devices to configure OSPF on!", QMessageBox.Ok)
 
 
 # Right dock widget

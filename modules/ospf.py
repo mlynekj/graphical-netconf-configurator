@@ -24,6 +24,7 @@ from PySide6.QtCore import Qt, QSize, Slot
 from PySide6.QtGui import QFont, QGuiApplication, QAction
 
 from ui.ui_ospfdialog import Ui_OSPFDialog
+from ui.ui_addospfnetworkdialog import Ui_AddOSPFNetworkDialog
 
 # Other
 import ipaddress
@@ -58,7 +59,7 @@ class OSPFDialog(QDialog):
         self.ui.networks_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.ui.networks_table.setSortingEnabled(True)
         self.ui.delete_network_button.clicked.connect(self.deleteNetworkButtonHandler) # "delete network" button
-        self.ui.add_network_button.clicked.connect(self.addNetwork) # "add network" button
+        self.ui.add_network_button.clicked.connect(self.addNetworkButtonHandler) # "add network" button
 
         # When a device is selected on the scene, connect the signal to the slot onSelectionChanged
         self.scene.selectionChanged.connect(self.onSelectionChanged)
@@ -121,15 +122,51 @@ class OSPFDialog(QDialog):
         selected_rows = self.ui.networks_table.selectionModel().selectedRows()
         if selected_rows:
             for row in selected_rows:  
-                network = self.ui.networks_table.item(row.row(), 0).text()
+                network_text = self.ui.networks_table.item(row.row(), 0).text()
                 interface_name = self.ui.networks_table.item(row.row(), 1).text()
-                self.deleteNetwork(network, interface_name)
+                self.deleteNetwork(ipaddress.ip_network(network_text), interface_name)
             self.refreshOSPFNetworksTable()
         else:
             QMessageBox.warning(self, "Warning", "Select networks to delete.", QMessageBox.Ok)
 
     def deleteNetwork(self, network, interface_name):
-        self.selected_device.ospf_networks[interface_name].remove(ipaddress.ip_network(network))
+        self.selected_device.removeOSPFNetwork(network, interface_name)
+
+    def addNetworkButtonHandler(self):
+            if self.selected_device:
+                try:
+                    dialog = AddOSPFNetworkDialog(self.selected_device)
+                    dialog.exec()
+                finally:
+                    self.refreshOSPFNetworksTable()
+            else:
+                QMessageBox.warning(self, "Warning", "Select a device.", QMessageBox.Ok)
+
+
+class AddOSPFNetworkDialog(QDialog):
+    def __init__(self, device):
+        super().__init__()
+
+        self.device = device
+        self.ui = Ui_AddOSPFNetworkDialog()
+        self.ui.setupUi(self)
+
+        self.ui.interfaces_combo_box.addItems(self.device.interfaces.keys())
+        self.ui.interfaces_combo_box.addItems(["Not specified"])
+
+        self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self.addNetwork)
 
     def addNetwork(self):
-        print("Add network")
+        network = self.ui.network_input.text()
+        interface_name = self.ui.interfaces_combo_box.currentText()
+        if network and interface_name:
+            try:
+                if interface_name == "Not specified":
+                    interface_name = None
+                self.device.addOSPFNetwork(ipaddress.ip_network(network), interface_name)
+                
+                self.accept()
+            except ValueError:
+                QMessageBox.warning(self, "Warning", "Invalid network address.", QMessageBox.Ok)
+        else:
+            QMessageBox.warning(self, "Warning", "Fill in all fields.", QMessageBox.Ok)
