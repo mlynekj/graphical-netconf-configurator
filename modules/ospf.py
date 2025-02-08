@@ -35,6 +35,7 @@ class OSPFDialog(QDialog):
     def __init__(self, scene=None):
         super().__init__()
 
+        self.selected_device = None
         self.scene = scene
         self.ui = Ui_OSPFDialog()
         self.ui.setupUi(self)
@@ -56,6 +57,8 @@ class OSPFDialog(QDialog):
         self.ui.networks_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.ui.networks_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.ui.networks_table.setSortingEnabled(True)
+        self.ui.delete_network_button.clicked.connect(self.deleteNetworkButtonHandler) # "delete network" button
+        self.ui.add_network_button.clicked.connect(self.addNetwork) # "add network" button
 
         # When a device is selected on the scene, connect the signal to the slot onSelectionChanged
         self.scene.selectionChanged.connect(self.onSelectionChanged)
@@ -65,12 +68,13 @@ class OSPFDialog(QDialog):
         selected_items = self.scene.selectedItems()
         for item in selected_items:
             if isinstance(item, ClonedDevice):
-                self.fillPassiveInterfacesTable(item)
-                self.fillNetworksTable(item)
+                self.selected_device = item
+                self.refreshPassiveInterfacesTable()
+                self.refreshOSPFNetworksTable()
 
-    def fillPassiveInterfacesTable(self, device):
-        interfaces = device.interfaces
-        passive_interfaces = device.passive_interfaces
+    def refreshPassiveInterfacesTable(self):
+        interfaces = self.selected_device.interfaces
+        passive_interfaces = self.selected_device.passive_interfaces
         if interfaces:
             self.ui.passive_interfaces_table.setRowCount(len(interfaces))
             for row, (interface) in enumerate(interfaces.items()):      
@@ -85,7 +89,7 @@ class OSPFDialog(QDialog):
                     checkbox_item.setChecked(True)
                 else:
                     checkbox_item.setChecked(False)
-                checkbox_item.clicked.connect(lambda state, row=row: self.onPassiveInterfaceCheckboxChange(row, device))
+                checkbox_item.clicked.connect(lambda state, row=row: self.onPassiveInterfaceCheckboxChange(row))
                 self.ui.passive_interfaces_table.setCellWidget(row, 1, checkbox_item)
                 self.ui.passive_interfaces_table.cellWidget(row, 1).setStyleSheet("QCheckBox { margin-left: auto; margin-right: auto; }") # Center horizontally
         else :
@@ -93,22 +97,39 @@ class OSPFDialog(QDialog):
             self.ui.passive_interfaces_table.setColumnCount(1)
             self.ui.passive_interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
         
-    def onPassiveInterfaceCheckboxChange(self, row, device):
+    def onPassiveInterfaceCheckboxChange(self, row):
         if self.ui.passive_interfaces_table.cellWidget(row, 1).isChecked():
-            device.passive_interfaces.append(self.ui.passive_interfaces_table.item(row, 0).text())
+            self.selected_device.passive_interfaces.append(self.ui.passive_interfaces_table.item(row, 0).text())
         else:
-            device.passive_interfaces.remove(self.ui.passive_interfaces_table.item(row, 0).text())
+            self.selected_device.passive_interfaces.remove(self.ui.passive_interfaces_table.item(row, 0).text())
 
-    def fillNetworksTable(self, device):
+    def refreshOSPFNetworksTable(self):
         self.ui.networks_table.setRowCount(0)
         
-        networks = device.ospf_networks
+        networks = self.selected_device.ospf_networks
         for interface_name, interface_networks in networks.items():
             for network in interface_networks:
-                self.addNetworkToTable(network, interface_name)
+                self.insertNetworkIntoTable(network, interface_name)
     
-    def addNetworkToTable(self, network, interface_name):
+    def insertNetworkIntoTable(self, network, interface_name):
         rowPosition = self.ui.networks_table.rowCount()
         self.ui.networks_table.insertRow(rowPosition)
         self.ui.networks_table.setItem(rowPosition, 0, QTableWidgetItem(str(network)))
         self.ui.networks_table.setItem(rowPosition, 1, QTableWidgetItem(interface_name))
+
+    def deleteNetworkButtonHandler(self):
+        selected_rows = self.ui.networks_table.selectionModel().selectedRows()
+        if selected_rows:
+            for row in selected_rows:  
+                network = self.ui.networks_table.item(row.row(), 0).text()
+                interface_name = self.ui.networks_table.item(row.row(), 1).text()
+                self.deleteNetwork(network, interface_name)
+            self.refreshOSPFNetworksTable()
+        else:
+            QMessageBox.warning(self, "Warning", "Select networks to delete.", QMessageBox.Ok)
+
+    def deleteNetwork(self, network, interface_name):
+        self.selected_device.ospf_networks[interface_name].remove(ipaddress.ip_network(network))
+
+    def addNetwork(self):
+        print("Add network")
