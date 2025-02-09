@@ -53,6 +53,9 @@ class Device(QGraphicsPixmapItem):
     _device_type = "D"
     
     def __init__(self, device_parameters, x=0, y=0):
+        """
+        TODO: document format of device_parameters + other stuff
+        """
         super().__init__()
 
         self.setAcceptHoverEvents(True)  # Enable mouse hover over events

@@ -2,6 +2,7 @@
 import sys
 from io import StringIO
 from contextlib import contextmanager
+import json
 
 # QT
 from PySide6.QtCore import Qt, Signal, QObject, QRectF
@@ -35,7 +36,7 @@ from PySide6.QtGui import (
     QPen)
 
 # Custom
-from devices import Device, Router, AddDeviceDialog
+from devices import Device, Router, Switch, AddDeviceDialog
 from cable import Cable, CableEditMode
 from signals import signal_manager
 import modules.netconf as netconf
@@ -239,6 +240,14 @@ class MainWindow(QMainWindow):
         action_cableEditMode.triggered.connect(self._toggleCableMode)
         self.toolbar.addAction(action_cableEditMode)
 
+        # "Load devices from file" button
+        load_devices_img = QIcon(QPixmap("graphics/icons/load.png")) # https://www.freepik.com/icon/file_892070#fromView=search&page=1&position=43&uuid=50ac52f8-baa0-416e-bdb5-fa1dde310592
+        action_loadDevices = QAction(load_devices_img, "Load devices from file", self)
+        action_loadDevices.setToolTip("Load devices from a JSON file \"saved_devices.json\"")
+        action_loadDevices.triggered.connect(self._loadDevicesFromFile)
+        self.toolbar.addAction(action_loadDevices)
+
+
         self.addToolBar(self.toolbar)                
   
     def _showDeviceConnectionDialog(self):
@@ -254,6 +263,35 @@ class MainWindow(QMainWindow):
         else:
             self.cable_edit_mode.exitMode()
 
+    def _loadDevicesFromFile(self):
+        try:
+            with open("saved_devices.json") as f:
+                data = json.load(f)
+                for device in data["devices"]:
+                    device_parameters = {}
+
+                    address_field = device["ip_address"].split(":")
+                    if len(address_field) == 2:
+                        device_parameters["address"] = address_field[0]
+                        device_parameters["port"] = address_field[1]
+                    elif len(address_field) == 1:
+                        device_parameters["address"] = device["ip_address"]
+                        device_parameters["port"] = 830
+                        
+                    device_parameters["username"] = device["username"]
+                    device_parameters["password"] = device["password"]
+                    device_parameters["device_params"] = device["vendor"]
+
+                    if device["type"] == "Router":
+                        router = Router(device_parameters, x=device["location"]["x"], y=device["location"]["y"])
+                        self.view.scene.addItem(router)
+                    elif device["type"] == "Switch":
+                        switch = Switch(device_parameters, x=device["location"]["x"], y=device["location"]["y"])
+                        self.view.scene.addItem(switch)
+        except FileNotFoundError:
+            QMessageBox.warning(self, "File not found", "File \"saved_devices.json\" not found.", QMessageBox.Ok)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"An error occured while loading devices from file: {e}", QMessageBox.Ok)
 
 # Bottom dock widget
 class ConsoleWidget(QDockWidget):
