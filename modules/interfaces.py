@@ -135,26 +135,30 @@ def getInterfacesWithNetconf(device):
     
     for interface_element in interface_elements:
         name = interface_element.text
-        admin_status = interface_element.xpath('../state/admin-status')[0].text
-        oper_status = interface_element.xpath('../state/oper-status')[0].text
 
-        subinterfaces = {}
-        subinterface_indexes = interface_element.xpath('../subinterfaces/subinterface/index')
-        for subinterface_index in subinterface_indexes:
-            subinterface_element = subinterface_index.getparent()
-            
-            ipv4_data = extractIPDataFromSubinterface(subinterface_element, version="ipv4")
-            ipv6_data = extractIPDataFromSubinterface(subinterface_element, version="ipv6")
-            subinterfaces[subinterface_index.text] = {
-                'ipv4_data': ipv4_data,
-                'ipv6_data': ipv6_data
+        # After update of JUNOS (vRouter 24.2R1.S2) Juniper returns !THREE! <interfaces>...</interfaces> tags for each interface, 
+        # so we need to skip the duplicates to avoid overwriting the data with empty values
+        if name not in interfaces:
+            admin_status = interface_element.xpath('../state/admin-status')[0].text
+            oper_status = interface_element.xpath('../state/oper-status')[0].text
+
+            subinterfaces = {}
+            subinterface_indexes = interface_element.xpath('../subinterfaces/subinterface/index')
+            for subinterface_index in subinterface_indexes:
+                subinterface_element = subinterface_index.getparent()
+                
+                ipv4_data = extractIPDataFromSubinterface(subinterface_element, version="ipv4")
+                ipv6_data = extractIPDataFromSubinterface(subinterface_element, version="ipv6")
+                subinterfaces[subinterface_index.text] = {
+                    'ipv4_data': ipv4_data,
+                    'ipv6_data': ipv6_data
+                }
+
+            interfaces[name] = {
+                'admin_status': admin_status,
+                'oper_status': oper_status,
+                'subinterfaces': subinterfaces
             }
-
-        interfaces[name] = {
-            'admin_status': admin_status,
-            'oper_status': oper_status,
-            'subinterfaces': subinterfaces
-        }
 
     return(interfaces)
 
