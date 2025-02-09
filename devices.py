@@ -280,6 +280,14 @@ class Device(QGraphicsPixmapItem):
         rpc_reply = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
         helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}")
         helper.printRpc(rpc_reply, "Set IP", self.hostname)
+        
+        # When adding IP to a new subinterface, create the subinterface first
+        if subinterface_index not in self.interfaces[interface_id]["subinterfaces"]:
+            self.interfaces[interface_id]["subinterfaces"][subinterface_index] = {
+                "ipv4_data": [],
+                "ipv6_data": []
+            }
+        
         if new_ip.version == 4:
             self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"].append({"value": new_ip, "flag": "uncommited"})
         elif new_ip.version == 6:
