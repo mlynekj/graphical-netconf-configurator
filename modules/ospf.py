@@ -33,6 +33,17 @@ import sys
 from PySide6.QtCore import QFile
 
 class OSPFDialog(QDialog):
+    """
+    OSPFDialog is a QDialog subclass that provides a user interface for configuring OSPF settings on network devices.
+    It allows users to configure OSPF on selected devices.
+    When the dialog is opened, it creates a clone of the MainView scene (only the selected devices) and displays it in the dialog.
+    UI components were created in QtCreator and converted to Python code using PySide6-uic.
+    Attributes:
+        selected_device (ClonedDevice): The currently selected device in the cloned scene.
+        scene (QGraphicsScene): The graphical scene containing network devices. Created by cloning the MainView scene.
+        ui (Ui_OSPFDialog): The user interface elements for the dialog.
+    """
+            
     def __init__(self, scene=None):
         super().__init__()
 
@@ -58,14 +69,14 @@ class OSPFDialog(QDialog):
         self.ui.networks_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.ui.networks_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.ui.networks_table.setSortingEnabled(True)
-        self.ui.delete_network_button.clicked.connect(self.deleteNetworkButtonHandler) # "delete network" button
-        self.ui.add_network_button.clicked.connect(self.addNetworkButtonHandler) # "add network" button
+        self.ui.delete_network_button.clicked.connect(self._deleteNetworkButtonHandler) # "delete network" button
+        self.ui.add_network_button.clicked.connect(self._addNetworkButtonHandler) # "add network" button
 
         # When a device is selected on the scene, connect the signal to the slot onSelectionChanged
-        self.scene.selectionChanged.connect(self.onSelectionChanged)
+        self.scene.selectionChanged.connect(self._onSelectionChanged)
 
     @Slot()
-    def onSelectionChanged(self):
+    def _onSelectionChanged(self):
         """
         Slot function that gets called when a device is clicked on in the cloned scene.
         Sets the selected device to the selected item and refreshes the passive interfaces and OSPF networks tables.
@@ -74,10 +85,10 @@ class OSPFDialog(QDialog):
         for item in selected_items:
             if isinstance(item, ClonedDevice):
                 self.selected_device = item
-                self.refreshPassiveInterfacesTable()
-                self.refreshOSPFNetworksTable()
+                self._refreshPassiveInterfacesTable()
+                self._refreshOSPFNetworksTable()
 
-    def refreshPassiveInterfacesTable(self):
+    def _refreshPassiveInterfacesTable(self):
         """
         Loads and refreshes the passive interfaces table in the UI.
         Information about the passive interfaces is taken from the selected device list - "passive_interfaces".
@@ -99,7 +110,7 @@ class OSPFDialog(QDialog):
                     checkbox_item.setChecked(True)
                 else:
                     checkbox_item.setChecked(False)
-                checkbox_item.clicked.connect(lambda state, row=row: self.onPassiveInterfaceCheckboxChange(row))
+                checkbox_item.clicked.connect(lambda state, row=row: self._onPassiveInterfaceCheckboxChange(row))
                 self.ui.passive_interfaces_table.setCellWidget(row, 1, checkbox_item)
                 self.ui.passive_interfaces_table.cellWidget(row, 1).setStyleSheet("QCheckBox { margin-left: auto; margin-right: auto; }") # Center horizontally
         else :
@@ -107,7 +118,7 @@ class OSPFDialog(QDialog):
             self.ui.passive_interfaces_table.setColumnCount(1)
             self.ui.passive_interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
         
-    def onPassiveInterfaceCheckboxChange(self, row):
+    def _onPassiveInterfaceCheckboxChange(self, row):
         """
         Checks for the state of the checkbox in the passive interfaces table (for each interface) and updates the selected device's "passive_interfaces" list.
         """
@@ -117,7 +128,7 @@ class OSPFDialog(QDialog):
         else:
             self.selected_device.passive_interfaces.remove(self.ui.passive_interfaces_table.item(row, 0).text())
 
-    def refreshOSPFNetworksTable(self):
+    def _refreshOSPFNetworksTable(self):
         """
         Loads and refreshes the OSPF networks in the UI.
         Information about the OSPF networks is taken from the selected device's list - "ospf_networks".
@@ -140,32 +151,55 @@ class OSPFDialog(QDialog):
         self.ui.networks_table.setItem(rowPosition, 0, QTableWidgetItem(str(network)))
         self.ui.networks_table.setItem(rowPosition, 1, QTableWidgetItem(interface_name))
 
-    def deleteNetworkButtonHandler(self):
+    def _deleteNetworkButtonHandler(self):
+        """
+        Handles the event when the "Delete Network" button is clicked.
+        This method retrieves the selected rows from the networks table, extracts the network 
+        and interface information, and calls the deleteNetwork method to remove the network 
+        from the configuration. After deletion, it refreshes the OSPF networks table to reflect the changes.
+        """
+
         selected_rows = self.ui.networks_table.selectionModel().selectedRows()
         if selected_rows:
             for row in selected_rows:  
                 network_text = self.ui.networks_table.item(row.row(), 0).text()
                 interface_name = self.ui.networks_table.item(row.row(), 1).text()
-                self.deleteNetwork(ipaddress.ip_network(network_text), interface_name)
-            self.refreshOSPFNetworksTable()
+                self._deleteNetwork(ipaddress.ip_network(network_text), interface_name)
+            self._refreshOSPFNetworksTable()
         else:
             QMessageBox.warning(self, "Warning", "Select networks to delete.", QMessageBox.Ok)
 
-    def deleteNetwork(self, network, interface_name):
+    def _deleteNetwork(self, network, interface_name):
+        """
+        Helper function to delete a network from the OSPF configuration. Should be called only from deleteNetworkButtonHandler().
+        """
         self.selected_device.removeOSPFNetwork(network, interface_name)
 
-    def addNetworkButtonHandler(self):
-            if self.selected_device:
-                try:
-                    dialog = AddOSPFNetworkDialog(self.selected_device)
-                    dialog.exec()
-                finally:
-                    self.refreshOSPFNetworksTable()
-            else:
-                QMessageBox.warning(self, "Warning", "Select a device.", QMessageBox.Ok)
+    def _addNetworkButtonHandler(self):
+        """
+        Handles the event when the "Add Network" button is clicked.
+        This method checks if a device is selected. If a device is selected, it opens
+        the AddOSPFNetworkDialog and refreshes the OSPF networks table after the dialog is closed. 
+        """
+        
+        if self.selected_device:
+            try:
+                dialog = AddOSPFNetworkDialog(self.selected_device)
+                dialog.exec()
+            finally:
+                self._refreshOSPFNetworksTable()
+        else:
+            QMessageBox.warning(self, "Warning", "Select a device.", QMessageBox.Ok)
 
 
 class AddOSPFNetworkDialog(QDialog):
+    """
+    A dialog for adding an OSPF network to a device. Is called when the "Add Network" button is clicked in the OSPFDialog.
+    Attributes:
+        device (Device): The device to which the OSPF network will be added.
+        ui (Ui_AddOSPFNetworkDialog): The UI components of the dialog.  
+    """
+
     def __init__(self, device):
         super().__init__()
 
@@ -176,9 +210,15 @@ class AddOSPFNetworkDialog(QDialog):
         self.ui.interfaces_combo_box.addItems(self.device.interfaces.keys())
         self.ui.interfaces_combo_box.addItems(["Not specified"])
 
-        self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self.addNetwork)
+        self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self._addNetwork)
 
-    def addNetwork(self):
+    def _addNetwork(self):
+        """
+        Adds an OSPF network to the configuration.
+        This method retrieves the network address and interface name from the UI,
+        validates them, and adds the network to the OSPF configuration of the device.
+        """
+
         network = self.ui.network_input.text()
         interface_name = self.ui.interfaces_combo_box.currentText()
         if network and interface_name:
