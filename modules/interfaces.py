@@ -30,7 +30,8 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QGuiApplication, QAction, QBrush, QColor
 import ipaddress
 
-from ui.ui_interfaces import Ui_Interfaces
+from ui.ui_interfacesdialog import Ui_Interfaces
+from ui.ui_addinterfacedialog import Ui_add_interface_dialog
 
 # ---------- FILTERS: ----------
 class GetInterfacesOpenconfigFilter:
@@ -115,6 +116,12 @@ class EditIPAddressOpenconfigFilter:
         prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
         prefix_length_element.text = str(self.ip.network.prefixlen)
 
+    class AddInterfaceOpenconfigFilter:
+        def __init__(self):
+            pass
+
+        def __str__(self):
+            pass
 
 # ---------- OPERATIONS: ----------
 # -- Retrieval --
@@ -218,6 +225,9 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
     return(rpc_reply)
 
+# -- Add new interfaces --
+def addInterfaceWithNetconf(device, interface_id, interface_type):
+    pass
 
 # ---------- QT: ----------
 def getBgColorFromFlag(flag):
@@ -248,6 +258,7 @@ class DeviceInterfacesDialog(QDialog):
 
         self.setWindowTitle("Device Interfaces")
         self.ui.close_button_box.button(QDialogButtonBox.Close).clicked.connect(self.close)
+        self.ui.add_interface_button.clicked.connect(lambda : AddInterfaceDialog(self.device).exec())
         self.fillLayout()
 
     def fillLayout(self):
@@ -588,3 +599,33 @@ class EditSubinterfaceDialog(QDialog):
             self.device.setInterfaceIP(self.interface_id, self.subinterface_input.text(), self.new_ip)
             self.editInterfaceDialog_instance.refreshDialog()
         self.accept()
+
+class AddInterfaceDialog(QDialog):
+    def __init__(self, device):
+        super().__init__()
+
+        self.device = device
+
+        self.ui = Ui_add_interface_dialog()
+        self.ui.setupUi(self)
+
+        self.setWindowTitle("Add new interface")
+        self.ui.ok_cancel_button_box.button(QDialogButtonBox.Ok).clicked.connect(self.confirmAdd)
+        self.ui.ok_cancel_button_box.button(QDialogButtonBox.Cancel).clicked.connect(self.close)
+
+        self.ui.interface_type_combobox.addItems(["Loopback"])
+
+    def confirmAdd(self):
+        interface_name = self.ui.interface_name_input.text()
+        interface_type = self.ui.interface_type_combobox.currentText()
+
+        if interface_type == "Loopback":
+            if not interface_name.startswith("Loopback"):
+                QMessageBox.warning(self, "Warning", "Invalid interface name!")
+                return
+            else:
+                self.device.addLoopbackInterface(interface_name)
+                self.accept()
+        else:
+            QMessageBox.warning(self, "Warning", "Select a valid interface type.")
+            return

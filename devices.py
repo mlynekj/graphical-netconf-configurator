@@ -303,6 +303,15 @@ class Device(QGraphicsPixmapItem):
         helper.printRpc(rpc_reply_delete, "Delete IP", self.hostname)
         helper.printRpc(rpc_reply_set, "Set IP", self.hostname)
         # TODO: add entry to self.interfaces with the flag commited=False
+
+    def addInterface(self, interface_id, interface_type):
+        rpc_reply = interfaces.addInterfaceWithNetconf(self, interface_id, interface_type)
+        helper.addPendingChange(self, f"Add interface: {interface_id}")
+        helper.printRpc(rpc_reply, "Add Interface", self.hostname)
+        self.interfaces[interface_id] = {
+            "type": interface_type,
+            "subinterfaces": {}
+        }
     
     # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod
