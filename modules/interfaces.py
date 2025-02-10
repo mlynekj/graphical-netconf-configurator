@@ -30,6 +30,8 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QGuiApplication, QAction, QBrush, QColor
 import ipaddress
 
+from ui.ui_interfaces import Ui_Interfaces
+
 # ---------- FILTERS: ----------
 class GetInterfacesOpenconfigFilter:
     def __init__(self):
@@ -241,47 +243,34 @@ class DeviceInterfacesDialog(QDialog):
 
         self.device = device
 
-        self.setWindowTitle("Device Interfaces")
-        self.setGeometry(
-            QStyle.alignedRect(
-                Qt.LeftToRight,
-                Qt.AlignCenter,
-                QSize(800, 500),
-                QGuiApplication.primaryScreen().availableGeometry()
-            )
-        )
+        self.ui = Ui_Interfaces()
+        self.ui.setupUi(self)
 
-        self.layout = QVBoxLayout()
+        self.setWindowTitle("Device Interfaces")
+        self.ui.close_button_box.button(QDialogButtonBox.Close).clicked.connect(self.close)
         self.fillLayout()
-        self.setLayout(self.layout)
 
     def fillLayout(self):
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-
-        # Initialize table for holding the interfaces
-        self.table_widget = QWidget()
-        self.table_layout = QVBoxLayout()
-        self.interfaces_table = QTableWidget()
-        self.interfaces_table.setColumnCount(6)
-        self.interfaces_table.setHorizontalHeaderLabels(["Interface", 
-                                                         "Admin state", 
-                                                         "Operational state", 
-                                                         "IPv4", 
-                                                         "IPv6",
-                                                         ""])
-
         # Retrieve the interfaces from the device
         try:
             self.interfaces = self.device.interfaces
         except Exception as e:
             self.interfaces = {}
-            self.error_label = QLabel(f"Failed to retrieve self.interfaces: {e}")
-            self.table_layout.addWidget(self.error_label)
+            QMessageBox.critical(self, "Error", f"An error occured while retrieving the interfaces from the device: {e}")
 
         # Populate the table with the interfaces
         if self.interfaces:
-            self.interfaces_table.setRowCount(len(self.interfaces))
+            self.ui.interfaces_table.setRowCount(len(self.interfaces))
+            self.ui.interfaces_table.setColumnCount(6)
+            self.ui.interfaces_table.setHorizontalHeaderLabels(["Interface", 
+                                        "Admin state", 
+                                        "Operational state", 
+                                        "IPv4", 
+                                        "IPv6",
+                                        ""])
+            self.ui.interfaces_table.horizontalHeader().setStretchLastSection(True)
+            self.ui.interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
             for row, (interface_element, interface_data) in enumerate(self.interfaces.items()):      
                 admin_state = interface_data['admin_status']
                 oper_state = interface_data['oper_status']
@@ -303,54 +292,39 @@ class DeviceInterfacesDialog(QDialog):
                 interface_item.setFlags(interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
                 interface_item.setBackground(QBrush(QColor(bg_color)))
                 interface_item.setToolTip(tooltip)
-                self.interfaces_table.setItem(row, 0, interface_item)
+                self.ui.interfaces_table.setItem(row, 0, interface_item)
                 # Administrative state
                 admin_state_item = QTableWidgetItem(admin_state)
                 admin_state_item.setFlags(admin_state_item.flags() ^ Qt.ItemIsEditable)
                 admin_state_item.setBackground(QBrush(QColor(bg_color)))
                 admin_state_item.setToolTip(tooltip)
-                self.interfaces_table.setItem(row, 1, admin_state_item)
+                self.ui.interfaces_table.setItem(row, 1, admin_state_item)
                 # Operational state
                 oper_state_item = QTableWidgetItem(oper_state)
                 oper_state_item.setFlags(oper_state_item.flags() ^ Qt.ItemIsEditable)
                 oper_state_item.setBackground(QBrush(QColor(bg_color)))
                 oper_state_item.setToolTip(tooltip)
-                self.interfaces_table.setItem(row, 2, oper_state_item)
+                self.ui.interfaces_table.setItem(row, 2, oper_state_item)
                 # IPv4 
                 ipv4_item = QTableWidgetItem(str(ipv4_data['value']) if ipv4_data else "")
                 ipv4_item.setFlags(ipv4_item.flags() ^ Qt.ItemIsEditable)
                 ipv4_item.setBackground(QBrush(QColor(bg_color)))
                 ipv4_item.setToolTip(tooltip)
-                self.interfaces_table.setItem(row, 3, ipv4_item)
+                self.ui.interfaces_table.setItem(row, 3, ipv4_item)
                 # IPv6
                 ipv6_item = QTableWidgetItem(str(ipv6_data['value']) if ipv6_data else "")
                 ipv6_item.setFlags(ipv6_item.flags() ^ Qt.ItemIsEditable)
                 ipv6_item.setBackground(QBrush(QColor(bg_color)))
                 ipv6_item.setToolTip(tooltip)
-                self.interfaces_table.setItem(row, 4, ipv6_item)
+                self.ui.interfaces_table.setItem(row, 4, ipv6_item)
                 # Edit button
                 button_item = QPushButton("Edit")
                 button_item.clicked.connect(self.showDialog)
-                self.interfaces_table.setCellWidget(row, 5, button_item)      
+                self.ui.interfaces_table.setCellWidget(row, 5, button_item)      
         else :
-            self.interfaces_table.setRowCount(1)
-            self.interfaces_table.setColumnCount(1)
-            self.interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
-
-        # Set table properties
-        self.interfaces_table.horizontalHeader().setStretchLastSection(True)
-        self.interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-        # Add table to layout
-        self.table_layout.addWidget(self.interfaces_table)
-        self.table_widget.setLayout(self.table_layout)
-        self.scroll_area.setWidget(self.table_widget)
-        self.layout.addWidget(self.scroll_area)
-
-        # Close button
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(self.close)
-        self.layout.addWidget(close_button)
+            self.ui.interfaces_table.setRowCount(1)
+            self.ui.interfaces_table.setColumnCount(1)
+            self.ui.interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
 
     def getFirstIPAddresses(self, subinterfaces):
         """
@@ -371,16 +345,15 @@ class DeviceInterfacesDialog(QDialog):
     def showDialog(self):
         button = self.sender()
 
-        row_index = self.interfaces_table.indexAt(button.pos()) # Get the index of the row, in which was the button clicked
-        interface_id = self.interfaces_table.item(row_index.row(), 0).text() # Get the interface ID of the clicked row
+        row_index = self.ui.interfaces_table.indexAt(button.pos()) # Get the index of the row, in which was the button clicked
+        interface_id = self.ui.interfaces_table.item(row_index.row(), 0).text() # Get the interface ID of the clicked row
             
         dialog = EditInterfaceDialog(self, self.device, interface_id)
         dialog.exec()
 
     def refreshDialog(self):
-        helper.clearLayout(self.layout)
+        self.ui.interfaces_table.clear()
         self.fillLayout()
-        self.setLayout(self.layout)
 
 
 class EditInterfaceDialog(QDialog):

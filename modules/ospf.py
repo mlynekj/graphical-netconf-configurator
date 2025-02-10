@@ -171,7 +171,7 @@ class OSPFDialog(QDialog):
 
     def _deleteNetwork(self, network, interface_name):
         """
-        Helper function to delete a network from the OSPF configuration. Should be called only from deleteNetworkButtonHandler().
+        Helper function to delete a network from the OSPF configuration. Should be called only from _deleteNetworkButtonHandler().
         """
         self.selected_device.removeOSPFNetwork(network, interface_name)
 
