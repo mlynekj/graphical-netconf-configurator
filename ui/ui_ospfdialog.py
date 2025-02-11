@@ -18,8 +18,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
     QGraphicsView, QGroupBox, QHBoxLayout, QHeaderView,
     QLabel, QLineEdit, QPushButton, QSizePolicy,
-    QSpinBox, QTableWidget, QTableWidgetItem, QVBoxLayout,
-    QWidget)
+    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 class Ui_OSPFDialog(object):
     def setupUi(self, OSPFDialog):
@@ -34,47 +33,29 @@ class Ui_OSPFDialog(object):
         OSPFDialog.setMinimumSize(QSize(800, 500))
         OSPFDialog.setMaximumSize(QSize(1440, 900))
         OSPFDialog.setAutoFillBackground(False)
-        self.horizontalLayout_2 = QHBoxLayout(OSPFDialog)
-        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.verticalLayout_11 = QVBoxLayout()
-        self.verticalLayout_11.setObjectName(u"verticalLayout_11")
-        self.verticalLayout_10 = QVBoxLayout()
-        self.verticalLayout_10.setObjectName(u"verticalLayout_10")
-        self.parameters_groupbox = QGroupBox(OSPFDialog)
-        self.parameters_groupbox.setObjectName(u"parameters_groupbox")
+        self.horizontalLayout = QHBoxLayout(OSPFDialog)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.verticalLayout_2 = QVBoxLayout()
+        self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.global_parameters_groupbox = QGroupBox(OSPFDialog)
+        self.global_parameters_groupbox.setObjectName(u"global_parameters_groupbox")
         sizePolicy1 = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.parameters_groupbox.sizePolicy().hasHeightForWidth())
-        self.parameters_groupbox.setSizePolicy(sizePolicy1)
-        self.parameters_groupbox.setMinimumSize(QSize(170, 0))
-        self.parameters_groupbox.setBaseSize(QSize(200, 200))
-        self.verticalLayout_7 = QVBoxLayout(self.parameters_groupbox)
+        sizePolicy1.setHeightForWidth(self.global_parameters_groupbox.sizePolicy().hasHeightForWidth())
+        self.global_parameters_groupbox.setSizePolicy(sizePolicy1)
+        self.global_parameters_groupbox.setMinimumSize(QSize(180, 0))
+        self.global_parameters_groupbox.setBaseSize(QSize(200, 200))
+        self.verticalLayout_7 = QVBoxLayout(self.global_parameters_groupbox)
         self.verticalLayout_7.setObjectName(u"verticalLayout_7")
-        self.process_id_label = QLabel(self.parameters_groupbox)
-        self.process_id_label.setObjectName(u"process_id_label")
-        sizePolicy.setHeightForWidth(self.process_id_label.sizePolicy().hasHeightForWidth())
-        self.process_id_label.setSizePolicy(sizePolicy)
-
-        self.verticalLayout_7.addWidget(self.process_id_label, 0, Qt.AlignmentFlag.AlignLeft)
-
-        self.process_id_input = QSpinBox(self.parameters_groupbox)
-        self.process_id_input.setObjectName(u"process_id_input")
-        sizePolicy.setHeightForWidth(self.process_id_input.sizePolicy().hasHeightForWidth())
-        self.process_id_input.setSizePolicy(sizePolicy)
-        self.process_id_input.setMaximum(65535)
-        self.process_id_input.setValue(1)
-
-        self.verticalLayout_7.addWidget(self.process_id_input)
-
-        self.area_number_label = QLabel(self.parameters_groupbox)
+        self.area_number_label = QLabel(self.global_parameters_groupbox)
         self.area_number_label.setObjectName(u"area_number_label")
         sizePolicy.setHeightForWidth(self.area_number_label.sizePolicy().hasHeightForWidth())
         self.area_number_label.setSizePolicy(sizePolicy)
 
         self.verticalLayout_7.addWidget(self.area_number_label, 0, Qt.AlignmentFlag.AlignLeft)
 
-        self.area_number_input = QLineEdit(self.parameters_groupbox)
+        self.area_number_input = QLineEdit(self.global_parameters_groupbox)
         self.area_number_input.setObjectName(u"area_number_input")
         sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         sizePolicy2.setHorizontalStretch(0)
@@ -84,28 +65,25 @@ class Ui_OSPFDialog(object):
 
         self.verticalLayout_7.addWidget(self.area_number_input)
 
-        self.reference_bandwidth_label = QLabel(self.parameters_groupbox)
+        self.reference_bandwidth_label = QLabel(self.global_parameters_groupbox)
         self.reference_bandwidth_label.setObjectName(u"reference_bandwidth_label")
         sizePolicy.setHeightForWidth(self.reference_bandwidth_label.sizePolicy().hasHeightForWidth())
         self.reference_bandwidth_label.setSizePolicy(sizePolicy)
 
         self.verticalLayout_7.addWidget(self.reference_bandwidth_label, 0, Qt.AlignmentFlag.AlignLeft)
 
-        self.reference_bandwidth_input = QLineEdit(self.parameters_groupbox)
+        self.reference_bandwidth_input = QLineEdit(self.global_parameters_groupbox)
         self.reference_bandwidth_input.setObjectName(u"reference_bandwidth_input")
-        sizePolicy.setHeightForWidth(self.reference_bandwidth_input.sizePolicy().hasHeightForWidth())
-        self.reference_bandwidth_input.setSizePolicy(sizePolicy)
+        sizePolicy2.setHeightForWidth(self.reference_bandwidth_input.sizePolicy().hasHeightForWidth())
+        self.reference_bandwidth_input.setSizePolicy(sizePolicy2)
 
         self.verticalLayout_7.addWidget(self.reference_bandwidth_input)
 
-
-        self.verticalLayout_10.addWidget(self.parameters_groupbox, 0, Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignTop)
-
-        self.timers_groupbox = QGroupBox(OSPFDialog)
+        self.timers_groupbox = QGroupBox(self.global_parameters_groupbox)
         self.timers_groupbox.setObjectName(u"timers_groupbox")
-        sizePolicy1.setHeightForWidth(self.timers_groupbox.sizePolicy().hasHeightForWidth())
-        self.timers_groupbox.setSizePolicy(sizePolicy1)
-        self.timers_groupbox.setMinimumSize(QSize(170, 0))
+        sizePolicy.setHeightForWidth(self.timers_groupbox.sizePolicy().hasHeightForWidth())
+        self.timers_groupbox.setSizePolicy(sizePolicy)
+        self.timers_groupbox.setMinimumSize(QSize(0, 0))
         self.verticalLayout_8 = QVBoxLayout(self.timers_groupbox)
         self.verticalLayout_8.setObjectName(u"verticalLayout_8")
         self.hello_label = QLabel(self.timers_groupbox)
@@ -137,10 +115,30 @@ class Ui_OSPFDialog(object):
         self.verticalLayout_8.addWidget(self.dead_input)
 
 
-        self.verticalLayout_10.addWidget(self.timers_groupbox, 0, Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignTop)
+        self.verticalLayout_7.addWidget(self.timers_groupbox)
 
 
-        self.verticalLayout_11.addLayout(self.verticalLayout_10)
+        self.verticalLayout_2.addWidget(self.global_parameters_groupbox, 0, Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignTop)
+
+        self.per_device_parameters_groupbox = QGroupBox(OSPFDialog)
+        self.per_device_parameters_groupbox.setObjectName(u"per_device_parameters_groupbox")
+        sizePolicy1.setHeightForWidth(self.per_device_parameters_groupbox.sizePolicy().hasHeightForWidth())
+        self.per_device_parameters_groupbox.setSizePolicy(sizePolicy1)
+        self.per_device_parameters_groupbox.setMinimumSize(QSize(180, 0))
+        self.verticalLayout = QVBoxLayout(self.per_device_parameters_groupbox)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.routerid_label = QLabel(self.per_device_parameters_groupbox)
+        self.routerid_label.setObjectName(u"routerid_label")
+
+        self.verticalLayout.addWidget(self.routerid_label)
+
+        self.routerid_input = QLineEdit(self.per_device_parameters_groupbox)
+        self.routerid_input.setObjectName(u"routerid_input")
+
+        self.verticalLayout.addWidget(self.routerid_input)
+
+
+        self.verticalLayout_2.addWidget(self.per_device_parameters_groupbox, 0, Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignTop)
 
         self.ok_cancel_buttons = QDialogButtonBox(OSPFDialog)
         self.ok_cancel_buttons.setObjectName(u"ok_cancel_buttons")
@@ -149,20 +147,20 @@ class Ui_OSPFDialog(object):
         self.ok_cancel_buttons.setMinimumSize(QSize(0, 0))
         self.ok_cancel_buttons.setStandardButtons(QDialogButtonBox.StandardButton.Cancel|QDialogButtonBox.StandardButton.Ok)
 
-        self.verticalLayout_11.addWidget(self.ok_cancel_buttons, 0, Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignBottom)
+        self.verticalLayout_2.addWidget(self.ok_cancel_buttons, 0, Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignBottom)
 
 
-        self.horizontalLayout_2.addLayout(self.verticalLayout_11)
+        self.horizontalLayout.addLayout(self.verticalLayout_2)
 
         self.graphicsView = QGraphicsView(OSPFDialog)
         self.graphicsView.setObjectName(u"graphicsView")
         sizePolicy.setHeightForWidth(self.graphicsView.sizePolicy().hasHeightForWidth())
         self.graphicsView.setSizePolicy(sizePolicy)
 
-        self.horizontalLayout_2.addWidget(self.graphicsView)
+        self.horizontalLayout.addWidget(self.graphicsView)
 
-        self.verticalLayout_6 = QVBoxLayout()
-        self.verticalLayout_6.setObjectName(u"verticalLayout_6")
+        self.right_layout = QVBoxLayout()
+        self.right_layout.setObjectName(u"right_layout")
         self.networks_groupbox = QGroupBox(OSPFDialog)
         self.networks_groupbox.setObjectName(u"networks_groupbox")
         sizePolicy.setHeightForWidth(self.networks_groupbox.sizePolicy().hasHeightForWidth())
@@ -176,27 +174,27 @@ class Ui_OSPFDialog(object):
 
         self.verticalLayout_5.addWidget(self.networks_table)
 
-        self.network_buttons_layout_2 = QHBoxLayout()
-        self.network_buttons_layout_2.setObjectName(u"network_buttons_layout_2")
+        self.network_buttons_layout = QHBoxLayout()
+        self.network_buttons_layout.setObjectName(u"network_buttons_layout")
         self.add_network_button = QPushButton(self.networks_groupbox)
         self.add_network_button.setObjectName(u"add_network_button")
         sizePolicy2.setHeightForWidth(self.add_network_button.sizePolicy().hasHeightForWidth())
         self.add_network_button.setSizePolicy(sizePolicy2)
 
-        self.network_buttons_layout_2.addWidget(self.add_network_button)
+        self.network_buttons_layout.addWidget(self.add_network_button)
 
         self.delete_network_button = QPushButton(self.networks_groupbox)
         self.delete_network_button.setObjectName(u"delete_network_button")
         sizePolicy2.setHeightForWidth(self.delete_network_button.sizePolicy().hasHeightForWidth())
         self.delete_network_button.setSizePolicy(sizePolicy2)
 
-        self.network_buttons_layout_2.addWidget(self.delete_network_button)
+        self.network_buttons_layout.addWidget(self.delete_network_button)
 
 
-        self.verticalLayout_5.addLayout(self.network_buttons_layout_2)
+        self.verticalLayout_5.addLayout(self.network_buttons_layout)
 
 
-        self.verticalLayout_6.addWidget(self.networks_groupbox, 0, Qt.AlignmentFlag.AlignRight)
+        self.right_layout.addWidget(self.networks_groupbox, 0, Qt.AlignmentFlag.AlignRight)
 
         self.passive_interfaces_groupbox = QGroupBox(OSPFDialog)
         self.passive_interfaces_groupbox.setObjectName(u"passive_interfaces_groupbox")
@@ -212,13 +210,12 @@ class Ui_OSPFDialog(object):
         self.verticalLayout_9.addWidget(self.passive_interfaces_table)
 
 
-        self.verticalLayout_6.addWidget(self.passive_interfaces_groupbox, 0, Qt.AlignmentFlag.AlignRight)
+        self.right_layout.addWidget(self.passive_interfaces_groupbox, 0, Qt.AlignmentFlag.AlignRight)
 
 
-        self.horizontalLayout_2.addLayout(self.verticalLayout_6)
+        self.horizontalLayout.addLayout(self.right_layout)
 
 #if QT_CONFIG(shortcut)
-        self.process_id_label.setBuddy(self.process_id_input)
         self.area_number_label.setBuddy(self.area_number_input)
         self.reference_bandwidth_label.setBuddy(self.reference_bandwidth_input)
         self.hello_label.setBuddy(self.hello_input)
@@ -232,24 +229,16 @@ class Ui_OSPFDialog(object):
 
     def retranslateUi(self, OSPFDialog):
         OSPFDialog.setWindowTitle(QCoreApplication.translate("OSPFDialog", u"OSPF configuration", None))
-        self.parameters_groupbox.setTitle(QCoreApplication.translate("OSPFDialog", u"Parameters:", None))
-#if QT_CONFIG(tooltip)
-        self.process_id_label.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specifiy OSPF process ID number. Defaults to 1.", None))
-#endif // QT_CONFIG(tooltip)
-        self.process_id_label.setText(QCoreApplication.translate("OSPFDialog", u"Process ID:", None))
-#if QT_CONFIG(tooltip)
-        self.process_id_input.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specifiy OSPF process ID number. Defaults to 1.", None))
-#endif // QT_CONFIG(tooltip)
-        self.process_id_input.setSpecialValueText(QCoreApplication.translate("OSPFDialog", u"1", None))
+        self.global_parameters_groupbox.setTitle(QCoreApplication.translate("OSPFDialog", u"Global parameters:", None))
 #if QT_CONFIG(tooltip)
         self.area_number_label.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specifiy OSPF area number. Defaults to 0.", None))
 #endif // QT_CONFIG(tooltip)
         self.area_number_label.setText(QCoreApplication.translate("OSPFDialog", u"Area number:", None))
 #if QT_CONFIG(tooltip)
-        self.area_number_input.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specifiy OSPF area number. Defaults to 0.", None))
+        self.area_number_input.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specifiy OSPF area number. Defaults to 0.0.0.0", None))
 #endif // QT_CONFIG(tooltip)
-        self.area_number_input.setText(QCoreApplication.translate("OSPFDialog", u"0", None))
-        self.area_number_input.setPlaceholderText(QCoreApplication.translate("OSPFDialog", u"0", None))
+        self.area_number_input.setText(QCoreApplication.translate("OSPFDialog", u"0.0.0.0", None))
+        self.area_number_input.setPlaceholderText(QCoreApplication.translate("OSPFDialog", u"0.0.0.0", None))
 #if QT_CONFIG(tooltip)
         self.reference_bandwidth_label.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specifiy reference bandwidth. Used for calculating cost.", None))
 #endif // QT_CONFIG(tooltip)
@@ -261,7 +250,7 @@ class Ui_OSPFDialog(object):
 #if QT_CONFIG(tooltip)
         self.hello_label.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specify OSPF hello timer.", None))
 #endif // QT_CONFIG(tooltip)
-        self.hello_label.setText(QCoreApplication.translate("OSPFDialog", u"Hello: timer:", None))
+        self.hello_label.setText(QCoreApplication.translate("OSPFDialog", u"Hello timer:", None))
 #if QT_CONFIG(tooltip)
         self.hello_input.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specify OSPF hello timer.", None))
 #endif // QT_CONFIG(tooltip)
@@ -272,6 +261,8 @@ class Ui_OSPFDialog(object):
 #if QT_CONFIG(tooltip)
         self.dead_input.setToolTip(QCoreApplication.translate("OSPFDialog", u"Specify OSPF dead timer.", None))
 #endif // QT_CONFIG(tooltip)
+        self.per_device_parameters_groupbox.setTitle(QCoreApplication.translate("OSPFDialog", u"Per-device parameters:", None))
+        self.routerid_label.setText(QCoreApplication.translate("OSPFDialog", u"Router-ID", None))
 #if QT_CONFIG(tooltip)
         self.networks_groupbox.setToolTip(QCoreApplication.translate("OSPFDialog", u"List of configured OSPF networks.", None))
 #endif // QT_CONFIG(tooltip)

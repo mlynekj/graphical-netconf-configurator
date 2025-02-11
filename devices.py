@@ -58,7 +58,7 @@ class Device(QGraphicsPixmapItem):
         """
         super().__init__()
 
-        self.setAcceptHoverEvents(True)  # Enable mouse hover over events
+        self.setAcceptHoverEvents(True) # Enable mouse hover over events
 
         self.device_parameters = device_parameters
 
@@ -76,6 +76,7 @@ class Device(QGraphicsPixmapItem):
         
         # CABLES LIST
         self.cables = []
+        self.cable_connected_interfaces = []
 
         # FLAGS
         self.has_pending_changes = False
@@ -148,30 +149,6 @@ class Device(QGraphicsPixmapItem):
         del type(self)._registry[self.id]
         helper.printRpc(rpc_reply, "Close NETCONF connection", self.hostname)
         helper.printGeneral(f"Connection to device: {self.device_parameters['address']} has been closed.")
-
-    def discardChanges(self):
-        try:
-            rpc_reply = netconf.discardNetconfChanges(self)
-            helper.printRpc(rpc_reply, "Discard changes", self.hostname)
-            self.interfaces = self.getInterfaces() # Refresh interfaces after discard
-
-            self.has_pending_changes = False
-            signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
-        except Exception as e:
-            helper.printGeneral(f"Error discarding changes: {e}")
-            return
-
-    def commitChanges(self):
-        try:
-            rpc_reply = netconf.commitNetconfChanges(self)
-            helper.printRpc(rpc_reply, "Commit changes", self.hostname)
-            self.interfaces = self.getInterfaces() # Refresh interfaces after commit
-
-            self.has_pending_changes = False
-            signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
-        except Exception as e:
-            helper.printGeneral(f"Error committing changes: {e}")
-            return
 
     def updateCablePositions(self):
         for cable in self.cables:
@@ -278,7 +255,6 @@ class Device(QGraphicsPixmapItem):
             matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
             matching_entry["flag"] = "deleted"
 
-
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
         rpc_reply = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
         helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}")
@@ -311,6 +287,31 @@ class Device(QGraphicsPixmapItem):
         self.interfaces[interface_id] = {
             "subinterfaces": {}
         }
+    
+    # ---------- CANDIDATE DATASTORE MANIPULATION FUNCTIONS ----------
+    def discardChanges(self):
+        try:
+            rpc_reply = netconf.discardNetconfChanges(self)
+            helper.printRpc(rpc_reply, "Discard changes", self.hostname)
+            self.interfaces = self.getInterfaces() # Refresh interfaces after discard
+
+            self.has_pending_changes = False
+            signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+        except Exception as e:
+            helper.printGeneral(f"Error discarding changes: {e}")
+            return
+
+    def commitChanges(self):
+        try:
+            rpc_reply = netconf.commitNetconfChanges(self)
+            helper.printRpc(rpc_reply, "Commit changes", self.hostname)
+            self.interfaces = self.getInterfaces() # Refresh interfaces after commit
+
+            self.has_pending_changes = False
+            signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+        except Exception as e:
+            helper.printGeneral(f"Error committing changes: {e}")
+            return
     
     # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod
@@ -371,7 +372,9 @@ class ClonedDevice(QGraphicsPixmapItem):
         self.label.setPos(original_device.label.pos())
 
         # CABLES LIST
-        self.cables = original_device.cables.copy()
+        self.original_cables = original_device.cables.copy()
+        self.cables = []
+        self.cable_connected_interfaces = []
 
         # INTERFACES
         self.interfaces = original_device.interfaces

@@ -44,7 +44,10 @@ class Cable(QGraphicsLineItem):
         self.device2.id = device2.id
 
         self.device1.cables.append(self)
+        self.device1.cable_connected_interfaces.append(device1_interface)
+
         self.device2.cables.append(self)
+        self.device2.cable_connected_interfaces.append(device2_interface)
 
         self.setPen(QPen(QColor(0, 0, 0), 3))
 
@@ -53,6 +56,9 @@ class Cable(QGraphicsLineItem):
         self.device_interface_labels.append(CableInterfaceLabel(self.device2_interface, "device2", self))
 
         self.updatePosition()
+
+    def __str__(self):
+        return(f"{self.device1.id}:({self.device1_interface}) - {self.device2.id}:({self.device2_interface})")
 
     def updatePosition(self):
         device_1_center = self.device1.sceneBoundingRect().center()
@@ -195,8 +201,8 @@ class CableEditMode(QObject):
         self.scene = parent.view.scene
         self.normal_mode_mouse_handlers = parent.normal_mode_mouse_handlers
 
-        self.device1 = None
-        self.device2 = None
+        self.device1 = None # The first selected device
+        self.device2 = None # The second selected device
         self.device1_interface = None
         self.device2_interface = None
 

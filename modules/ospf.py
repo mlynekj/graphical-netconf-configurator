@@ -32,6 +32,10 @@ from devices import ClonedDevice
 import sys
 from PySide6.QtCore import QFile
 
+class EditOSPFOpenconfigFilter()
+    def __init__(self):
+        pass
+
 class OSPFDialog(QDialog):
     """
     OSPFDialog is a QDialog subclass that provides a user interface for configuring OSPF settings on network devices.
@@ -53,6 +57,13 @@ class OSPFDialog(QDialog):
         self.ui.setupUi(self)
 
         self.ui.graphicsView.setScene(self.scene)
+
+        self.ui.hello_input.setPlaceholderText("Optional")
+        self.ui.dead_input.setPlaceholderText("Optional")
+        self.ui.reference_bandwidth_input.setPlaceholderText("Optional")
+        
+        self.ui.routerid_input.setPlaceholderText("Optional")
+        self.ui.routerid_input.setToolTip("If not specified, RID will be automatically assigned. The choice of RID is different for each vendor. \nCisco: Highest IP address of any loopback interface  / Highest IP address of any active interface. \nJuniper: Lowest IP address of any loopback interface / Lowest IP address of any active interface.")
 
         # Passive interfaces
         self.ui.passive_interfaces_table.setColumnCount(2)
@@ -146,6 +157,10 @@ class OSPFDialog(QDialog):
         Helper function to insert a network into the OSPF networks table. Should be called only from refreshOSPFNetworksTable().
         """
 
+        # Add the network (and corresponding interface) to the table, only if the interface has a cable connected to it
+        if not interface_name in self.selected_device.cable_connected_interfaces:
+            return
+        
         rowPosition = self.ui.networks_table.rowCount()
         self.ui.networks_table.insertRow(rowPosition)
         self.ui.networks_table.setItem(rowPosition, 0, QTableWidgetItem(str(network)))
@@ -208,7 +223,6 @@ class AddOSPFNetworkDialog(QDialog):
         self.ui.setupUi(self)
 
         self.ui.interfaces_combo_box.addItems(self.device.interfaces.keys())
-        self.ui.interfaces_combo_box.addItems(["Not specified"])
 
         self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self._addNetwork)
 

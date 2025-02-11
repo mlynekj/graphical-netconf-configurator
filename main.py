@@ -90,8 +90,9 @@ class MainView(QGraphicsView):
         # Create cables between cloned devices, if the cables exist in the original scene
         connected_pairs = set()
         for cloned_device in cloned_devices:
-            for cable in cloned_device.cables:
-                if cable.device2.id not in cloned_devices_ids: # Check if both devices of the cable are in the cloned devices, if not, skip
+            for cable in cloned_device.original_cables:
+                # Check if both devices of the cable are in the cloned devices, if not, skip
+                if cable.device1.id not in cloned_devices_ids or cable.device2.id not in cloned_devices_ids: 
                     continue
 
                 # make sure that only one cable is created between two devices (not two cables in opposing directions)
