@@ -58,6 +58,16 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="refresh_button">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Refresh interface information by pulling the latest data from the device. Available only when no pending changes are waiting for commiting.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Refresh interfaces</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QDialogButtonBox" name="close_button_box">
        <property name="standardButtons">
         <set>QDialogButtonBox::StandardButton::Close</set>

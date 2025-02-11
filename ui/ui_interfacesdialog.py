@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'interfaces.ui'
+## Form generated from reading UI file 'interfacesdialog.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.8.2
 ##
@@ -48,6 +48,11 @@ class Ui_Interfaces(object):
 
         self.button_layout.addWidget(self.add_interface_button)
 
+        self.refresh_button = QPushButton(Interfaces)
+        self.refresh_button.setObjectName(u"refresh_button")
+
+        self.button_layout.addWidget(self.refresh_button)
+
         self.close_button_box = QDialogButtonBox(Interfaces)
         self.close_button_box.setObjectName(u"close_button_box")
         self.close_button_box.setStandardButtons(QDialogButtonBox.StandardButton.Close)
@@ -66,5 +71,9 @@ class Ui_Interfaces(object):
     def retranslateUi(self, Interfaces):
         Interfaces.setWindowTitle(QCoreApplication.translate("Interfaces", u"Dialog", None))
         self.add_interface_button.setText(QCoreApplication.translate("Interfaces", u"Add new interface", None))
+#if QT_CONFIG(tooltip)
+        self.refresh_button.setToolTip(QCoreApplication.translate("Interfaces", u"<html><head/><body><p>Refresh interface information by pulling the latest data from the device. Available only when no pending changes are waiting for commiting.</p></body></html>", None))
+#endif // QT_CONFIG(tooltip)
+        self.refresh_button.setText(QCoreApplication.translate("Interfaces", u"Refresh interfaces", None))
     # retranslateUi
 

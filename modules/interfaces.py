@@ -50,6 +50,7 @@ class GetInterfacesOpenconfigFilter:
         """
         return(ET.tostring(self.filter_xml).decode('utf-8'))
 
+
 class EditIPAddressOpenconfigFilter:
     def __init__(self, interface, subinterface_index, ip, delete_ip=False):
         self.interface = interface
@@ -147,6 +148,7 @@ class AddInterfaceOpenconfigFilter:
             str: The string representation of the filter_xml attribute.
         """
         return(ET.tostring(self.filter_xml).decode('utf-8'))
+
 
 # ---------- OPERATIONS: ----------
 # -- Retrieval --
@@ -289,6 +291,7 @@ class DeviceInterfacesDialog(QDialog):
         self.setWindowTitle("Device Interfaces")
         self.ui.close_button_box.button(QDialogButtonBox.Close).clicked.connect(self.close)
         self.ui.add_interface_button.clicked.connect(self.showAddInterfaceDialog)
+        self.ui.refresh_button.clicked.connect(self.refreshInterfaces)
         self.fillLayout()
 
     def fillLayout(self):
@@ -400,6 +403,14 @@ class DeviceInterfacesDialog(QDialog):
         try:
             AddInterfaceDialog(self.device).exec()
         finally:
+            self.refreshDialog()
+
+    def refreshInterfaces(self):
+        if self.device.has_pending_changes:
+            QMessageBox.warning(self, "Warning", "The device has some pending changes. Please commit or discard them first.")
+            return
+        else:
+            self.device.interfaces = self.device.getInterfaces()
             self.refreshDialog()
 
 

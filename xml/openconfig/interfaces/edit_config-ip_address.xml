@@ -2,6 +2,9 @@
 	<interfaces xmlns="http://openconfig.net/yang/interfaces">
         <interface>
             <name></name>
+            <config>
+                <enabled>true</enabled>
+            </config>
             <subinterfaces>
             <subinterface>
                 <index></index>
