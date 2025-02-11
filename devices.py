@@ -384,7 +384,8 @@ class ClonedDevice(QGraphicsPixmapItem):
 
         # OSPF SPECIFIC
         self.passive_interfaces = []
-        self.ospf_networks = self.getOSPFNetworks()
+        self.ospf_networks = {} # filling the dictionary must be done externally (from OSPFDialog) after the whole scene is created, because it needs to know about connected cables in the scene
+        self.router_id = None
 
     def getOSPFNetworks(self):
         """
@@ -395,6 +396,8 @@ class ClonedDevice(QGraphicsPixmapItem):
         
         device_ospf_networks = {} # {interface_name: [networks]}
         for interface_name, interface_data in interfaces.items(): # Need the key
+            if interface_name not in self.cable_connected_interfaces:
+                continue # skip interfaces, that dont have a cable connected to it (or if they have, but the other end wasnt cloned to the new scene)
             subinterfaces = interface_data.get("subinterfaces", {})
             if subinterfaces:
                 for subinterface_data in subinterfaces.values(): # Dont need the key

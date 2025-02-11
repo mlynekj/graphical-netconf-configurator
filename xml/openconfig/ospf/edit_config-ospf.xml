@@ -1,0 +1,29 @@
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <network-instances xmlns="http://openconfig.net/yang/network-instance">
+    <network-instance>
+      <name>DEFAULT</name>
+      <config>
+          <type>DEFAULT_INSTANCE</type>
+      </config>
+      <protocols>
+        <protocol>
+          <identifier>OSPF</identifier>
+          <name>DEFAULT</name>
+          <ospfv2>
+          <global>
+              <config>
+              </config>
+            </global>
+            <areas>
+              <area>
+                <identifier></identifier>
+                <interfaces>
+                </interfaces>
+              </area>
+            </areas>
+          </ospfv2>
+        </protocol>
+      </protocols>
+    </network-instance>
+  </network-instances>
+</config>

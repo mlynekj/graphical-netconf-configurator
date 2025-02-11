@@ -26,15 +26,87 @@ from PySide6.QtGui import QFont, QGuiApplication, QAction
 from ui.ui_ospfdialog import Ui_OSPFDialog
 from ui.ui_addospfnetworkdialog import Ui_AddOSPFNetworkDialog
 
+from definitions import OPENCONFIG_XML_DIR
+from lxml import etree as ET
+
 # Other
 import ipaddress
 from devices import ClonedDevice
 import sys
 from PySide6.QtCore import QFile
 
-class EditOSPFOpenconfigFilter()
-    def __init__(self):
-        pass
+class EditOSPFOpenconfigFilter():
+    def __init__(self, router_id, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, passive_interfaces: list, ospf_networks: dict):
+        self.router_id = router_id
+        self.area = area
+        self.hello_interval = hello_interval
+        self.dead_interval = dead_interval
+        self.reference_bandwidth = reference_bandwidth
+        self.passive_interfaces = passive_interfaces
+        
+        self.ospf_networks = ospf_networks
+        self.interfaces = list(ospf_networks.keys())
+
+        # Load the XML filter template
+        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/ospf/edit_config-ospf.xml")
+        self.namespaces = {'ns': 'http://openconfig.net/yang/network-instance'}
+
+        # Set the router-id
+        if self.router_id:
+            ospfv2_global_config_element = self.filter_xml.find(".//ns:ospfv2/ns:global/ns:config", self.namespaces)
+            router_id_element = ET.SubElement(ospfv2_global_config_element, "router-id")
+            router_id_element.text = self.router_id
+    
+        # Set the area
+        ospfv2_area_element = self.filter_xml.find(".//ns:ospfv2/ns:areas/ns:area/ns:identifier", self.namespaces)
+        ospfv2_area_element.text = self.area
+
+        # Set the metric
+        # TODO: Juniper nebere "reference-bandwidth", tak asi kontrolovat jestli rozhraní je Gigabit a podle toho nastavit metriku natvrdo
+
+        # Add the interfaces
+        for interface in self.interfaces:
+            self._addInterface(interface)
+
+    def __str__(self):
+        """
+        This method converts the filter_xml attribute to a string using the
+        ElementTree tostring method and decodes it to UTF-8.
+        This is needed for dispatching RPCs with ncclient.
+
+        Returns:
+            str: The string representation of the filter_xml attribute.
+        """
+        return(ET.tostring(self.filter_xml).decode('utf-8'))
+
+    def _addInterface(self, interface_id):
+        ospfv2_area_element = self.filter_xml.find(".//ns:ospfv2/ns:areas/ns:area", self.namespaces)
+        interfaces_element = ospfv2_area_element.find("ns:interfaces", self.namespaces)
+
+        interface_element = ET.SubElement(interfaces_element, "interface")
+        id_element = ET.SubElement(interface_element, "id")
+        id_element.text = interface_id
+
+        config_element = ET.SubElement(interface_element, "config")
+        config_id_element = ET.SubElement(config_element, "id")
+        config_id_element.text = interface_id
+
+        # Mark as passive if in the passive_interfaces list
+        if interface_id in self.passive_interfaces:
+            passive_element = ET.SubElement(config_element, "passive")
+            passive_element.text = "true"
+
+        # Add the timers
+        if self.hello_interval or self.dead_interval:
+            timers_element = ET.SubElement(interface_element, "timers")
+            timers_config_element = ET.SubElement(timers_element, "config")
+            if self.hello_interval:
+                hello_interval_element = ET.SubElement(timers_config_element, "hello-interval")
+                hello_interval_element.text = str(self.hello_interval)
+            if self.dead_interval:
+                dead_interval_element = ET.SubElement(timers_config_element, "dead-interval")
+                dead_interval_element.text = str(self.dead_interval)
+
 
 class OSPFDialog(QDialog):
     """
@@ -58,12 +130,17 @@ class OSPFDialog(QDialog):
 
         self.ui.graphicsView.setScene(self.scene)
 
+        for item in self.scene.items():
+            if isinstance(item, ClonedDevice):
+                item.ospf_networks = item.getOSPFNetworks()
+
+        # Configure the input fields
         self.ui.hello_input.setPlaceholderText("Optional")
         self.ui.dead_input.setPlaceholderText("Optional")
         self.ui.reference_bandwidth_input.setPlaceholderText("Optional")
-        
         self.ui.routerid_input.setPlaceholderText("Optional")
         self.ui.routerid_input.setToolTip("If not specified, RID will be automatically assigned. The choice of RID is different for each vendor. \nCisco: Highest IP address of any loopback interface  / Highest IP address of any active interface. \nJuniper: Lowest IP address of any loopback interface / Lowest IP address of any active interface.")
+        self.ui.routerid_input.setDisabled(True) # Disable the input field for the router ID from the start, because no device is selected
 
         # Passive interfaces
         self.ui.passive_interfaces_table.setColumnCount(2)
@@ -83,8 +160,12 @@ class OSPFDialog(QDialog):
         self.ui.delete_network_button.clicked.connect(self._deleteNetworkButtonHandler) # "delete network" button
         self.ui.add_network_button.clicked.connect(self._addNetworkButtonHandler) # "add network" button
 
-        # When a device is selected on the scene, connect the signal to the slot onSelectionChanged
-        self.scene.selectionChanged.connect(self._onSelectionChanged)
+        # Connect signals
+        self.scene.selectionChanged.connect(self._onSelectionChanged) # When a device is selected on the scene, connect the signal to the slot onSelectionChanged
+        self.ui.routerid_input.editingFinished.connect(self._onRouterIDInputChanged) # When the router ID input is changed, connect the signal to the slot onRouterIDInputChanged
+
+        # Connect the buttons
+        self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self._okButtonHandler)
 
     @Slot()
     def _onSelectionChanged(self):
@@ -98,6 +179,7 @@ class OSPFDialog(QDialog):
                 self.selected_device = item
                 self._refreshPassiveInterfacesTable()
                 self._refreshOSPFNetworksTable()
+                self._refreshRouterIDInput()
 
     def _refreshPassiveInterfacesTable(self):
         """
@@ -146,7 +228,6 @@ class OSPFDialog(QDialog):
         """
                 
         self.ui.networks_table.setRowCount(0)
-        
         networks = self.selected_device.ospf_networks
         for interface_name, interface_networks in networks.items():
             for network in interface_networks:
@@ -156,15 +237,28 @@ class OSPFDialog(QDialog):
         """
         Helper function to insert a network into the OSPF networks table. Should be called only from refreshOSPFNetworksTable().
         """
-
-        # Add the network (and corresponding interface) to the table, only if the interface has a cable connected to it
-        if not interface_name in self.selected_device.cable_connected_interfaces:
-            return
         
         rowPosition = self.ui.networks_table.rowCount()
         self.ui.networks_table.insertRow(rowPosition)
         self.ui.networks_table.setItem(rowPosition, 0, QTableWidgetItem(str(network)))
         self.ui.networks_table.setItem(rowPosition, 1, QTableWidgetItem(interface_name))
+
+    def _refreshRouterIDInput(self):
+        if self.selected_device:
+            self.ui.routerid_input.setDisabled(False)
+            self.ui.routerid_input.setText(self.selected_device.router_id)
+        else:
+            self.ui.routerid_input.setDisabled(True)
+            self.ui.routerid_input.clear()
+
+    @Slot()
+    def _onRouterIDInputChanged(self):
+        if self.selected_device:
+            self.ui.routerid_input.setDisabled(False)
+            self.selected_device.router_id = self.ui.routerid_input.text()
+        else:
+            self.ui.routerid_input.setDisabled(True)
+            self.ui.routerid_input.clear()
 
     def _deleteNetworkButtonHandler(self):
         """
@@ -206,6 +300,25 @@ class OSPFDialog(QDialog):
         else:
             QMessageBox.warning(self, "Warning", "Select a device.", QMessageBox.Ok)
 
+    def _okButtonHandler(self):
+        router_id = self.ui.routerid_input.text()
+        area = self.ui.area_number_input.text()
+        hello_interval = self.ui.hello_input.text()
+        dead_interval = self.ui.dead_input.text()
+        reference_bandwidth = self.ui.reference_bandwidth_input.text()
+
+        if not area:
+            QMessageBox.warning(self, "Warning", "OSPF area is required. Please fill in the area.", QMessageBox.Ok)
+            return
+
+        devices = []
+        passive_interfaces = {}
+        ospf_networks = {}
+    
+        for device in self.scene.items():
+            if isinstance(device, ClonedDevice):
+                filter = EditOSPFOpenconfigFilter(device.router_id, area, hello_interval, dead_interval, reference_bandwidth, device.passive_interfaces, device.ospf_networks)
+                print(str(filter))
 
 class AddOSPFNetworkDialog(QDialog):
     """
