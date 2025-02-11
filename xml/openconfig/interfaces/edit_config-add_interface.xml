@@ -1,10 +1,10 @@
 <config>
 	<interfaces xmlns="http://openconfig.net/yang/interfaces">
 		<interface>
-			<name>LoopbackX</name>
+			<name></name>
 			<config>
-				<type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type">ianaift:softwareLoopback</type>
-				<name>LoopbackX</name>
+				<type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type"></type>
+				<name></name>
 				<enabled>true</enabled>
 			</config>
 		</interface>

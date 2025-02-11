@@ -26,8 +26,9 @@ from PySide6.QtWidgets import (
     QStyle,
     QToolBar,
     QMessageBox,)
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Slot
 from PySide6.QtGui import QFont, QGuiApplication, QAction, QBrush, QColor
+
 import ipaddress
 
 from ui.ui_interfacesdialog import Ui_Interfaces
@@ -116,12 +117,36 @@ class EditIPAddressOpenconfigFilter:
         prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
         prefix_length_element.text = str(self.ip.network.prefixlen)
 
-    class AddInterfaceOpenconfigFilter:
-        def __init__(self):
-            pass
 
-        def __str__(self):
-            pass
+class AddInterfaceOpenconfigFilter:
+    def __init__(self, interface_id, interface_type):
+        self.interface_id = interface_id
+        self.interface_type = interface_type
+
+        # Load the XML filter template
+        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/edit_config-add_interface.xml")
+        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
+                            'iana-iftype': 'urn:ietf:params:xml:ns:yang:iana-if-type'}
+
+        # Set the interface name and type
+        interface_name_elements = self.filter_xml.findall(".//ns:name", self.namespaces)
+        for element in interface_name_elements:
+            element.text = interface_id
+        
+        interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
+        if interface_type == "Loopback":
+            interface_type_element.text = "ianaift:softwareLoopback"
+
+    def __str__(self):
+        """
+        This method converts the filter_xml attribute to a string using the
+        ElementTree tostring method and decodes it to UTF-8.
+        This is needed for dispatching RPCs with ncclient.
+
+        Returns:
+            str: The string representation of the filter_xml attribute.
+        """
+        return(ET.tostring(self.filter_xml).decode('utf-8'))
 
 # ---------- OPERATIONS: ----------
 # -- Retrieval --
@@ -227,7 +252,12 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
 
 # -- Add new interfaces --
 def addInterfaceWithNetconf(device, interface_id, interface_type):
-    pass
+    # FILTER
+    filter = AddInterfaceOpenconfigFilter(interface_id, interface_type)
+    
+    # RPC
+    rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+    return(rpc_reply)
 
 # ---------- QT: ----------
 def getBgColorFromFlag(flag):
@@ -258,7 +288,7 @@ class DeviceInterfacesDialog(QDialog):
 
         self.setWindowTitle("Device Interfaces")
         self.ui.close_button_box.button(QDialogButtonBox.Close).clicked.connect(self.close)
-        self.ui.add_interface_button.clicked.connect(lambda : AddInterfaceDialog(self.device).exec())
+        self.ui.add_interface_button.clicked.connect(self.showAddInterfaceDialog)
         self.fillLayout()
 
     def fillLayout(self):
@@ -283,8 +313,8 @@ class DeviceInterfacesDialog(QDialog):
             self.ui.interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
             for row, (interface_element, interface_data) in enumerate(self.interfaces.items()):      
-                admin_state = interface_data['admin_status']
-                oper_state = interface_data['oper_status']
+                admin_state = interface_data.get('admin_status', "N/A")
+                oper_state = interface_data.get('oper_status', "N/A")
                 ipv4_data, ipv6_data = self.getFirstIPAddresses(interface_data['subinterfaces'])
 
                 # Flag: commited, uncommited, deleted
@@ -365,6 +395,12 @@ class DeviceInterfacesDialog(QDialog):
     def refreshDialog(self):
         self.ui.interfaces_table.clear()
         self.fillLayout()
+
+    def showAddInterfaceDialog(self):
+        try:
+            AddInterfaceDialog(self.device).exec()
+        finally:
+            self.refreshDialog()
 
 
 class EditInterfaceDialog(QDialog):
@@ -612,20 +648,52 @@ class AddInterfaceDialog(QDialog):
         self.setWindowTitle("Add new interface")
         self.ui.ok_cancel_button_box.button(QDialogButtonBox.Ok).clicked.connect(self.confirmAdd)
         self.ui.ok_cancel_button_box.button(QDialogButtonBox.Cancel).clicked.connect(self.close)
+        self.ui.interface_type_combobox.currentIndexChanged.connect(self.changePlaceholderInterfaceName)
+
+        if self.device.device_parameters['device_params'] == "junos":
+            QMessageBox.information(self, "Information", "Juniper devices support only one loopback interface - lo0, which may already be present on the device. Procced with caution.")
 
         self.ui.interface_type_combobox.addItems(["Loopback"])
+
+    @Slot()
+    def changePlaceholderInterfaceName(self):
+        """
+        Give a hint to the user about the interface name format based on the selected interface type.
+        """
+
+        interface_type = self.ui.interface_type_combobox.currentText()
+        if interface_type == "Loopback":
+            if self.device.device_parameters['device_params'] == "junos":
+                self.ui.interface_name_input.setPlaceholderText("lo0")
+            elif self.device.device_parameters['device_params'] == "iosxe":
+                self.ui.interface_name_input.setPlaceholderText("Loopback0")
+        else:
+            self.ui.interface_name_input.setPlaceholderText("-")
 
     def confirmAdd(self):
         interface_name = self.ui.interface_name_input.text()
         interface_type = self.ui.interface_type_combobox.currentText()
 
-        if interface_type == "Loopback":
-            if not interface_name.startswith("Loopback"):
-                QMessageBox.warning(self, "Warning", "Invalid interface name!")
-                return
-            else:
-                self.device.addLoopbackInterface(interface_name)
-                self.accept()
-        else:
+        if not interface_type == "Loopback":
             QMessageBox.warning(self, "Warning", "Select a valid interface type.")
             return
+        
+        if self.device.device_parameters['device_params'] == "junos":
+            if self.checkValidInterfaceName(interface_name, "lo"):
+                self.device.addInterface(interface_name, interface_type)
+                self.accept()
+            else:
+                QMessageBox.warning(self, "Warning", "Invalid interface name!")
+                return
+        if self.device.device_parameters['device_params'] == "iosxe":
+            if self.checkValidInterfaceName(interface_name, "Loopback"):
+                self.device.addInterface(interface_name, interface_type)
+                self.accept()
+            else:
+                QMessageBox.warning(self, "Warning", "Invalid interface name!")
+                return
+
+    def checkValidInterfaceName(self, name, checked_name):
+        if name.startswith(checked_name):
+            return True
+            

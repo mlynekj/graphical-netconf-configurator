@@ -309,7 +309,6 @@ class Device(QGraphicsPixmapItem):
         helper.addPendingChange(self, f"Add interface: {interface_id}")
         helper.printRpc(rpc_reply, "Add Interface", self.hostname)
         self.interfaces[interface_id] = {
-            "type": interface_type,
             "subinterfaces": {}
         }
     
