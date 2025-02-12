@@ -338,8 +338,6 @@ class Router(Device):
         router_icon_img = QImage("graphics/devices/router.png")
         self.setPixmap(QPixmap.fromImage(router_icon_img))
 
-        # Router specific functions go here
-
 
 class Switch(Device):
     _device_type = "S"
@@ -355,6 +353,10 @@ class Switch(Device):
 
 
 class OSPFDevice(QGraphicsPixmapItem):
+    """
+    A class to represent a device, that was cloned from Router class. It is used in OSPF configuration dialog, where it serves as a QGraphicItem in the cloned scene.
+    """
+
     def __init__(self, original_device):
         super().__init__()
 
@@ -363,7 +365,7 @@ class OSPFDevice(QGraphicsPixmapItem):
 
         # GRAPHICS
         self.setPixmap(original_device.pixmap())
-        self.setFlag(QGraphicsItem.ItemIsMovable, False) # If it would be desirable to move the devices in the cloned scene, it would be necessary to implement updating of cloned_cables position
+        self.setFlag(QGraphicsItem.ItemIsMovable, False) # In order to allow moving the devices, the method for updating the cloned cables would have to be implemented.
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setTransformOriginPoint(self.boundingRect().center())
         self.setPos(original_device.pos())
@@ -393,26 +395,27 @@ class OSPFDevice(QGraphicsPixmapItem):
 
     def getOSPFNetworks(self):
         """
+        Returns a dictionary of OSPF networks for each interface.
         Example of return value: doc/ospf_networks.md
         """
-        # TODO: refactor this mess
+
         interfaces = self.interfaces
         
         device_ospf_networks = {} # {interface_name: [networks]}
-        for interface_name, interface_data in interfaces.items(): # Need the key
+        for interface_name, interface_data in interfaces.items(): # .items() because the key (interface name) is used as a key in the return dictionary
             if interface_name not in self.cable_connected_interfaces:
-                continue # skip interfaces, that dont have a cable connected to it (or if they have, but the other end wasnt cloned to the new scene)
+                continue # skip interfaces, that dont have a cable connected to it (or they have, but the other end wasnt cloned to the new scene)
+            
             subinterfaces = interface_data.get("subinterfaces", {})
             if subinterfaces:
-                for subinterface_data in subinterfaces.values(): # Dont need the key
+                for subinterface_data in subinterfaces.values(): # .values() because the key is not needed
                     interface_ospf_networks = []
                     for ipv4 in subinterface_data.get("ipv4_data", []):
                         interface_ospf_networks.append(ipv4["value"].network)
                     for ipv6 in subinterface_data.get("ipv6_data", []):
                         interface_ospf_networks.append(ipv6["value"].network)
-        
-                device_ospf_networks[interface_name] = interface_ospf_networks
-        
+
+                device_ospf_networks[interface_name] = interface_ospf_networks        
         return device_ospf_networks
     
     def addOSPFNetwork(self, network, interface_name):
@@ -422,10 +425,12 @@ class OSPFDevice(QGraphicsPixmapItem):
         self.ospf_networks[interface_name].remove(network)
 
     def configureOSPF(self, area, hello_interval, dead_interval, reference_bandwidth):
-        rpc_reply = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
-        helper.addPendingChange(self, f"Configure OSPF area: {area}")
-        print(rpc_reply)
-        #helper.printRpc(rpc_reply, "Configure OSPF", self.id)
+        try:
+            rpc_reply = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
+            helper.addPendingChange(self, f"Configure OSPF area: {area}")
+            helper.printRpc(rpc_reply, "Configure OSPF", self.id)
+        except Exception as e:
+            helper.printGeneral(f"Error configuring OSPF: {e}")
 
 
 # ---------- QT: ----------

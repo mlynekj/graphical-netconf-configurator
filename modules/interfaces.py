@@ -70,17 +70,17 @@ class EditIPAddressOpenconfigFilter:
 
         # Set the interface type
         interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
-        if "loopback" in self.interface.lower() or "lo" in self.interface.lower(): # chech if loopback
-            self.interface_type = "ianaift:softwareLoopback"
-        else: # default to ethernetCsmacd
-            self.interface_type = "ianaift:ethernetCsmacd"
+        if "loopback" in self.interface.lower() or "lo" in self.interface.lower():
+            self.interface_type = "ianaift:softwareLoopback" # Loopback
+        else:
+            self.interface_type = "ianaift:ethernetCsmacd" # Default
         interface_type_element.text = self.interface_type
 
         # Set the subinterface index
         subinterface_index_element = self.filter_xml.find(".//ns:index", self.namespaces)
         subinterface_index_element.text = str(subinterface_index)
-        
 
+        # Set the IP address and prefix length
         if self.ip.version == 4:
             self.createIPV4Filter()
         elif self.ip.version == 6:
@@ -140,11 +140,12 @@ class AddInterfaceOpenconfigFilter:
         self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
                             'iana-iftype': 'urn:ietf:params:xml:ns:yang:iana-if-type'}
 
-        # Set the interface name and type
+        # Set the interface name
         interface_name_elements = self.filter_xml.findall(".//ns:name", self.namespaces)
         for element in interface_name_elements:
             element.text = interface_id
         
+        # Set the interface type
         interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
         if interface_type == "Loopback":
             interface_type_element.text = "ianaift:softwareLoopback"
@@ -182,9 +183,8 @@ def getInterfacesWithNetconf(device):
     
     for interface_element in interface_elements:
         name = interface_element.text
-
         # After update of JUNOS (vRouter 24.2R1.S2) Juniper returns !THREE! <interfaces>...</interfaces> tags for each interface, 
-        # so we need to skip the duplicates to avoid overwriting the data with empty values
+        # so i need to skip the duplicate tags to avoid overwriting the data with empty values
         if name not in interfaces:
             admin_status = interface_element.xpath('../state/admin-status')[0].text
             oper_status = interface_element.xpath('../state/oper-status')[0].text
@@ -236,7 +236,6 @@ def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip):
     Returns:
         rpc_reply: The response from the device after attempting to delete the IP address.
     """
-
 
     # FILTER
     filter = EditIPAddressOpenconfigFilter(interface_element, subinterface_index, old_ip, delete_ip=True)
@@ -385,7 +384,13 @@ class DeviceInterfacesDialog(QDialog):
 
     def getFirstIPAddresses(self, subinterfaces):
         """
-        TODO:
+        Retrieves the first IPv4 and IPv6 addresses from a list of subinterfaces.
+        Args:
+            subinterfaces (dict): A dictionary where each key is a subinterface identifier and 
+                      each value is a dictionary containing 'ipv4_data' and 'ipv6_data' lists.
+        Returns:
+            tuple: A tuple containing the first IPv4 address (str) and the first IPv6 address (str) found.
+               If no IPv4 or IPv6 address is found, the corresponding value in the tuple will be an empty string.        
         """
 
         ipv4_data = ""
@@ -419,6 +424,11 @@ class DeviceInterfacesDialog(QDialog):
             self.refreshDialog()
 
     def refreshInterfaces(self):
+        """
+        Refresh the device.interfaces list by retrieving new list from the device. Usefull for refreshing the dialog when waiting for the interface to come up.
+        Cannot be launched when the device has pending changes, because the changes would be lost.
+        """
+
         if self.device.has_pending_changes:
             QMessageBox.warning(self, "Warning", "The device has some pending changes. Please commit or discard them first.")
             return
@@ -435,7 +445,7 @@ class EditInterfaceDialog(QDialog):
         self.device = device
         self.interface_id = interface_id
 
-        self.setWindowTitle("Edit interface: " + self.interface_id)
+        self.setWindowTitle(f"Edit interface: {self.interface_id}")
         self.setGeometry(
             QStyle.alignedRect(
                 Qt.LeftToRight,

@@ -116,11 +116,12 @@ def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, r
         print(str(filter))
             
         # RPC                
-        rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
         return(rpc_reply)
     
     elif ospf_device.device_parameters["device_params"] == "iosxe":
-        return None
+        raise NotImplementedError("OSPF configuration for IOS-XE devices is not implemented yet.")
+    # TODO: cisco
 
 # ---------- QT: ----------
 class OSPFDialog(QDialog):
@@ -145,9 +146,9 @@ class OSPFDialog(QDialog):
 
         self.ui.graphicsView.setScene(self.scene)
 
-        for item in self.scene.items():
-            if item.__class__.__name__ == 'OSPFDevice':
-                item.ospf_networks = item.getOSPFNetworks()
+        for device in self.scene.items():
+            if device.__class__.__name__ == 'OSPFDevice': # isInstance(item, OSPFDevice), without the need to import OSPFDevice (circular import)
+                device.ospf_networks = device.getOSPFNetworks()
 
         # Configure the input fields
         self.ui.hello_input.setPlaceholderText("Optional")
@@ -186,12 +187,12 @@ class OSPFDialog(QDialog):
     def _onSelectionChanged(self):
         """
         Slot function that gets called when a device is clicked on in the cloned scene.
-        Sets the selected device to the selected item and refreshes the passive interfaces and OSPF networks tables.
+        Sets the selected device to the selected item and refreshes the passive interfaces, OSPF networks tables and the router ID input.
         """
         selected_items = self.scene.selectedItems()
-        for item in selected_items:
-            if item.__class__.__name__ == 'OSPFDevice':
-                self.selected_device = item
+        for device in selected_items:
+            if device.__class__.__name__ == 'OSPFDevice': # isInstance(item, OSPFDevice), without the need to import OSPFDevice (circular import)
+                self.selected_device = device
                 self._refreshPassiveInterfacesTable()
                 self._refreshOSPFNetworksTable()
                 self._refreshRouterIDInput()
@@ -199,7 +200,7 @@ class OSPFDialog(QDialog):
     def _refreshPassiveInterfacesTable(self):
         """
         Loads and refreshes the passive interfaces table in the UI.
-        Information about the passive interfaces is taken from the selected device list - "passive_interfaces".
+        Information about the passive interfaces is taken from the selected device's list - "passive_interfaces".
         """
 
         interfaces = self.selected_device.interfaces
@@ -268,6 +269,10 @@ class OSPFDialog(QDialog):
 
     @Slot()
     def _onRouterIDInputChanged(self):
+        """
+        A slot function that gets called when the router ID input is changed (editingFinished signal). It updated the router_id parameter of the selected device.
+        """
+
         if self.selected_device:
             self.ui.routerid_input.setDisabled(False)
             self.selected_device.router_id = self.ui.routerid_input.text()
@@ -316,6 +321,10 @@ class OSPFDialog(QDialog):
             QMessageBox.warning(self, "Warning", "Select a device.", QMessageBox.Ok)
 
     def _okButtonHandler(self):
+        """
+        Reads the input fields, validates them and initiates an OSPF configuration of OSPF on all devices in the scene.
+        """
+
         area = self.ui.area_number_input.text()
         hello_interval = self.ui.hello_input.text()
         dead_interval = self.ui.dead_input.text()
@@ -326,11 +335,9 @@ class OSPFDialog(QDialog):
             return
     
         for device in self.scene.items():
-            if device.__class__.__name__ == 'OSPFDevice':
+            if device.__class__.__name__ == 'OSPFDevice': # isInstance(item, OSPFDevice), without the need to import OSPFDevice (circular import)
                 device.configureOSPF(area, hello_interval, dead_interval, reference_bandwidth)
-        self.accept()
-
-                    
+        self.accept()       
 
 
 class AddOSPFNetworkDialog(QDialog):
@@ -348,8 +355,8 @@ class AddOSPFNetworkDialog(QDialog):
         self.ui = Ui_AddOSPFNetworkDialog()
         self.ui.setupUi(self)
 
+        # Configure the UI components
         self.ui.interfaces_combo_box.addItems(self.device.interfaces.keys())
-
         self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self._addNetwork)
 
     def _addNetwork(self):

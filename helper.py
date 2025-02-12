@@ -105,9 +105,13 @@ def prettyXml(input):
     """
 
     string = str(input)
-    bytes_utf8 = bytes(string, 'utf8')
-    xml_etree = ET.fromstring(bytes_utf8)
-    xml_pretty = ET.tostring(xml_etree, pretty_print=True).decode()
+    try:
+        bytes_utf8 = bytes(string, 'utf8')
+        xml_etree = ET.fromstring(bytes_utf8)
+        xml_pretty = ET.tostring(xml_etree, pretty_print=True).decode()
+    except ET.XMLSyntaxError:
+        xml_pretty = input
+        
     return (xml_pretty)
 
 def printRpcBulk(rpc_replies: list, action, devices: list):
