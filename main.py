@@ -81,7 +81,7 @@ class MainView(QGraphicsView):
         # Create cloned devices, based selection
         for item in selected_items:
             if isinstance(item, Device):
-                new_device = item.clone()
+                new_device = item.cloneToOSPFDevice()
                 cloned_scene.addItem(new_device)
                 cloned_devices.append(new_device)
                 cloned_devices_ids.append(new_device.id)

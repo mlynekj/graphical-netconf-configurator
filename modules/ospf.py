@@ -26,17 +26,17 @@ from PySide6.QtGui import QFont, QGuiApplication, QAction
 from ui.ui_ospfdialog import Ui_OSPFDialog
 from ui.ui_addospfnetworkdialog import Ui_AddOSPFNetworkDialog
 
-from definitions import OPENCONFIG_XML_DIR
+from definitions import OPENCONFIG_XML_DIR, CONFIGURATION_TARGET_DATASTORE
 from lxml import etree as ET
 
 # Other
 import ipaddress
-from devices import ClonedDevice
 import sys
 from PySide6.QtCore import QFile
 
+# ---------- FILTERS: ----------
 class EditOSPFOpenconfigFilter():
-    def __init__(self, router_id, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, passive_interfaces: list, ospf_networks: dict):
+    def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict):
         self.router_id = router_id
         self.area = area
         self.hello_interval = hello_interval
@@ -108,6 +108,21 @@ class EditOSPFOpenconfigFilter():
                 dead_interval_element.text = str(self.dead_interval)
 
 
+# ---------- OPERATIONS: ----------
+def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, reference_bandwidth):
+    if ospf_device.device_parameters["device_params"] == "junos":
+        # Create the filter
+        filter = EditOSPFOpenconfigFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
+        print(str(filter))
+            
+        # RPC                
+        rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        return(rpc_reply)
+    
+    elif ospf_device.device_parameters["device_params"] == "iosxe":
+        return None
+
+# ---------- QT: ----------
 class OSPFDialog(QDialog):
     """
     OSPFDialog is a QDialog subclass that provides a user interface for configuring OSPF settings on network devices.
@@ -131,7 +146,7 @@ class OSPFDialog(QDialog):
         self.ui.graphicsView.setScene(self.scene)
 
         for item in self.scene.items():
-            if isinstance(item, ClonedDevice):
+            if item.__class__.__name__ == 'OSPFDevice':
                 item.ospf_networks = item.getOSPFNetworks()
 
         # Configure the input fields
@@ -175,7 +190,7 @@ class OSPFDialog(QDialog):
         """
         selected_items = self.scene.selectedItems()
         for item in selected_items:
-            if isinstance(item, ClonedDevice):
+            if item.__class__.__name__ == 'OSPFDevice':
                 self.selected_device = item
                 self._refreshPassiveInterfacesTable()
                 self._refreshOSPFNetworksTable()
@@ -301,7 +316,6 @@ class OSPFDialog(QDialog):
             QMessageBox.warning(self, "Warning", "Select a device.", QMessageBox.Ok)
 
     def _okButtonHandler(self):
-        router_id = self.ui.routerid_input.text()
         area = self.ui.area_number_input.text()
         hello_interval = self.ui.hello_input.text()
         dead_interval = self.ui.dead_input.text()
@@ -310,15 +324,14 @@ class OSPFDialog(QDialog):
         if not area:
             QMessageBox.warning(self, "Warning", "OSPF area is required. Please fill in the area.", QMessageBox.Ok)
             return
-
-        devices = []
-        passive_interfaces = {}
-        ospf_networks = {}
     
         for device in self.scene.items():
-            if isinstance(device, ClonedDevice):
-                filter = EditOSPFOpenconfigFilter(device.router_id, area, hello_interval, dead_interval, reference_bandwidth, device.passive_interfaces, device.ospf_networks)
-                print(str(filter))
+            if device.__class__.__name__ == 'OSPFDevice':
+                device.configureOSPF(area, hello_interval, dead_interval, reference_bandwidth)
+        self.accept()
+
+                    
+
 
 class AddOSPFNetworkDialog(QDialog):
     """

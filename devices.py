@@ -40,6 +40,7 @@ from PySide6.QtCore import (
 import modules.netconf as netconf
 import modules.interfaces as interfaces
 import modules.system as system
+import modules.ospf as ospf
 import helper as helper
 from signals import signal_manager
 
@@ -109,8 +110,8 @@ class Device(QGraphicsPixmapItem):
         # REGISTRY
         type(self)._registry[self.id] = self
 
-    def clone(self):
-        return ClonedDevice(self)
+    def cloneToOSPFDevice(self):
+        return OSPFDevice(self)
 
     def _getNetconfCapabilites(self):
         return(netconf.getNetconfCapabilities(self))
@@ -339,6 +340,7 @@ class Router(Device):
 
         # Router specific functions go here
 
+
 class Switch(Device):
     _device_type = "S"
 
@@ -351,11 +353,13 @@ class Switch(Device):
 
         # Switch specific functions go here
 
-class ClonedDevice(QGraphicsPixmapItem):
+
+class OSPFDevice(QGraphicsPixmapItem):
     def __init__(self, original_device):
         super().__init__()
 
         self.original_device = original_device
+        self.device_parameters = original_device.device_parameters
 
         # GRAPHICS
         self.setPixmap(original_device.pixmap())
@@ -416,6 +420,12 @@ class ClonedDevice(QGraphicsPixmapItem):
 
     def removeOSPFNetwork(self, network, interface_name):
         self.ospf_networks[interface_name].remove(network)
+
+    def configureOSPF(self, area, hello_interval, dead_interval, reference_bandwidth):
+        rpc_reply = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
+        helper.addPendingChange(self, f"Configure OSPF area: {area}")
+        print(rpc_reply)
+        #helper.printRpc(rpc_reply, "Configure OSPF", self.id)
 
 
 # ---------- QT: ----------

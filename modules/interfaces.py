@@ -261,6 +261,7 @@ def addInterfaceWithNetconf(device, interface_id, interface_type):
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
     return(rpc_reply)
 
+
 # ---------- QT: ----------
 def getBgColorFromFlag(flag):
     if flag == "commited":
