@@ -61,14 +61,25 @@ class EditIPAddressOpenconfigFilter:
         # Load the XML filter template
         self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/edit_config-ip_address.xml")
         self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
-                           'oc-ip': 'http://openconfig.net/yang/interfaces/ip'}
+                           'oc-ip': 'http://openconfig.net/yang/interfaces/ip',
+                           'iana-iftype': 'urn:ietf:params:xml:ns:yang:iana-if-type'}
 
-        # Set the interface name and subinterface index
+        # Set the interface name
         interface_name_element = self.filter_xml.find(".//ns:name", self.namespaces)
         interface_name_element.text = interface
 
+        # Set the interface type
+        interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
+        if "loopback" in self.interface.lower() or "lo" in self.interface.lower(): # chech if loopback
+            self.interface_type = "ianaift:softwareLoopback"
+        else: # default to ethernetCsmacd
+            self.interface_type = "ianaift:ethernetCsmacd"
+        interface_type_element.text = self.interface_type
+
+        # Set the subinterface index
         subinterface_index_element = self.filter_xml.find(".//ns:index", self.namespaces)
         subinterface_index_element.text = str(subinterface_index)
+        
 
         if self.ip.version == 4:
             self.createIPV4Filter()
@@ -225,6 +236,7 @@ def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip):
     Returns:
         rpc_reply: The response from the device after attempting to delete the IP address.
     """
+
 
     # FILTER
     filter = EditIPAddressOpenconfigFilter(interface_element, subinterface_index, old_ip, delete_ip=True)

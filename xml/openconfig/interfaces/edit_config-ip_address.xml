@@ -4,6 +4,7 @@
             <name></name>
             <config>
                 <enabled>true</enabled>
+                <type xmlns:ianaift="urn:ietf:params:xml:ns:yang:iana-if-type"></type>
             </config>
             <subinterfaces>
             <subinterface>
