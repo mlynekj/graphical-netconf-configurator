@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QDialogButtonBox,
     QLineEdit,
-    QStyle,)
+    QStyle,
+    QMessageBox)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QGuiApplication
 
@@ -100,7 +101,7 @@ class HostnameDialog(QDialog):
         self.new_hostname = self.hostname_input.text()
 
         if not self.new_hostname or (self.new_hostname == self.old_hostname):
-            helper.showMessageBox(self, "Information", "No changes were made.")
+            QMessageBox.information(self, "Information", "No changes were made.")
         elif self.new_hostname and self.new_hostname != self.old_hostname:
             self.device.setHostname(self.new_hostname)
             self.device.refreshHostnameLabel()

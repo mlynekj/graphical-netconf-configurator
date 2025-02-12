@@ -4,27 +4,6 @@ from signals import signal_manager
 
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
 
-def showMessageBox(parent, title, message):
-    """
-    Displays a message box with a given title and message.
-    
-    Parameters:
-        parent (QWidget): The parent widget of the message box.
-        title (str): The title of the message box.
-        message (str): The message to be displayed in the message box.
-    """
-    
-    info_dialog = QDialog(parent)
-    info_dialog.setWindowTitle(title)
-    info_layout = QVBoxLayout()
-    info_label = QLabel(message)
-    info_layout.addWidget(info_label)
-    info_button = QPushButton("OK")
-    info_button.clicked.connect(info_dialog.accept)
-    info_layout.addWidget(info_button)
-    info_dialog.setLayout(info_layout)
-    info_dialog.exec()
-
 def clearLayout(layout):
     """
     Recursively clears all widgets and layouts from the given layout.
@@ -111,7 +90,7 @@ def prettyXml(input):
         xml_pretty = ET.tostring(xml_etree, pretty_print=True).decode()
     except ET.XMLSyntaxError:
         xml_pretty = input
-        
+
     return (xml_pretty)
 
 def printRpcBulk(rpc_replies: list, action, devices: list):

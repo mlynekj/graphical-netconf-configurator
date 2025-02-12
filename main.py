@@ -429,10 +429,10 @@ class PendingChangesWidget(QDockWidget):
             if commited_devices:
                 helper.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
             else:
-                helper.showMessageBox(self, "No pending changes", "No pending changes to commit.")
+                QMessageBox.information(self, "No pending changes", "No pending changes to commit.")
 
         except Exception as e:
-            helper.showMessageBox(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
+            QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
 
 
 class ConsoleStream(StringIO):

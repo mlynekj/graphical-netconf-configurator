@@ -660,7 +660,7 @@ class EditSubinterfaceDialog(QDialog):
                 self.editInterfaceDialog_instance.refreshDialog()
             elif self.old_ip and self.old_ip == self.new_ip:
                 # If old_ip was entered and the new_ip is the same, do nothing
-                helper.showMessageBox(self, "Information", "No changes were made.")
+                QMessageBox.information(self, "Information", "No changes were made.")
             elif not self.old_ip:
                 # If old_ip was not entered, set new ip address
                 self.device.setInterfaceIP(self.interface_id, self.subinterface_id, self.new_ip)
