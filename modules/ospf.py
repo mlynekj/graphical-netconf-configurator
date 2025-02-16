@@ -26,7 +26,7 @@ from PySide6.QtGui import QFont, QGuiApplication, QAction
 from ui.ui_ospfdialog import Ui_OSPFDialog
 from ui.ui_addospfnetworkdialog import Ui_AddOSPFNetworkDialog
 
-from definitions import OPENCONFIG_XML_DIR, CONFIGURATION_TARGET_DATASTORE
+from definitions import OPENCONFIG_XML_DIR, CONFIGURATION_TARGET_DATASTORE, CISCO_XML_DIR
 from lxml import etree as ET
 
 # Other
@@ -108,6 +108,63 @@ class EditOSPFOpenconfigFilter():
                 dead_interval_element.text = str(self.dead_interval)
 
 
+class EditOSPFCiscoFilter():
+    def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict):
+        self.router_id = router_id
+        self.area = area
+        self.hello_interval = hello_interval
+        self.dead_interval = dead_interval
+        self.reference_bandwidth = reference_bandwidth
+        self.passive_interfaces = passive_interfaces
+        
+        self.ospf_networks = [network for networks in ospf_networks.values() for network in networks] # Flatten the list of lists
+
+        # Load the XML filter template
+        self.filter_xml = ET.parse(CISCO_XML_DIR + "/ospf/edit_config-ospf.xml")
+        self.namespaces = {'native': 'http://cisco.com/ns/yang/Cisco-IOS-XE-native',
+                           'ospf': 'http://cisco.com/ns/yang/Cisco-IOS-XE-ospf'}
+        
+        # Set the router-id
+        if self.router_id:
+            process_id_element = self.filter_xml.find(".//ospf:process-id", self.namespaces)
+            router_id_element = ET.SubElement(process_id_element, "router-id")
+            router_id_element.text = self.router_id
+
+        # Set the auto-cost reference-bandwidth
+        if self.reference_bandwidth:
+            auto_cost_element = self.filter_xml.find(".//ospf:auto-cost", self.namespaces)
+            reference_bandwidth_element = ET.SubElement(auto_cost_element, "reference-bandwidth")
+            reference_bandwidth_element.text = str(self.reference_bandwidth)
+
+        # Add the networks
+        for network in self.ospf_networks:
+            self._addNetwork(network)
+
+    def _addNetwork(self, network):
+        process_id_element = self.filter_xml.find(".//ospf:process-id", self.namespaces)
+        network_element = ET.SubElement(process_id_element, "network")
+        
+        # IP
+        network_ip_element = ET.SubElement(network_element, "ip")
+        network_ip_element.text = network.network_address.exploded
+        # Wildcard
+        network_wildcard_element = ET.SubElement(network_element, "wildcard")
+        network_wildcard_element.text = network.hostmask.exploded
+        # Area
+        network_area_element = ET.SubElement(network_element, "area")
+        network_area_element.text = self.area
+
+    def __str__(self):
+        """
+        This method converts the filter_xml attribute to a string using the
+        ElementTree tostring method and decodes it to UTF-8.
+        This is needed for dispatching RPCs with ncclient.
+
+        Returns:
+            str: The string representation of the filter_xml attribute.
+        """
+        return(ET.tostring(self.filter_xml).decode('utf-8'))
+
 # ---------- OPERATIONS: ----------
 def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, reference_bandwidth):
     if ospf_device.device_parameters["device_params"] == "junos":
@@ -120,7 +177,9 @@ def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, r
         return(rpc_reply)
     
     elif ospf_device.device_parameters["device_params"] == "iosxe":
-        raise NotImplementedError("OSPF configuration for IOS-XE devices is not implemented yet.")
+        filter = EditOSPFCiscoFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
+        print(str(filter))
+        #raise NotImplementedError("OSPF configuration for IOS-XE devices is not implemented yet.")
     # TODO: cisco
 
 # ---------- QT: ----------

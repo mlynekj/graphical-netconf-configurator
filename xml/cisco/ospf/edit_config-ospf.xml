@@ -1,0 +1,17 @@
+<config>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <router>
+            <router-ospf xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ospf">
+                <ospf>
+                    <process-id>
+                        <id>1</id>
+                        <auto-cost>
+                        </auto-cost>
+                        <passive-interface>
+                        </passive-interface>
+                    </process-id>
+                </ospf>
+            </router-ospf>
+        </router>
+    </native>
+</config>
