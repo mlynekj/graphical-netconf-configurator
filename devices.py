@@ -425,12 +425,12 @@ class OSPFDevice(QGraphicsPixmapItem):
         self.ospf_networks[interface_name].remove(network)
 
     def configureOSPF(self, area, hello_interval, dead_interval, reference_bandwidth):
-        #try:
-        rpc_reply = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
-        helper.addPendingChange(self, f"Configure OSPF area: {area}")
-        helper.printRpc(rpc_reply, "Configure OSPF", self.id)
-        #except Exception as e:
-         #   helper.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
+        try:
+            rpc_reply = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
+            helper.addPendingChange(self.original_device, f"Configure OSPF area: {area}")
+            helper.printRpc(rpc_reply, "Configure OSPF", self.id)
+        except Exception as e:
+            helper.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
 
 
 # ---------- QT: ----------

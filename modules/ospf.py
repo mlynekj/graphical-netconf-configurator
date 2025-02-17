@@ -107,7 +107,6 @@ class EditOSPFOpenconfigFilter():
                 dead_interval_element = ET.SubElement(timers_config_element, "dead-interval")
                 dead_interval_element.text = str(self.dead_interval)
 
-
 class EditOSPFCiscoFilter():
     def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict):
         self.router_id = router_id
@@ -118,6 +117,7 @@ class EditOSPFCiscoFilter():
         self.passive_interfaces = passive_interfaces
         
         self.ospf_networks = [network for networks in ospf_networks.values() for network in networks] # Flatten the list of lists
+        self.ospf_interfaces = list(ospf_networks.keys())
 
         # Load the XML filter template
         self.filter_xml = ET.parse(CISCO_XML_DIR + "/ospf/edit_config-ospf.xml")
@@ -136,9 +136,18 @@ class EditOSPFCiscoFilter():
             reference_bandwidth_element = ET.SubElement(auto_cost_element, "reference-bandwidth")
             reference_bandwidth_element.text = str(self.reference_bandwidth)
 
-        # Add the networks
+        # Add networks
         for network in self.ospf_networks:
             self._addNetwork(network)
+
+        # Add passive interfaces
+        for interface in self.passive_interfaces:
+            self._addPassiveInterface(interface)
+
+        # Add the timers
+        if self.hello_interval or self.dead_interval:
+            for interface in self.ospf_interfaces:
+                self._addTimers(interface)
 
     def _addNetwork(self, network):
         process_id_element = self.filter_xml.find(".//ospf:process-id", self.namespaces)
@@ -153,6 +162,36 @@ class EditOSPFCiscoFilter():
         # Area
         network_area_element = ET.SubElement(network_element, "area")
         network_area_element.text = self.area
+
+    def _addPassiveInterface(self, interface):
+        passive_interface_container_element = self.filter_xml.find(".//ospf:passive-interface", self.namespaces)
+        passive_interface_element = ET.SubElement(passive_interface_container_element, "interface")
+        passive_interface_element.text = interface
+
+    def _addTimers(self, interface):
+        native_element = self.filter_xml.find(".//native:native", self.namespaces) #/native
+        interface_container_element = ET.SubElement(native_element, "interface") #/native/interface
+        
+        # Split the interface name (e.g. GigabitEthernet1) into type and number (GigabitEthernet, 1)
+        interface_type = ''.join(filter(str.isalpha, interface))
+        interface_number = interface.replace(interface_type, '')
+
+        # Create the interface elements
+        interface_element = ET.SubElement(interface_container_element, interface_type) #../interface/GigabitEthernet
+        interface_number_element = ET.SubElement(interface_element, "name") #../GigabitEthernet/name
+        interface_number_element.text = interface_number #../GigabitEthernet/name[1]
+
+        # Create the timers elements and their respective parent elements
+        ip_element = ET.SubElement(interface_element, "ip") #../GigabitEthernet/ip
+        ospf_namespace = "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf"
+        router_ospf_element = ET.SubElement(ip_element, f"{{{ospf_namespace}}}router-ospf", nsmap={None: ospf_namespace}) #..name[1]/router-ospf
+        ospf_element = ET.SubElement(router_ospf_element, "ospf") #../router-ospf/ospf
+        if self.hello_interval:
+            hello_interval_element = ET.SubElement(ospf_element, "hello-interval") #..ospf/hello-interval
+            hello_interval_element.text = str(self.hello_interval)
+        if self.dead_interval:
+            dead_interval_element = ET.SubElement(ospf_element, "dead-interval") #..ospf/dead-interval       
+            dead_interval_element.text = str(self.dead_interval)
 
     def __str__(self):
         """
@@ -177,10 +216,13 @@ def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, r
         return(rpc_reply)
     
     elif ospf_device.device_parameters["device_params"] == "iosxe":
+        # Create the filter
         filter = EditOSPFCiscoFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
         print(str(filter))
-        #raise NotImplementedError("OSPF configuration for IOS-XE devices is not implemented yet.")
-    # TODO: cisco
+        
+        # RPC                
+        rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
+        return(rpc_reply)
 
 # ---------- QT: ----------
 class OSPFDialog(QDialog):
