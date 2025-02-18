@@ -184,7 +184,7 @@ class EditOSPFCiscoFilter():
         # Create the timers elements and their respective parent elements
         ip_element = ET.SubElement(interface_element, "ip") #../GigabitEthernet/ip
         ospf_namespace = "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf"
-        router_ospf_element = ET.SubElement(ip_element, f"{{{ospf_namespace}}}router-ospf", nsmap={None: ospf_namespace}) #..name[1]/router-ospf
+        router_ospf_element = ET.SubElement(ip_element, f"{{{ospf_namespace}}}router-ospf", nsmap={None: ospf_namespace}) #../GigabitEthernet/ip/router-ospf
         ospf_element = ET.SubElement(router_ospf_element, "ospf") #../router-ospf/ospf
         if self.hello_interval:
             hello_interval_element = ET.SubElement(ospf_element, "hello-interval") #..ospf/hello-interval
@@ -206,23 +206,33 @@ class EditOSPFCiscoFilter():
 
 # ---------- OPERATIONS: ----------
 def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, reference_bandwidth):
+    """
+    Configures OSPF on a network device using NETCONF. Called from the device's configureOSPF method.
+    Parameters:
+        ospf_device (object): The device object containing OSPF configuration parameters.
+        area (str): The OSPF area to configure.
+        hello_interval (int): The OSPF hello interval.
+        dead_interval (int): The OSPF dead interval.
+        reference_bandwidth (int): The OSPF reference bandwidth.
+    Returns:
+        rpc_reply (object): The RPC reply from the NETCONF edit-config operation.
+        filter (str): The XML filter used in the NETCONF edit-config operation.
+    """
     if ospf_device.device_parameters["device_params"] == "junos":
         # Create the filter
         filter = EditOSPFOpenconfigFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
-        print(str(filter))
             
         # RPC                
         rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
-        return(rpc_reply)
+        return(rpc_reply, filter)
     
     elif ospf_device.device_parameters["device_params"] == "iosxe":
         # Create the filter
         filter = EditOSPFCiscoFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
-        print(str(filter))
         
         # RPC                
         rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
-        return(rpc_reply)
+        return(rpc_reply, filter)
 
 # ---------- QT: ----------
 class OSPFDialog(QDialog):

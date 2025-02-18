@@ -24,7 +24,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QHeaderView,
     QLabel,
-    QMessageBox)
+    QMessageBox,
+    QDialog)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
@@ -44,6 +45,7 @@ import helper as helper
 import modules.ospf as ospf
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
+from ui.ui_pendingchangedetailsdialog import Ui_PendingChangeDetailsDialog
 
 sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
 
@@ -367,10 +369,6 @@ class PendingChangesWidget(QDockWidget):
         self.setFixedWidth(250)
         self.setContentsMargins(0, 0, 0, 0)
 
-        # Signals
-        signal_manager.pendingChangeAdded.connect(self.addPendingChangeToTable)
-        signal_manager.deviceNoLongerHasPendingChanges.connect(self.clearPendingChangesFromTable)
-
         # Table with pending changes
         self.table_widget = QTableWidget()
         self.table_widget.setColumnCount(2)
@@ -395,16 +393,24 @@ class PendingChangesWidget(QDockWidget):
         self.container.setLayout(self.layout)
         self.setWidget(self.container)
 
-    def addPendingChangeToTable(self, device_id, change):
+        # Signals
+        signal_manager.pendingChangeAdded.connect(self.addPendingChangeToTable)
+        signal_manager.deviceNoLongerHasPendingChanges.connect(self.clearPendingChangesFromTable)
+        self.table_widget.itemDoubleClicked.connect(self._showPendingChangeDetails)
+
+    def addPendingChangeToTable(self, device_id, change_name, rpc_reply, filter):
         row_position = self.table_widget.rowCount()
         self.table_widget.insertRow(row_position)
 
         device_item = QTableWidgetItem(device_id)
         device_item.setFlags(device_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
+        device_item.setToolTip("Double click for details")
         self.table_widget.setItem(row_position, 0, device_item)
 
-        change_item = QTableWidgetItem(change)
+        change_item = QTableWidgetItem(change_name)
         change_item.setFlags(change_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
+        change_item.setData(Qt.UserRole, (filter, rpc_reply)) # Store the RPC reply and filter in the item, so it can be accessed when the item is double-clicked
+        change_item.setToolTip("Double click for details")
         self.table_widget.setItem(row_position, 1, change_item)
 
     def clearPendingChangesFromTable(self, device_id):
@@ -434,6 +440,33 @@ class PendingChangesWidget(QDockWidget):
         except Exception as e:
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
 
+    def _showPendingChangeDetails(self, item):
+        device_id = self.table_widget.item(item.row(), 0).text()
+        change_name = self.table_widget.item(item.row(), 1).text()
+
+        rpc_reply, filter = self.table_widget.item(item.row(), 1).data(Qt.UserRole)
+
+        dialog = PendingChangeDetails(device_id, change_name, rpc_reply, filter)
+        dialog.exec()
+
+class PendingChangeDetails(QDialog):
+    def __init__(self, device_id, change_name, rpc_reply, filter):
+        super().__init__()
+
+        self.ui = Ui_PendingChangeDetailsDialog()
+        self.ui.setupUi(self)
+    
+        self.device_id = device_id
+        self.change = change_name
+        self.rpc_reply = rpc_reply
+        self.filter = filter
+
+        self.ui.header.setText(f"{device_id} - {change_name}")
+        self.ui.filter_text_browser.setPlainText(self.filter)
+        self.ui.rpc_reply_text_browser.setPlainText(self.rpc_reply)
+        
+
+        
 
 class ConsoleStream(StringIO):
     """

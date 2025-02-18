@@ -85,28 +85,15 @@ def prettyXml(input):
 
     string = str(input)
     try:
+        xml_parser = ET.XMLParser(remove_blank_text=True)
         bytes_utf8 = bytes(string, 'utf8')
-        xml_etree = ET.fromstring(bytes_utf8)
+        xml_etree = ET.fromstring(bytes_utf8, xml_parser)
         xml_pretty = ET.tostring(xml_etree, pretty_print=True).decode()
     except ET.XMLSyntaxError:
         xml_pretty = input
+        raise ValueError("Invalid XML input.")
 
     return (xml_pretty)
-
-def printRpcBulk(rpc_replies: list, action, devices: list):
-    # Zatim neotestovano
-
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    message = (
-        f"{timestamp}\n"
-        f"RPC replies for bulk action: \"{action}\" on devices \"{devices}\":\n"
-    )
-
-    for device, rpc_reply in zip(devices, rpc_replies):
-        rpc_reply_pretty = prettyXml(rpc_reply)
-        message += (device + ":\n" + rpc_reply_pretty + "\n")
-
-    print(message)
 
 def printRpc(rpc_reply, action, device):
     """
@@ -142,15 +129,15 @@ def printGeneral(message):
     )
     print(message)
 
-def addPendingChange(device, pending_change):
+def addPendingChange(device, pending_change_name, rpc_reply=None, filter=None):
     """
     This function marks the device as having pending changes and emits a signal
-    to notify that a pending change has been added.
+    to notify that a pending change has been added. The signal is then used to add the pending change to the PendingChangesWidget.
     
     Args:
         device (Device): The device object to which the pending change is to be added.
         pending_change (Any): The pending change to be added to the device.
     """
 
-    signal_manager.pendingChangeAdded.emit(device.id, pending_change)
+    signal_manager.pendingChangeAdded.emit(device.id, pending_change_name, prettyXml(rpc_reply), prettyXml(filter))
     device.has_pending_changes = True

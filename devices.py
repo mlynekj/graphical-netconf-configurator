@@ -233,8 +233,8 @@ class Device(QGraphicsPixmapItem):
         return(system.getHostnameWithNetconf(self))
     
     def setHostname(self, new_hostname):
-        rpc_reply = system.setHostnameWithNetconf(self, new_hostname)
-        helper.addPendingChange(self, f"Set hostname: {new_hostname}")
+        rpc_reply, filter = system.setHostnameWithNetconf(self, new_hostname)
+        helper.addPendingChange(self, f"Set hostname: {new_hostname}", rpc_reply, filter)
         helper.printRpc(rpc_reply, "Set Hostname", self.hostname)
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
@@ -242,8 +242,8 @@ class Device(QGraphicsPixmapItem):
         return(interfaces.getInterfacesWithNetconf(self))
     
     def deleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
-        rpc_reply = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
-        helper.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}")
+        rpc_reply, filter = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
+        helper.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
         helper.printRpc(rpc_reply, "Delete IP", self.hostname)
         if old_ip.version == 4:
             # find the entry to be deleted in the self.interfaces dictionary
@@ -257,8 +257,8 @@ class Device(QGraphicsPixmapItem):
             matching_entry["flag"] = "deleted"
 
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
-        rpc_reply = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
-        helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}")
+        rpc_reply, filter = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
+        helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
         helper.printRpc(rpc_reply, "Set IP", self.hostname)
         
         # When adding IP to a new subinterface, create the subinterface first
@@ -274,16 +274,17 @@ class Device(QGraphicsPixmapItem):
             self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"].append({"value": new_ip, "flag": "uncommited"})
 
     def replaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
-        rpc_reply_delete = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
-        rpc_reply_set = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
-        helper.addPendingChange(self, f"Replace IP: {old_ip} with {new_ip} on interface: {interface_id}.{subinterface_index}")
+        rpc_reply_delete, filter_delete = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
+        rpc_reply_set, filter_set = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
+        helper.addPendingChange(self, f"Delete IP: {old_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_delete, filter_delete)
+        helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_set, filter_set)
         helper.printRpc(rpc_reply_delete, "Delete IP", self.hostname)
         helper.printRpc(rpc_reply_set, "Set IP", self.hostname)
         # TODO: add entry to self.interfaces with the flag commited=False
 
     def addInterface(self, interface_id, interface_type):
-        rpc_reply = interfaces.addInterfaceWithNetconf(self, interface_id, interface_type)
-        helper.addPendingChange(self, f"Add interface: {interface_id}")
+        rpc_reply, filter = interfaces.addInterfaceWithNetconf(self, interface_id, interface_type)
+        helper.addPendingChange(self, f"Add interface: {interface_id}", rpc_reply, filter)
         helper.printRpc(rpc_reply, "Add Interface", self.hostname)
         self.interfaces[interface_id] = {
             "subinterfaces": {}
@@ -425,9 +426,23 @@ class OSPFDevice(QGraphicsPixmapItem):
         self.ospf_networks[interface_name].remove(network)
 
     def configureOSPF(self, area, hello_interval, dead_interval, reference_bandwidth):
+        """
+        Configures OSPF on the device with the specified parameters. Calls the configureOSPFWithNetconf function from the ospf module. Called from the OSPFDialog, when the user clicks the "OK" button.
+        Parameters:
+            rpc_reply: The RPC reply from the NETCONF server.
+            filter: The filter used in the NETCONF RPC.
+        Args:
+            area (int): The OSPF area to configure.
+            hello_interval (int): The hello interval in seconds.
+            dead_interval (int): The dead interval in seconds.
+            reference_bandwidth (int): The reference bandwidth in Mbps.
+        Returns:
+            None
+        """
+        
         try:
-            rpc_reply = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
-            helper.addPendingChange(self.original_device, f"Configure OSPF area: {area}")
+            rpc_reply, filter = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
+            helper.addPendingChange(self.original_device, f"Configure OSPF area: {area}", rpc_reply, filter)
             helper.printRpc(rpc_reply, "Configure OSPF", self.id)
         except Exception as e:
             helper.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")

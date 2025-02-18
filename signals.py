@@ -5,7 +5,7 @@ class SignalManager(QObject):
     #   (helper.py - "helper.addPendingChange").
     # Connects to function that adds the change to the pending changes table:
     #   (main.py - pendingChangesDockWidget.addPendingChangeToTable).
-    pendingChangeAdded = Signal(object, str)
+    pendingChangeAdded = Signal(object, str, str, str) # (device_id, pending_change_name, rpc_reply, filter)
 
     # Emited when the device no longer has any pending changes - either by discarding or by commiting them:
     #   (devices.py - "device.discardChanges", "device.commitChanges").

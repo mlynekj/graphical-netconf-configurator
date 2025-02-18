@@ -242,7 +242,7 @@ def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip):
 
     # RPC
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-    return(rpc_reply)
+    return(rpc_reply, filter)
 
 def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
     """
@@ -261,7 +261,7 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
     
     # RPC
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-    return(rpc_reply)
+    return(rpc_reply, filter)
 
 # -- Add new interfaces --
 def addInterfaceWithNetconf(device, interface_id, interface_type):
@@ -270,7 +270,7 @@ def addInterfaceWithNetconf(device, interface_id, interface_type):
     
     # RPC
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-    return(rpc_reply)
+    return(rpc_reply, filter)
 
 
 # ---------- QT: ----------
