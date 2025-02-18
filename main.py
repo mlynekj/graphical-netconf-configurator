@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QGraphicsRectItem,
     QSizePolicy,
     QVBoxLayout,
+    QHBoxLayout,
     QTableWidget,
     QTableWidgetItem,
     QWidget,
@@ -25,7 +26,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QMessageBox,
-    QDialog)
+    QDialog,
+    QComboBox)
 from PySide6.QtGui import ( 
     QBrush, 
     QColor, 
@@ -44,6 +46,10 @@ import modules.netconf as netconf
 import helper as helper
 import modules.ospf as ospf
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
+
+from threading import Timer, Thread, Event
+import time
+
 
 from ui.ui_pendingchangedetailsdialog import Ui_PendingChangeDetailsDialog
 
@@ -360,6 +366,8 @@ class PendingChangesWidget(QDockWidget):
     def __init__(self):
         super().__init__("Pending changes")
 
+        self.stop_countdown_event = Event()
+
         title_label = QLabel("Pending changes")
         title_label.setAlignment(Qt.AlignCenter)
         self.setTitleBarWidget(title_label)
@@ -379,16 +387,33 @@ class PendingChangesWidget(QDockWidget):
         self.table_widget.setSortingEnabled(True)
 
         # Commit button
-        self.commit_button = QPushButton("Commit all changes") # TODO: muze byt verify + commit, nebu muzu udelat dva button a druhy bude "confirmed commit" (nebo funkce confirmed commitu bude v "commit" tlacitku)
+        self.commit_button = QPushButton("Commit")
         self.commit_button.clicked.connect(self._commitPendingChanges)
 
+        # Confirmed commit button
+        self.confirmed_commit_button = QPushButton("Confirmed commit")
+        self.confirmed_commit_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.confirmed_commit_button.clicked.connect(self._confirmedCommitPendingChanges)
+        self.confirmed_commit_timer_combobox = QComboBox()
+        self.confirmed_commit_timer_combobox.addItems(["1 min.", "2 min.", "5 min.", "10 min."])
+
         # Discard all changes button
-        # TODO: self.discard_button = QPushButton("Discard all changes")
+        self.discard_button = QPushButton("Discard all")
+        self.discard_button.clicked.connect(self._discardAllPendingChanges)
 
         # Layout
         self.layout = QVBoxLayout()
+        
+        self.confirmed_commit_buttons_layout = QHBoxLayout()
+        
+        self.confirmed_commit_buttons_layout.addWidget(self.confirmed_commit_button, stretch=1)
+        self.confirmed_commit_buttons_layout.addStretch()
+        self.confirmed_commit_buttons_layout.addWidget(self.confirmed_commit_timer_combobox)
+
         self.layout.addWidget(self.table_widget)
+        self.layout.addLayout(self.confirmed_commit_buttons_layout)
         self.layout.addWidget(self.commit_button)
+        self.layout.addWidget(self.discard_button)
         self.container = QWidget()
         self.container.setLayout(self.layout)
         self.setWidget(self.container)
@@ -409,7 +434,7 @@ class PendingChangesWidget(QDockWidget):
 
         change_item = QTableWidgetItem(change_name)
         change_item.setFlags(change_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
-        change_item.setData(Qt.UserRole, (filter, rpc_reply)) # Store the RPC reply and filter in the item, so it can be accessed when the item is double-clicked
+        change_item.setData(Qt.UserRole, (rpc_reply, filter)) # Store the RPC reply and filter in the item, so it can be accessed when the item is double-clicked
         change_item.setToolTip("Double click for details")
         self.table_widget.setItem(row_position, 1, change_item)
 
@@ -417,6 +442,55 @@ class PendingChangesWidget(QDockWidget):
         for row in range(self.table_widget.rowCount() - 1, -1, -1): # Iterate backwards to avoid skipping rows
             if self.table_widget.item(row, 0).text() == device_id:
                 self.table_widget.removeRow(row)
+
+    def _confirmedCommitPendingChanges(self):
+        timeout_minutes = self.confirmed_commit_timer_combobox.currentText()
+        timeout_seconds = int(timeout_minutes.split()[0]) * 60
+
+        commited_devices = []
+        devices = Device.getAllDevicesInstances()
+        try:
+            for device in devices:
+                if device.has_pending_changes:
+                    device.commitChanges(confirmed=True, confirm_timeout=timeout_seconds)
+                    commited_devices.append(device.id)
+
+            def countdown():
+                for i in range(timeout_seconds, 0, -1):
+                    if self.stop_countdown_event.is_set():
+                        return
+                    self.commit_button.setText(f"Confirm ({i} sec.)")
+                    QApplication.processEvents()
+                    time.sleep(1)
+                # After the countdown - reset disabled UI elements and delete the pending changes from the table and from the Device
+                self.commit_button.setText("Commit")
+                self.confirmed_commit_button.setEnabled(True)
+                self.confirmed_commit_timer_combobox.setEnabled(True)
+                for device_id in commited_devices:
+                    device = Device.getDeviceInstance(device_id)
+                    device.has_pending_changes = False
+                    signal_manager.deviceNoLongerHasPendingChanges.emit(device.id)
+
+            if commited_devices:
+                helper.printGeneral(f"Performed confirmed commit on devices with ID: {', '.join(commited_devices)}\nTo preserve the changes, commit again within {timeout_seconds} seconds.")
+                
+                # When at least one device has pending changes, begin the confirmed commit procedure (disable buttons, start countdown)
+                self.confirmed_commit_button.setEnabled(False)
+                self.confirmed_commit_timer_combobox.setEnabled(False)
+                
+                self.stop_countdown_event.clear()
+                self.confirmed_commit_thread = Thread(target=countdown)
+                self.confirmed_commit_thread.start()
+            else:
+                QMessageBox.information(self, "No pending changes", "No pending changes to commit.")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
+
+    def stopCountdown(self):
+        self.stop_countdown_event.set()
+        if self.confirmed_commit_thread.is_alive():
+            self.confirmed_commit_thread.join()
 
     def _commitPendingChanges(self):
         commited_devices = []
@@ -434,11 +508,20 @@ class PendingChangesWidget(QDockWidget):
         
             if commited_devices:
                 helper.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
+
+                # Needed for handling the "Confirm" functionality
+                self.stopCountdown()
+                self.commit_button.setText("Commit")
+                self.confirmed_commit_button.setEnabled(True)
+                self.confirmed_commit_timer_combobox.setEnabled(True)
             else:
                 QMessageBox.information(self, "No pending changes", "No pending changes to commit.")
 
         except Exception as e:
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
+
+    def _discardAllPendingChanges(self):
+        pass
 
     def _showPendingChangeDetails(self, item):
         device_id = self.table_widget.item(item.row(), 0).text()

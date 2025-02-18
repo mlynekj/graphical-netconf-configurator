@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QGuiApplication
 
+
 def establishNetconfConnection(device_parameters):
     """
     Establishes a NETCONF connection to a network device.
@@ -74,9 +75,9 @@ def demolishNetconfConnection(device):
     return(rpc_reply)
     # TODO: catch exceptions, probably in device class
 
-def commitNetconfChanges(device):
+def commitNetconfChanges(device, confirmed: bool=False, confirm_timeout=None):
     """ Performs the "commit" operation using the specified ncclient connection. """
-    rpc_reply = device.mngr.commit()
+    rpc_reply = device.mngr.commit(confirmed, timeout=str(confirm_timeout))
     return(rpc_reply)
     # TODO: catch exceptions, probably in device class
 

@@ -46,6 +46,7 @@ from signals import signal_manager
 
 # Other
 import ipaddress
+import traceback
 
 
 class Device(QGraphicsPixmapItem):
@@ -303,16 +304,18 @@ class Device(QGraphicsPixmapItem):
             helper.printGeneral(f"Error discarding changes: {e}")
             return
 
-    def commitChanges(self):
+    def commitChanges(self, confirmed=False, confirm_timeout=None):
         try:
-            rpc_reply = netconf.commitNetconfChanges(self)
+            rpc_reply = netconf.commitNetconfChanges(self, confirmed, confirm_timeout)
             helper.printRpc(rpc_reply, "Commit changes", self.hostname)
             self.interfaces = self.getInterfaces() # Refresh interfaces after commit
 
-            self.has_pending_changes = False
-            signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+            if not confirmed: # Dont remove the pending changes flag, if the commit is of the confirmed type
+                self.has_pending_changes = False
+                signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
         except Exception as e:
             helper.printGeneral(f"Error committing changes: {e}")
+            helper.printGeneral(traceback.format_exc())
             return
     
     # ---------- REGISTRY FUNCTIONS ---------- 
