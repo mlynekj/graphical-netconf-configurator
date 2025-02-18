@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QComboBox,
     QDialog,
-    QVBoxLayout)
+    QVBoxLayout,
+    QMessageBox)
 from PySide6.QtGui import (
     QImage, 
     QPixmap,
@@ -499,26 +500,37 @@ class AddDeviceDialog(QDialog):
             self.passwordTextInput.setText("cisco")
 
     def _confirmConnection(self):
-        # Address + Port
-        address_field = self.addressTextInput.text().split(":")
-        if len(address_field) == 2:
-            self.device_parameters["address"] = address_field[0]
-            self.device_parameters["port"] = address_field[1]
-        elif len(address_field) == 1:
-            self.device_parameters["address"] = self.addressTextInput.text()
-            self.device_parameters["port"] = 830
-        else:
-            raise ValueError("Invalid IP address format")
+        try:
+            # Address + Port
+            address_field = self.addressTextInput.text().split(":")
+            if len(address_field) == 2:
+                self.device_parameters["address"] = address_field[0]
+                self.device_parameters["port"] = address_field[1]
+            elif len(address_field) == 1:
+                self.device_parameters["address"] = self.addressTextInput.text()
+                self.device_parameters["port"] = 830
+            else:
+                raise ValueError("Invalid IP address format")
 
-        # Username + Password + Device vendor
-        self.device_parameters["username"] = self.usernameTextInput.text()
-        self.device_parameters["password"] = self.passwordTextInput.text()
-        if self.deviceVendorComboInput.currentText() == "Cisco IOS XE":
-            self.device_parameters["device_params"] = "iosxe"
-        elif self.deviceVendorComboInput.currentText() == "Juniper":
-            self.device_parameters["device_params"] = "junos"
+            # Username + Password + Device vendor
+            self.device_parameters["username"] = self.usernameTextInput.text()
+            self.device_parameters["password"] = self.passwordTextInput.text()
+            if self.deviceVendorComboInput.currentText() == "Cisco IOS XE":
+                self.device_parameters["device_params"] = "iosxe"
+            elif self.deviceVendorComboInput.currentText() == "Juniper":
+                self.device_parameters["device_params"] = "junos"
+        except ValueError as e:
+            QMessageBox.critical(None, "Invalid input", f"Invalid input: {e}")
+            helper.printGeneral(f"Invalid input: {traceback.format_exc()}")
 
-        # Device type
+        # Check if the device with the same address is not already in the scene
+        for device in self.view.scene.items():
+            if isinstance(device, Device):
+                if device.device_parameters["address"] == self.device_parameters["address"]:
+                    QMessageBox.warning(self, "Device already exists", "The device with the same address is already in the scene.")
+                    return
+
+        # Add the device with the correct type (exception handling is done in the _addRouter and _addSwitch methods)                
         if self.deviceTypeComboInput.currentText() == "Router":
             self._addRouter()
         elif self.deviceTypeComboInput.currentText() == "Switch":

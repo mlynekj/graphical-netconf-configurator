@@ -277,8 +277,8 @@ class MainWindow(QMainWindow):
             with open("saved_devices.json") as f:
                 data = json.load(f)
                 for device in data["devices"]:
+                    # Create the "device_parameters" dictionary used for creating the device instance
                     device_parameters = {}
-
                     address_field = device["ip_address"].split(":")
                     if len(address_field) == 2:
                         device_parameters["address"] = address_field[0]
@@ -290,17 +290,33 @@ class MainWindow(QMainWindow):
                     device_parameters["username"] = device["username"]
                     device_parameters["password"] = device["password"]
                     device_parameters["device_params"] = device["vendor"]
-
+       
+                    # Create the device instance
                     if device["type"] == "Router":
-                        router = Router(device_parameters, x=device["location"]["x"], y=device["location"]["y"])
-                        self.view.scene.addItem(router)
+                        self._createDeviceFromSave(device_parameters, "Router", x=device["location"]["x"], y=device["location"]["y"])
                     elif device["type"] == "Switch":
-                        switch = Switch(device_parameters, x=device["location"]["x"], y=device["location"]["y"])
-                        self.view.scene.addItem(switch)
+                        self._createDeviceFromSave(device_parameters, "Switch", x=device["location"]["x"], y=device["location"]["y"])
+
         except FileNotFoundError:
             QMessageBox.warning(self, "File not found", "File \"saved_devices.json\" not found.", QMessageBox.Ok)
         except Exception as e:
             QMessageBox.warning(self, "Error", f"An error occured while loading devices from file: {e}", QMessageBox.Ok)
+
+    def _createDeviceFromSave(self, device_parameters, device_type, x, y):
+        # Check if the device with the same address is not already in the scene
+        for device in self.view.scene.items():
+            if isinstance(device, Device):
+                if device.device_parameters["address"] == device_parameters["address"]:
+                    QMessageBox.warning(self, "Device already exists", f"The device with the address: {device_parameters["address"]} is already in the scene.")
+                    return
+        
+        if device_type == "Router":
+            router = Router(device_parameters, x=x, y=y)
+            self.view.scene.addItem(router)
+        elif device_type == "Switch":
+            switch = Switch(device_parameters, x=x, y=y)
+            self.view.scene.addItem(switch)
+
 
 # Bottom dock widget
 class ConsoleWidget(QDockWidget):
@@ -444,25 +460,47 @@ class PendingChangesWidget(QDockWidget):
                 self.table_widget.removeRow(row)
 
     def _confirmedCommitPendingChanges(self):
+        """
+        Handles the confirmed commit of pending changes on devices.
+
+        This method is performing so called "confirmed commit" defined in NETCONF RFC6241. It commits the pending changes to the devices with a specific timeout.
+        If second commit is not performed within the timeout, the changes are reverted and all pending changes are discarded.
+        
+        The method performs the following steps:
+        1. Retrieves the timeout value from the combobox and converts it to seconds.
+        2. Iterates over all device instances and commits changes (with the confirmed parameter set to True) on devices with pending changes.
+        3. Starts a countdown timer in a separate thread, that dynaminacally updates the commit button text to show the remaining time.
+        4. Updates the UI elements and device states accordingly after the countdown.
+        Exceptions:
+            Displays a critical message box if committing changes fails on one or more devices.
+        """
+        
+        # Get the timeout in seconds from the combobox
         timeout_minutes = self.confirmed_commit_timer_combobox.currentText()
         timeout_seconds = int(timeout_minutes.split()[0]) * 60
 
         commited_devices = []
         devices = Device.getAllDevicesInstances()
+
         try:
             for device in devices:
                 if device.has_pending_changes:
                     device.commitChanges(confirmed=True, confirm_timeout=timeout_seconds)
                     commited_devices.append(device.id)
 
-            def countdown():
+            def _countdown():
+                """
+                Simple countdown timer that updates the commit button text to show the remaining time. Launched in a separate thread to avoid blocking of the application.
+                """
+                
                 for i in range(timeout_seconds, 0, -1):
                     if self.stop_countdown_event.is_set():
                         return
                     self.commit_button.setText(f"Confirm ({i} sec.)")
                     QApplication.processEvents()
                     time.sleep(1)
-                # After the countdown - reset disabled UI elements and delete the pending changes from the table and from the Device
+
+                # After the countdown - reset disabled UI elements and delete the pending changes from the table of pending changes and from the Device instances
                 self.commit_button.setText("Commit")
                 self.confirmed_commit_button.setEnabled(True)
                 self.confirmed_commit_timer_combobox.setEnabled(True)
@@ -471,15 +509,17 @@ class PendingChangesWidget(QDockWidget):
                     device.has_pending_changes = False
                     signal_manager.deviceNoLongerHasPendingChanges.emit(device.id)
 
+            # When at least one device has pending changes - print and begin the confirmed commit procedure (disable buttons, start countdown)
             if commited_devices:
                 helper.printGeneral(f"Performed confirmed commit on devices with ID: {', '.join(commited_devices)}\nTo preserve the changes, commit again within {timeout_seconds} seconds.")
                 
-                # When at least one device has pending changes, begin the confirmed commit procedure (disable buttons, start countdown)
+                # Disable buttons
                 self.confirmed_commit_button.setEnabled(False)
                 self.confirmed_commit_timer_combobox.setEnabled(False)
                 
+                # Start countdown in a separate thread
                 self.stop_countdown_event.clear()
-                self.confirmed_commit_thread = Thread(target=countdown)
+                self.confirmed_commit_thread = Thread(target=_countdown)
                 self.confirmed_commit_thread.start()
             else:
                 QMessageBox.information(self, "No pending changes", "No pending changes to commit.")
@@ -487,12 +527,26 @@ class PendingChangesWidget(QDockWidget):
         except Exception as e:
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
 
-    def stopCountdown(self):
+    def _stopCountdown(self):
+        """
+        Stops the countdown timer.
+        """
         self.stop_countdown_event.set()
         if self.confirmed_commit_thread.is_alive():
             self.confirmed_commit_thread.join()
 
     def _commitPendingChanges(self):
+        """
+        Handles the commit of pending changes on devices. This commit is NOT confirmed and does not have a timeout.
+
+        This method is performing "commit" defined in NETCONF RFC6241.
+        
+        Exceptions:
+            Displays a critical message box if committing changes fails on one or more devices.
+        Raises:
+            Exception: If committing changes fails on one or more devices.
+        """
+
         commited_devices = []
         devices = Device.getAllDevicesInstances()
 
@@ -509,8 +563,8 @@ class PendingChangesWidget(QDockWidget):
             if commited_devices:
                 helper.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
 
-                # Needed for handling the "Confirm" functionality
-                self.stopCountdown()
+                # Needed for handling the "Confirm" functionality (when using the "Confirmed commit" button, this button is acting as the confirmation button. When the timer is stopped by confirming, the buttons are re-enabled))
+                self._stopCountdown()
                 self.commit_button.setText("Commit")
                 self.confirmed_commit_button.setEnabled(True)
                 self.confirmed_commit_timer_combobox.setEnabled(True)
@@ -521,9 +575,46 @@ class PendingChangesWidget(QDockWidget):
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
 
     def _discardAllPendingChanges(self):
-        pass
+        """
+        Discards all pending changes on all device instances.
+        This method retrieves all device instances and checks if they have any pending changes.
+        If a device has pending changes, it discards those changes, marks the device as having no pending changes,
+        and clears the pending changes from the table for that device.
+
+        If an error occurs during the process, a critical message box is displayed with the error details.
+        Raises:
+            Exception: If discarding changes on one or more devices fails.
+        """
+
+        devices = Device.getAllDevicesInstances()
+        discarded_devices = []
+
+        try:
+            for device in devices:
+                if device.has_pending_changes:
+                    device.discardChanges()
+                    device.has_pending_changes = False
+                    self.clearPendingChangesFromTable(device.id)
+                    discarded_devices.append(device.id)
+            if discarded_devices:
+                helper.printGeneral(f"Discarded changes on devices with ID: {', '.join(discarded_devices)}")
+
+                # Needed for handling the "Confirm" functionality (when using the "Confirmed commit" button, the confirm button is acting as the confirmation button. When the timer is stopped by discarding, the buttons are re-enabled)
+                self._stopCountdown()
+                self.commit_button.setText("Commit")
+                self.confirmed_commit_button.setEnabled(True)
+                self.confirmed_commit_timer_combobox.setEnabled(True)
+            else:
+                QMessageBox.information(self, "No pending changes", "No pending changes to discard.")
+        except Exception as e:
+            QMessageBox.critical(self, "Discard failed", f"Failed to discard changes on one or more devices: {e}")
+
 
     def _showPendingChangeDetails(self, item):
+        """
+        Handles showing the details of a pending change when the user double-clicks on a pending change in the table.
+        It creates a PendingChangeDetails dialog and displays the details of the pending change.
+        """
         device_id = self.table_widget.item(item.row(), 0).text()
         change_name = self.table_widget.item(item.row(), 1).text()
 
@@ -533,6 +624,11 @@ class PendingChangesWidget(QDockWidget):
         dialog.exec()
 
 class PendingChangeDetails(QDialog):
+    """
+    QDialog that displays the details of a pending change when the user double-clicks on a pending change in the table.
+    It shows the RPC filter that was used to make the change and the RPC reply received after the change was made.
+    """
+
     def __init__(self, device_id, change_name, rpc_reply, filter):
         super().__init__()
 
@@ -547,8 +643,6 @@ class PendingChangeDetails(QDialog):
         self.ui.header.setText(f"{device_id} - {change_name}")
         self.ui.filter_text_browser.setPlainText(self.filter)
         self.ui.rpc_reply_text_browser.setPlainText(self.rpc_reply)
-        
-
         
 
 class ConsoleStream(StringIO):
