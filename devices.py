@@ -49,6 +49,8 @@ from signals import signal_manager
 import ipaddress
 import traceback
 
+from ui.ui_routingtabledialog import Ui_RoutingTableDialog
+
 
 class Device(QGraphicsPixmapItem):
     _counter = 0 # Used to generate device IDs
@@ -112,9 +114,6 @@ class Device(QGraphicsPixmapItem):
         # REGISTRY
         type(self)._registry[self.id] = self
 
-    def cloneToOSPFDevice(self):
-        return OSPFDevice(self)
-
     def _getNetconfCapabilites(self):
         return(netconf.getNetconfCapabilities(self))
 
@@ -170,52 +169,55 @@ class Device(QGraphicsPixmapItem):
         QToolTip.hideText()
         super().hoverLeaveEvent(event)
 
-    def contextMenuEvent(self, event):
-        """
-        Context menu event for the device.
-        This method creates a context menu with several actions:
-        - Disconnect from the device
-        - Show NETCONF Capabilities
-        - Show Interfaces
-        - Edit Hostname
-        - Discard all pending changes from candidate datastore
-        Each action is connected to its respective method to perform the desired operation.
-        """
-        
-        menu = QMenu()
-        menu.setToolTipsVisible(True)
+    def _getContextMenuItems(self):
+        items = []
 
         # Disconnect from device
         disconnect_action = QAction("Disconnect from the device")
         disconnect_action.triggered.connect(self._deleteDevice)
         disconnect_action.setToolTip("Disconnects from the device and removes it from the canvas.")
-        menu.addAction(disconnect_action)
+        items.append(disconnect_action)
 
         # Show NETCONF capabilites
         show_netconf_capabilities_action = QAction("Show NETCONF Capabilities")
         show_netconf_capabilities_action.triggered.connect(self._showNetconfCapabilitiesDialog)
         show_netconf_capabilities_action.setToolTip("Shows the NETCONF capabilities of the device.")
-        menu.addAction(show_netconf_capabilities_action)
+        items.append(show_netconf_capabilities_action)
 
         # Show interfaces
         show_interfaces_action = QAction("Show Interfaces")
         show_interfaces_action.triggered.connect(self._showDeviceInterfacesDialog)
         show_interfaces_action.setToolTip("Shows the configuration dialog for the device interfaces.")
-        menu.addAction(show_interfaces_action)
+        items.append(show_interfaces_action)
 
         # Edit Hostname
         edit_hostname_action = QAction("Edit Hostname")
         edit_hostname_action.triggered.connect(self._showHostnameDialog)
         edit_hostname_action.setToolTip("Shows the configuration dialog for the hostname of the device.")
-        menu.addAction(edit_hostname_action)
+        items.append(edit_hostname_action)
 
         # Discard all pending changes
         discard_changes_action = QAction("Discard all pending changes from candidate datastore")
         discard_changes_action.triggered.connect(self.discardChanges)
         discard_changes_action.setToolTip("Discards all changes uploaded to the candidate datastore of the device.")
-        menu.addAction(discard_changes_action)
+        items.append(discard_changes_action)
 
-        menu.exec(event.screenPos())
+        return items
+
+    def contextMenuEvent(self, event):
+        """
+        Context menu event for the device.
+        This method handles showing of the context menu.
+        """
+
+        self.menu = QMenu()
+
+        context_menu_items = self._getContextMenuItems()
+        for action in context_menu_items:
+            self.menu.addAction(action)
+
+        self.menu.setToolTipsVisible(True)
+        self.menu.exec(event.screenPos())
 
     # ---------- DIALOG SHOW FUNCTIONS ---------- 
     def _showNetconfCapabilitiesDialog(self):
@@ -343,6 +345,33 @@ class Router(Device):
         router_icon_img = QImage("graphics/devices/router.png")
         self.setPixmap(QPixmap.fromImage(router_icon_img))
 
+    def _getContextMenuItems(self):
+        """
+        Router-specific context menu items.
+        """
+
+        items = super()._getContextMenuItems()
+
+        # Show routing table
+        show_routing_table_action = QAction("Show routing table")
+        show_routing_table_action.triggered.connect(self.showRoutingTable)
+        show_routing_table_action.setToolTip("Shows the routing table of the device.")
+        items.append(show_routing_table_action)
+
+        return items
+
+    def cloneToOSPFDevice(self):
+        """
+        Clones the device to an OSPFDevice object, which is used in the OSPF configuration dialog.
+        The cloned device is used to display the device in the OSPF configuration dialog, without affecting the original device.
+        After the OSPF configuration is done, the cloned device is deleted.
+        """
+        return OSPFDevice(self)
+    
+    # ---------- ROUTER SPECIFIC STATE RETRIEVAL FUNCTIONS ---------- 
+    def showRoutingTable(self):
+        routingTableDialog = RoutingTableDialog(self)
+        routingTableDialog.exec()
 
 class Switch(Device):
     _device_type = "S"
@@ -547,3 +576,13 @@ class AddDeviceDialog(QDialog):
         switch = Switch(self.device_parameters)
         self.view.scene.addItem(switch)
         return(switch)
+    
+
+class RoutingTableDialog(QDialog):
+    def __init__(self, routing_table):
+        super().__init__()
+
+        self.ui = Ui_RoutingTableDialog()
+        self.ui.setupUi(self)
+
+        # nacist nejake testovaci XML, zkusit to nacpat na Qt TreeWidget

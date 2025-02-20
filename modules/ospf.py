@@ -26,6 +26,7 @@ from PySide6.QtGui import QFont, QGuiApplication, QAction
 from ui.ui_ospfdialog import Ui_OSPFDialog
 from ui.ui_addospfnetworkdialog import Ui_AddOSPFNetworkDialog
 
+
 from definitions import OPENCONFIG_XML_DIR, CONFIGURATION_TARGET_DATASTORE, CISCO_XML_DIR
 from lxml import etree as ET
 
@@ -490,3 +491,5 @@ class AddOSPFNetworkDialog(QDialog):
                 QMessageBox.warning(self, "Warning", "Invalid network address.", QMessageBox.Ok)
         else:
             QMessageBox.warning(self, "Warning", "Fill in all fields.", QMessageBox.Ok)
+
+
