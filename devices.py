@@ -45,7 +45,7 @@ import modules.system as system
 import modules.ospf as ospf
 import helper as helper
 from signals import signal_manager
-from definitions import JUNIPER_XML_DIR
+from definitions import JUNIPER_XML_DIR, CISCO_XML_DIR
 
 # Other
 import ipaddress
@@ -79,8 +79,27 @@ class GetRoutingTableJuniperRPCPayload():
 
         Returns:
             xml.etree.ElementTree.Element: The Element object of the filter_xml attribute.
+
+        Resources:
+            https://github.com/ncclient/ncclient/issues/182
         """
         return(to_ele(str(self)))
+    
+class GetRoutingIetfFilter():
+    def __init__(self):
+        self.rpc_filter = ET.parse(CISCO_XML_DIR + "/routing/get_routing.xml")
+
+    def __str__(self):
+        """
+        This method converts the filter_xml attribute to a string using the
+        ElementTree tostring method and decodes it to UTF-8.
+        This is needed for dispatching RPCs with ncclient.
+
+        Returns:
+            str: The string representation of the filter_xml attribute.
+        """
+        return(ET.tostring(self.rpc_filter).decode('utf-8'))
+
 
 class Device(QGraphicsPixmapItem):
     _counter = 0 # Used to generate device IDs
@@ -407,11 +426,13 @@ class Router(Device):
         """
 
         if self.device_parameters["device_params"] == "iosxe":
-            pass
+            rpc_filter = GetRoutingIetfFilter()
+            rpc_reply = self.mngr.get(str(rpc_filter))
         elif self.device_parameters["device_params"] == "junos":
             rpc_payload = GetRoutingTableJuniperRPCPayload()
             rpc_reply = self.mngr.dispatch(rpc_payload.__ele__())
-            return (rpc_reply)
+        
+        return (rpc_reply)
     
     def showRoutingTable(self):
         """
@@ -422,7 +443,17 @@ class Router(Device):
         """
 
         routing_table = self.getRoutingTable()
-        routingTableDialog = RoutingTableDialog(helper.convertToEtree(routing_table, "junos", strip_namespaces=False), self)
+
+        if routing_table is None:
+            routingTableDialog = RoutingTableDialog(None, self)
+            routingTableDialog.exec()
+            return
+
+        if self.device_parameters["device_params"] == "iosxe":
+            routingTableDialog = RoutingTableDialog(helper.convertToEtree(routing_table, "iosxe"), self)
+        elif self.device_parameters["device_params"] == "junos":
+            routingTableDialog = RoutingTableDialog(helper.convertToEtree(routing_table, "junos"), self)
+
         routingTableDialog.exec()
 
 class Switch(Device):
@@ -659,7 +690,7 @@ class RoutingTableDialog(QDialog):
         self.ui.close_button_box.rejected.connect(self.reject)
 
         self._populateTreeWidget(self.routing_table)
-
+        
     def _populateTreeWidget(self, xml_root):
         """
         Populates the routing table tree widget with items from the given XML root.
@@ -670,7 +701,10 @@ class RoutingTableDialog(QDialog):
         """
 
         self.ui.routing_table_tree.clear()
-        self._addTreeItems(self.ui.routing_table_tree.invisibleRootItem(), xml_root)
+        if xml_root is not None:
+            self._addTreeItems(self.ui.routing_table_tree.invisibleRootItem(), xml_root)
+        else:
+            self.ui.routing_table_tree.setHeaderLabels(["No routing table data found!"])
 
     def _addTreeItems(self, parent, element):
         """
@@ -684,7 +718,7 @@ class RoutingTableDialog(QDialog):
         for key, value in element.attrib.items():
             QTreeWidgetItem(item, [f"{key}: {value}"])
         for child in element:
-            self.addTreeItems(item, child)
+            self._addTreeItems(item, child)
         if element.text and element.text.strip():
             QTreeWidgetItem(item, [element.text.strip()])
 
@@ -696,4 +730,4 @@ class RoutingTableDialog(QDialog):
         """
 
         routing_table = router.getRoutingTable()
-        self.populateTreeWidget(helper.convertToEtree(routing_table, "junos", strip_namespaces=False))
+        self._populateTreeWidget(helper.convertToEtree(routing_table, "junos", strip_namespaces=False))

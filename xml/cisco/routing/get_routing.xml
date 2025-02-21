@@ -1,0 +1,3 @@
+<filter xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <routing-state xmlns="urn:ietf:params:xml:ns:yang:ietf-routing"/>
+</filter>

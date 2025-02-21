@@ -30,10 +30,11 @@ def removeXmlns(element):
         element (xml.etree.ElementTree.Element): The XML element from which to remove namespaces.
     """
 
-    element.tag = element.tag.split('}', 1)[-1]  # Remove namespace from the tag
-    # Recursively apply to child elements
-    for child in element:
-        removeXmlns(child)
+    if element.tag.startswith('{'):  # If the tag has a namespace
+        element.tag = element.tag.split('}', 1)[-1]  # Remove namespace from the tag
+        # Recursively apply to child elements
+        for child in element:
+            removeXmlns(child)
 
 def convertToEtree(rpc_reply, device_type, strip_namespaces=True):
     """
