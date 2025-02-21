@@ -16,8 +16,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QHeaderView, QLabel, QSizePolicy, QTreeWidget,
-    QTreeWidgetItem, QVBoxLayout, QWidget)
+    QFrame, QHBoxLayout, QHeaderView, QLabel,
+    QPushButton, QSizePolicy, QTreeWidget, QTreeWidgetItem,
+    QVBoxLayout, QWidget)
 
 class Ui_RoutingTableDialog(object):
     def setupUi(self, RoutingTableDialog):
@@ -26,15 +27,45 @@ class Ui_RoutingTableDialog(object):
         RoutingTableDialog.resize(743, 408)
         self.verticalLayout = QVBoxLayout(RoutingTableDialog)
         self.verticalLayout.setObjectName(u"verticalLayout")
+        self.top_laout = QHBoxLayout()
+        self.top_laout.setObjectName(u"top_laout")
         self.header = QLabel(RoutingTableDialog)
         self.header.setObjectName(u"header")
 
-        self.verticalLayout.addWidget(self.header)
+        self.top_laout.addWidget(self.header, 0, Qt.AlignmentFlag.AlignLeft)
+
+        self.refresh_button = QPushButton(RoutingTableDialog)
+        self.refresh_button.setObjectName(u"refresh_button")
+        self.refresh_button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+
+        self.top_laout.addWidget(self.refresh_button, 0, Qt.AlignmentFlag.AlignRight)
+
+        self.separator = QFrame(RoutingTableDialog)
+        self.separator.setObjectName(u"separator")
+        self.separator.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.separator.setAutoFillBackground(False)
+        self.separator.setFrameShape(QFrame.Shape.VLine)
+        self.separator.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.top_laout.addWidget(self.separator, 0, Qt.AlignmentFlag.AlignRight)
+
+        self.expand_button = QPushButton(RoutingTableDialog)
+        self.expand_button.setObjectName(u"expand_button")
+        self.expand_button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+
+        self.top_laout.addWidget(self.expand_button, 0, Qt.AlignmentFlag.AlignRight)
+
+        self.collapse_button = QPushButton(RoutingTableDialog)
+        self.collapse_button.setObjectName(u"collapse_button")
+        self.collapse_button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+
+        self.top_laout.addWidget(self.collapse_button, 0, Qt.AlignmentFlag.AlignRight)
+
+        self.top_laout.setStretch(0, 1)
+
+        self.verticalLayout.addLayout(self.top_laout)
 
         self.routing_table_tree = QTreeWidget(RoutingTableDialog)
-        __qtreewidgetitem = QTreeWidgetItem()
-        __qtreewidgetitem.setText(0, u"1");
-        self.routing_table_tree.setHeaderItem(__qtreewidgetitem)
         self.routing_table_tree.setObjectName(u"routing_table_tree")
 
         self.verticalLayout.addWidget(self.routing_table_tree)
@@ -54,5 +85,10 @@ class Ui_RoutingTableDialog(object):
     def retranslateUi(self, RoutingTableDialog):
         RoutingTableDialog.setWindowTitle(QCoreApplication.translate("RoutingTableDialog", u"Dialog", None))
         self.header.setText(QCoreApplication.translate("RoutingTableDialog", u"routing_table", None))
+        self.refresh_button.setText(QCoreApplication.translate("RoutingTableDialog", u"Refresh", None))
+        self.expand_button.setText(QCoreApplication.translate("RoutingTableDialog", u"Expand all", None))
+        self.collapse_button.setText(QCoreApplication.translate("RoutingTableDialog", u"Collapse all", None))
+        ___qtreewidgetitem = self.routing_table_tree.headerItem()
+        ___qtreewidgetitem.setText(0, QCoreApplication.translate("RoutingTableDialog", u"Element", None));
     # retranslateUi
 

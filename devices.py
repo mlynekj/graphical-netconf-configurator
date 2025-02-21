@@ -19,7 +19,8 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QVBoxLayout,
-    QMessageBox)
+    QMessageBox,
+    QTreeWidgetItem)
 from PySide6.QtGui import (
     QImage, 
     QPixmap,
@@ -44,13 +45,42 @@ import modules.system as system
 import modules.ospf as ospf
 import helper as helper
 from signals import signal_manager
+from definitions import JUNIPER_XML_DIR
 
 # Other
 import ipaddress
 import traceback
 
+from ncclient.xml_ import to_ele
+
 from ui.ui_routingtabledialog import Ui_RoutingTableDialog
 
+from lxml import etree as ET
+
+class GetRoutingTableJuniperRPCPayload():
+    def __init__(self):
+        self.rpc_payload_xml = ET.parse(JUNIPER_XML_DIR + "/state/rpc_routing-table.xml")
+
+    def __str__(self):
+        """
+        This method converts the filter_xml attribute to a string using the
+        ElementTree tostring method and decodes it to UTF-8.
+        This is needed for dispatching RPCs with ncclient.
+
+        Returns:
+            str: The string representation of the filter_xml attribute.
+        """
+        return(ET.tostring(self.rpc_payload_xml).decode('utf-8'))
+    
+    def __ele__(self):
+        """
+        This method converts the filter_xml attribute to an Element object.
+        This is needed for dispatching RPCs with ncclient.
+
+        Returns:
+            xml.etree.ElementTree.Element: The Element object of the filter_xml attribute.
+        """
+        return(to_ele(str(self)))
 
 class Device(QGraphicsPixmapItem):
     _counter = 0 # Used to generate device IDs
@@ -368,9 +398,31 @@ class Router(Device):
         """
         return OSPFDevice(self)
     
-    # ---------- ROUTER SPECIFIC STATE RETRIEVAL FUNCTIONS ---------- 
+    # ---------- ROUTING TABLE FUNCTIONS ---------- 
+    def getRoutingTable(self):
+        """
+        Retrieves the routing table from the device based on its operating system.
+        Returns:
+            rpc_reply: The routing table information.
+        """
+
+        if self.device_parameters["device_params"] == "iosxe":
+            pass
+        elif self.device_parameters["device_params"] == "junos":
+            rpc_payload = GetRoutingTableJuniperRPCPayload()
+            rpc_reply = self.mngr.dispatch(rpc_payload.__ele__())
+            return (rpc_reply)
+    
     def showRoutingTable(self):
-        routingTableDialog = RoutingTableDialog(self)
+        """
+        Displays the routing table in a dialog window.
+        This method retrieves the routing table using the `getRoutingTable` method,
+        converts it to an XML tree using the `helper.convertToEtree` function, and
+        then displays it in a `RoutingTableDialog` window.
+        """
+
+        routing_table = self.getRoutingTable()
+        routingTableDialog = RoutingTableDialog(helper.convertToEtree(routing_table, "junos", strip_namespaces=False), self)
         routingTableDialog.exec()
 
 class Switch(Device):
@@ -579,10 +631,69 @@ class AddDeviceDialog(QDialog):
     
 
 class RoutingTableDialog(QDialog):
-    def __init__(self, routing_table):
+    """
+    A dialog for displaying the routing table of a router (instance of class Router).
+    """
+
+    def __init__(self, routing_table, router):
+        """
+        Initializes the RoutingTableDialog.
+        Args:
+            routing_table: The routing table XML data (XML root element, specifically).
+            router (Router): The router object for which to display the routing table.
+        Sets up the UI elements and connects the buttons to their respective functions.
+        """
+    
         super().__init__()
+
+        self.routing_table = routing_table
 
         self.ui = Ui_RoutingTableDialog()
         self.ui.setupUi(self)
 
-        # nacist nejake testovaci XML, zkusit to nacpat na Qt TreeWidget
+        # Setup UI elements
+        self.ui.header.setText(f"Routing table for device: {router.id}")
+        self.ui.collapse_button.clicked.connect(self.ui.routing_table_tree.collapseAll)
+        self.ui.expand_button.clicked.connect(self.ui.routing_table_tree.expandAll)
+        self.ui.refresh_button.clicked.connect(lambda: self._refreshRoutingTable(router))
+        self.ui.close_button_box.rejected.connect(self.reject)
+
+        self._populateTreeWidget(self.routing_table)
+
+    def _populateTreeWidget(self, xml_root):
+        """
+        Populates the routing table tree widget with items from the given XML root.
+        This method clears the current items in the routing table tree widget and 
+        adds new items based on the provided XML root element.
+        Args:
+            xml_root: The root element of the XML structure containing the data to populate the tree widget.
+        """
+
+        self.ui.routing_table_tree.clear()
+        self._addTreeItems(self.ui.routing_table_tree.invisibleRootItem(), xml_root)
+
+    def _addTreeItems(self, parent, element):
+        """
+        Recursively adds tree items to a QTreeWidget.
+        Args:
+            parent (QTreeWidgetItem): The parent tree widget item to which new items will be added.
+            element (Element): The XML element whose data will be used to create tree items.
+        """
+
+        item = QTreeWidgetItem(parent, [element.tag])
+        for key, value in element.attrib.items():
+            QTreeWidgetItem(item, [f"{key}: {value}"])
+        for child in element:
+            self.addTreeItems(item, child)
+        if element.text and element.text.strip():
+            QTreeWidgetItem(item, [element.text.strip()])
+
+    def _refreshRoutingTable(self, router):
+        """
+        Refreshes the routing table of the selected router. This method is called when the user clicks the "Refresh" button in the routing table dialog.
+        Args:
+            router (Router): The router for which to refresh the routing table.
+        """
+
+        routing_table = router.getRoutingTable()
+        self.populateTreeWidget(helper.convertToEtree(routing_table, "junos", strip_namespaces=False))

@@ -35,7 +35,7 @@ def removeXmlns(element):
     for child in element:
         removeXmlns(child)
 
-def convertToEtree(rpc_reply, device_type):
+def convertToEtree(rpc_reply, device_type, strip_namespaces=True):
     """
     Converts the RPC reply to an ElementTree object.
 
@@ -68,9 +68,10 @@ def convertToEtree(rpc_reply, device_type):
 
     # BYTES -> ETREE
     rpc_reply_etree = ET.fromstring(rpc_reply_bytes)
-    removeXmlns(rpc_reply_etree) # Strip all XML Namespace declarations for easier parsing
+    if strip_namespaces:
+        removeXmlns(rpc_reply_etree) # Strip all XML Namespace declarations for easier parsing
 
-    return(rpc_reply_etree)
+    return(rpc_reply_etree) # returns the root node (https://lxml.de/apidoc/lxml.etree.html#lxml.etree.fromstring)
 
 def prettyXml(input):
     """
