@@ -2,7 +2,7 @@ from lxml import etree as ET
 from datetime import datetime
 from signals import signal_manager
 
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QTreeWidgetItem
 
 def clearLayout(layout):
     """
@@ -97,7 +97,7 @@ def prettyXml(input):
 
     return (xml_pretty)
 
-def printRpc(rpc_reply, action, device):
+def printRpc(rpc_reply, action, device: object):
     """
     Prints the RPC reply in a formatted manner along with a timestamp, action, and device information.
     
@@ -106,12 +106,22 @@ def printRpc(rpc_reply, action, device):
         action (str): The action associated with the RPC reply.
         device (str): The device from which the RPC reply was received.
     """
+    try:
+        id = device.id
+    except:
+        id = "N/A"
+
+    try:
+        hostname = device.hostname
+    except:
+        hostname = "N/A"
+
 
     timestamp = datetime.now().strftime("%H:%M:%S")
     rpc_reply_pretty = prettyXml(rpc_reply)
     message = (
         f"{timestamp}\n"
-        f"RPC reply for action: \"{action}\" on device \"{device}\":\n"
+        f"RPC reply for action: \"{action}\" on device with ID: {id} (Hostname: {hostname})\n"
         f"{rpc_reply_pretty}"
     )
     print(message)
@@ -159,3 +169,34 @@ def getTooltipFromFlag(flag):
         return "This device has some IP addresses in the candidate datastore, which are not yet active. The changes will be put into effect after commit."
     elif flag == "deleted":
         return "This device has some IP addresses set for deletion. The deletion will be put into effect after commit."
+    
+def populateTreeWidget(tree_widget, xml_root):
+        """
+        Populates the QTreeWidget with items from the given XML root.
+        This method clears the current items in the tree widget and 
+        adds new items based on the provided XML root element.
+        Args:
+            xml_root: The root element of the XML structure containing the data to populate the tree widget.
+        """
+
+        tree_widget.clear()
+        if xml_root is not None:
+            addTreeItems(tree_widget.invisibleRootItem(), xml_root)
+        else:
+            tree_widget.setHeaderLabels(["No data found!"])
+
+def addTreeItems(parent, element):
+    """
+    Recursively adds tree items to a QTreeWidget.
+    Args:
+        parent (QTreeWidgetItem): The parent tree widget item to which new items will be added.
+        element (Element): The XML element whose data will be used to create tree items.
+    """
+
+    item = QTreeWidgetItem(parent, [element.tag])
+    for key, value in element.attrib.items():
+        QTreeWidgetItem(item, [f"{key}: {value}"])
+    for child in element:
+        addTreeItems(item, child)
+    if element.text and element.text.strip():
+        QTreeWidgetItem(item, [element.text.strip()])

@@ -81,7 +81,7 @@ def getInterfacesWithNetconf(device):
                 'subinterfaces': subinterfaces
             }
 
-    return(interfaces)
+    return(interfaces, rpc_reply)
 
 def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
     ipvX_object_tag = (f".//{version}/addresses/address")

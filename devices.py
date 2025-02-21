@@ -166,7 +166,7 @@ class Device(QGraphicsPixmapItem):
             cable.removeCable()
 
         del type(self)._registry[self.id]
-        utils.printRpc(rpc_reply, "Close NETCONF connection", self.hostname)
+        utils.printRpc(rpc_reply, "Close NETCONF connection", self)
         utils.printGeneral(f"Connection to device: {self.device_parameters['address']} has been closed.")
 
     def updateCablePositions(self):
@@ -251,21 +251,25 @@ class Device(QGraphicsPixmapItem):
     
     # ---------- HOSTNAME MANIPULATION FUNCTIONS ---------- 
     def _getHostname(self):
-        return(system.getHostnameWithNetconf(self))
+        hostname, rpc_reply = system.getHostnameWithNetconf(self)
+        utils.printRpc(rpc_reply, "Get Hostname", self)
+        return(hostname)
     
     def setHostname(self, new_hostname):
         rpc_reply, filter = system.setHostnameWithNetconf(self, new_hostname)
         utils.addPendingChange(self, f"Set hostname: {new_hostname}", rpc_reply, filter)
-        utils.printRpc(rpc_reply, "Set Hostname", self.hostname)
+        utils.printRpc(rpc_reply, "Set Hostname", self)
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
     def getInterfaces(self):
-        return(interfaces.getInterfacesWithNetconf(self))
+        interfaces_data, rpc_reply = interfaces.getInterfacesWithNetconf(self)
+        utils.printRpc(rpc_reply, "Get Interfaces", self)
+        return(interfaces_data)
     
     def deleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
         rpc_reply, filter = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
         utils.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
-        utils.printRpc(rpc_reply, "Delete IP", self.hostname)
+        utils.printRpc(rpc_reply, "Delete IP", self)
         if old_ip.version == 4:
             # find the entry to be deleted in the self.interfaces dictionary
             all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"]
@@ -280,7 +284,7 @@ class Device(QGraphicsPixmapItem):
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
         rpc_reply, filter = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
         utils.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
-        utils.printRpc(rpc_reply, "Set IP", self.hostname)
+        utils.printRpc(rpc_reply, "Set IP", self)
         
         # When adding IP to a new subinterface, create the subinterface first
         if subinterface_index not in self.interfaces[interface_id]["subinterfaces"]:
@@ -299,14 +303,14 @@ class Device(QGraphicsPixmapItem):
         rpc_reply_set, filter_set = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
         utils.addPendingChange(self, f"Delete IP: {old_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_delete, filter_delete)
         utils.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_set, filter_set)
-        utils.printRpc(rpc_reply_delete, "Delete IP", self.hostname)
-        utils.printRpc(rpc_reply_set, "Set IP", self.hostname)
+        utils.printRpc(rpc_reply_delete, "Delete IP", self)
+        utils.printRpc(rpc_reply_set, "Set IP", self)
         # TODO: add entry to self.interfaces with the flag commited=False
 
     def addInterface(self, interface_id, interface_type):
         rpc_reply, filter = interfaces.addInterfaceWithNetconf(self, interface_id, interface_type)
         utils.addPendingChange(self, f"Add interface: {interface_id}", rpc_reply, filter)
-        utils.printRpc(rpc_reply, "Add Interface", self.hostname)
+        utils.printRpc(rpc_reply, "Add Interface", self)
         self.interfaces[interface_id] = {
             "subinterfaces": {}
         }
@@ -315,7 +319,7 @@ class Device(QGraphicsPixmapItem):
     def discardChanges(self):
         try:
             rpc_reply = netconf.discardNetconfChanges(self)
-            utils.printRpc(rpc_reply, "Discard changes", self.hostname)
+            utils.printRpc(rpc_reply, "Discard changes", self)
             self.interfaces = self.getInterfaces() # Refresh interfaces after discard
 
             self.has_pending_changes = False
@@ -327,7 +331,7 @@ class Device(QGraphicsPixmapItem):
     def commitChanges(self, confirmed=False, confirm_timeout=None):
         try:
             rpc_reply = netconf.commitNetconfChanges(self, confirmed, confirm_timeout)
-            utils.printRpc(rpc_reply, "Commit changes", self.hostname)
+            utils.printRpc(rpc_reply, "Commit changes", self)
             self.interfaces = self.getInterfaces() # Refresh interfaces after commit
 
             if not confirmed: # Dont remove the pending changes flag, if the commit is of the confirmed type
@@ -400,6 +404,7 @@ class Router(Device):
             rpc_payload = JunosRpcRoute_Dispatch_GetRoutingInformation_Filter()
             rpc_reply = self.mngr.dispatch(rpc_payload.__ele__())
         
+        utils.printRpc(rpc_reply, "Get Routing Table", self)
         return (rpc_reply)
     
     def showRoutingTable(self):
@@ -528,7 +533,7 @@ class OSPFDevice(QGraphicsPixmapItem):
         try:
             rpc_reply, filter = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
             utils.addPendingChange(self.original_device, f"Configure OSPF area: {area}", rpc_reply, filter)
-            utils.printRpc(rpc_reply, "Configure OSPF", self.id)
+            utils.printRpc(rpc_reply, "Configure OSPF", self)
         except Exception as e:
             utils.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
 
@@ -659,38 +664,8 @@ class RoutingTableDialog(QDialog):
         self.ui.refresh_button.clicked.connect(lambda: self._refreshRoutingTable(router))
         self.ui.close_button_box.rejected.connect(self.reject)
 
-        self._populateTreeWidget(self.routing_table)
-        
-    def _populateTreeWidget(self, xml_root):
-        """
-        Populates the routing table tree widget with items from the given XML root.
-        This method clears the current items in the routing table tree widget and 
-        adds new items based on the provided XML root element.
-        Args:
-            xml_root: The root element of the XML structure containing the data to populate the tree widget.
-        """
-
-        self.ui.routing_table_tree.clear()
-        if xml_root is not None:
-            self._addTreeItems(self.ui.routing_table_tree.invisibleRootItem(), xml_root)
-        else:
-            self.ui.routing_table_tree.setHeaderLabels(["No routing table data found!"])
-
-    def _addTreeItems(self, parent, element):
-        """
-        Recursively adds tree items to a QTreeWidget.
-        Args:
-            parent (QTreeWidgetItem): The parent tree widget item to which new items will be added.
-            element (Element): The XML element whose data will be used to create tree items.
-        """
-
-        item = QTreeWidgetItem(parent, [element.tag])
-        for key, value in element.attrib.items():
-            QTreeWidgetItem(item, [f"{key}: {value}"])
-        for child in element:
-            self._addTreeItems(item, child)
-        if element.text and element.text.strip():
-            QTreeWidgetItem(item, [element.text.strip()])
+        # Fill the QTreeWidget with the routing table data, takes the XML root element and the QTreeWidget as arguments
+        utils.populateTreeWidget(self.ui.routing_table_tree, self.routing_table)
 
     def _refreshRoutingTable(self, router):
         """
@@ -700,4 +675,10 @@ class RoutingTableDialog(QDialog):
         """
 
         routing_table = router.getRoutingTable()
-        self._populateTreeWidget(utils.convertToEtree(routing_table, "junos", strip_namespaces=False))
+        if router.device_parameters["device_params"] == "iosxe":
+            routing_table_etree = utils.convertToEtree(routing_table, "iosxe")
+        elif router.device_parameters["device_params"] == "junos":
+            routing_table_etree = utils.convertToEtree(routing_table, "junos")
+
+        utils.populateTreeWidget(self.ui.routing_table_tree, routing_table_etree)
+        

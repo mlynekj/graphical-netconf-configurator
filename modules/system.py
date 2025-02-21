@@ -38,9 +38,9 @@ def getHostnameWithNetconf(device):
     # XPATH
     hostname = rpc_reply_etree.find(".//hostname")
     if hostname is not None:
-        return(hostname.text)
+        return(hostname.text, rpc_reply)
     else:
-        return("N/A")
+        return("N/A", rpc_reply)
 
 def setHostnameWithNetconf(device, new_hostname):
     """ Sets the device hostname of the specified device to the specified value. """

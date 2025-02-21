@@ -300,8 +300,10 @@ class MainWindow(QMainWindow):
 
         except FileNotFoundError:
             QMessageBox.warning(self, "File not found", "File \"saved_devices.json\" not found.", QMessageBox.Ok)
+            utils.printGeneral(traceback.format_exc())
         except Exception as e:
             QMessageBox.warning(self, "Error", f"An error occured while loading devices from file: {e}", QMessageBox.Ok)
+            utils.printGeneral(traceback.format_exc())
 
     def _createDeviceFromSave(self, device_parameters, device_type, x, y):
         # Check if the device with the same address is not already in the scene
