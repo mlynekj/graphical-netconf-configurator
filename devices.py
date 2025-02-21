@@ -43,7 +43,7 @@ import modules.netconf as netconf
 import modules.interfaces as interfaces
 import modules.system as system
 import modules.ospf as ospf
-import helper as helper
+import utils as utils
 from signals import signal_manager
 from definitions import *
 
@@ -166,8 +166,8 @@ class Device(QGraphicsPixmapItem):
             cable.removeCable()
 
         del type(self)._registry[self.id]
-        helper.printRpc(rpc_reply, "Close NETCONF connection", self.hostname)
-        helper.printGeneral(f"Connection to device: {self.device_parameters['address']} has been closed.")
+        utils.printRpc(rpc_reply, "Close NETCONF connection", self.hostname)
+        utils.printGeneral(f"Connection to device: {self.device_parameters['address']} has been closed.")
 
     def updateCablePositions(self):
         for cable in self.cables:
@@ -255,8 +255,8 @@ class Device(QGraphicsPixmapItem):
     
     def setHostname(self, new_hostname):
         rpc_reply, filter = system.setHostnameWithNetconf(self, new_hostname)
-        helper.addPendingChange(self, f"Set hostname: {new_hostname}", rpc_reply, filter)
-        helper.printRpc(rpc_reply, "Set Hostname", self.hostname)
+        utils.addPendingChange(self, f"Set hostname: {new_hostname}", rpc_reply, filter)
+        utils.printRpc(rpc_reply, "Set Hostname", self.hostname)
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
     def getInterfaces(self):
@@ -264,8 +264,8 @@ class Device(QGraphicsPixmapItem):
     
     def deleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
         rpc_reply, filter = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
-        helper.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
-        helper.printRpc(rpc_reply, "Delete IP", self.hostname)
+        utils.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
+        utils.printRpc(rpc_reply, "Delete IP", self.hostname)
         if old_ip.version == 4:
             # find the entry to be deleted in the self.interfaces dictionary
             all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"]
@@ -279,8 +279,8 @@ class Device(QGraphicsPixmapItem):
 
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
         rpc_reply, filter = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
-        helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
-        helper.printRpc(rpc_reply, "Set IP", self.hostname)
+        utils.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
+        utils.printRpc(rpc_reply, "Set IP", self.hostname)
         
         # When adding IP to a new subinterface, create the subinterface first
         if subinterface_index not in self.interfaces[interface_id]["subinterfaces"]:
@@ -297,16 +297,16 @@ class Device(QGraphicsPixmapItem):
     def replaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
         rpc_reply_delete, filter_delete = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
         rpc_reply_set, filter_set = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
-        helper.addPendingChange(self, f"Delete IP: {old_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_delete, filter_delete)
-        helper.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_set, filter_set)
-        helper.printRpc(rpc_reply_delete, "Delete IP", self.hostname)
-        helper.printRpc(rpc_reply_set, "Set IP", self.hostname)
+        utils.addPendingChange(self, f"Delete IP: {old_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_delete, filter_delete)
+        utils.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_set, filter_set)
+        utils.printRpc(rpc_reply_delete, "Delete IP", self.hostname)
+        utils.printRpc(rpc_reply_set, "Set IP", self.hostname)
         # TODO: add entry to self.interfaces with the flag commited=False
 
     def addInterface(self, interface_id, interface_type):
         rpc_reply, filter = interfaces.addInterfaceWithNetconf(self, interface_id, interface_type)
-        helper.addPendingChange(self, f"Add interface: {interface_id}", rpc_reply, filter)
-        helper.printRpc(rpc_reply, "Add Interface", self.hostname)
+        utils.addPendingChange(self, f"Add interface: {interface_id}", rpc_reply, filter)
+        utils.printRpc(rpc_reply, "Add Interface", self.hostname)
         self.interfaces[interface_id] = {
             "subinterfaces": {}
         }
@@ -315,27 +315,27 @@ class Device(QGraphicsPixmapItem):
     def discardChanges(self):
         try:
             rpc_reply = netconf.discardNetconfChanges(self)
-            helper.printRpc(rpc_reply, "Discard changes", self.hostname)
+            utils.printRpc(rpc_reply, "Discard changes", self.hostname)
             self.interfaces = self.getInterfaces() # Refresh interfaces after discard
 
             self.has_pending_changes = False
             signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
         except Exception as e:
-            helper.printGeneral(f"Error discarding changes: {e}")
+            utils.printGeneral(f"Error discarding changes: {e}")
             return
 
     def commitChanges(self, confirmed=False, confirm_timeout=None):
         try:
             rpc_reply = netconf.commitNetconfChanges(self, confirmed, confirm_timeout)
-            helper.printRpc(rpc_reply, "Commit changes", self.hostname)
+            utils.printRpc(rpc_reply, "Commit changes", self.hostname)
             self.interfaces = self.getInterfaces() # Refresh interfaces after commit
 
             if not confirmed: # Dont remove the pending changes flag, if the commit is of the confirmed type
                 self.has_pending_changes = False
                 signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
         except Exception as e:
-            helper.printGeneral(f"Error committing changes: {e}")
-            helper.printGeneral(traceback.format_exc())
+            utils.printGeneral(f"Error committing changes: {e}")
+            utils.printGeneral(traceback.format_exc())
             return
     
     # ---------- REGISTRY FUNCTIONS ---------- 
@@ -418,9 +418,9 @@ class Router(Device):
             return
 
         if self.device_parameters["device_params"] == "iosxe":
-            routingTableDialog = RoutingTableDialog(helper.convertToEtree(routing_table, "iosxe"), self)
+            routingTableDialog = RoutingTableDialog(utils.convertToEtree(routing_table, "iosxe"), self)
         elif self.device_parameters["device_params"] == "junos":
-            routingTableDialog = RoutingTableDialog(helper.convertToEtree(routing_table, "junos"), self)
+            routingTableDialog = RoutingTableDialog(utils.convertToEtree(routing_table, "junos"), self)
 
         routingTableDialog.exec()
 
@@ -527,10 +527,10 @@ class OSPFDevice(QGraphicsPixmapItem):
         
         try:
             rpc_reply, filter = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
-            helper.addPendingChange(self.original_device, f"Configure OSPF area: {area}", rpc_reply, filter)
-            helper.printRpc(rpc_reply, "Configure OSPF", self.id)
+            utils.addPendingChange(self.original_device, f"Configure OSPF area: {area}", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Configure OSPF", self.id)
         except Exception as e:
-            helper.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
+            utils.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
 
 
 
@@ -603,7 +603,7 @@ class AddDeviceDialog(QDialog):
                 self.device_parameters["device_params"] = "junos"
         except ValueError as e:
             QMessageBox.critical(None, "Invalid input", f"Invalid input: {e}")
-            helper.printGeneral(f"Invalid input: {traceback.format_exc()}")
+            utils.printGeneral(f"Invalid input: {traceback.format_exc()}")
 
         # Check if the device with the same address is not already in the scene
         for device in self.view.scene.items():
@@ -700,4 +700,4 @@ class RoutingTableDialog(QDialog):
         """
 
         routing_table = router.getRoutingTable()
-        self._populateTreeWidget(helper.convertToEtree(routing_table, "junos", strip_namespaces=False))
+        self._populateTreeWidget(utils.convertToEtree(routing_table, "junos", strip_namespaces=False))

@@ -5,7 +5,7 @@ from lxml import etree as ET
 
 # Custom
 import modules.netconf as netconf
-import helper as helper
+import utils as utils
 from definitions import *
 
 # Qt
@@ -50,7 +50,7 @@ def getInterfacesWithNetconf(device):
 
     # RPC
     rpc_reply = device.mngr.get(str(filter))
-    rpc_reply_etree = helper.convertToEtree(rpc_reply, device_type)
+    rpc_reply_etree = utils.convertToEtree(rpc_reply, device_type)
 
     interfaces = {}
     interface_elements = rpc_reply_etree.xpath('//interfaces/interface/name')
@@ -290,11 +290,11 @@ class DeviceInterfacesDialog(QDialog):
                 bg_color = "white"
                 tooltip = ""
                 if ipv4_data:
-                    bg_color = helper.getBgColorFromFlag(ipv4_data['flag'])
-                    tooltip = helper.getTooltipFromFlag(ipv4_data['flag'])
+                    bg_color = utils.getBgColorFromFlag(ipv4_data['flag'])
+                    tooltip = utils.getTooltipFromFlag(ipv4_data['flag'])
                 if ipv6_data:
-                    bg_color = helper.getBgColorFromFlag(ipv6_data['flag'])
-                    tooltip = helper.getTooltipFromFlag(ipv6_data['flag'])
+                    bg_color = utils.getBgColorFromFlag(ipv6_data['flag'])
+                    tooltip = utils.getTooltipFromFlag(ipv6_data['flag'])
 
 
                 # Interface name
@@ -459,7 +459,7 @@ class EditInterfaceDialog(QDialog):
             # Flag: commited, uncommited, deleted
             bg_color = "white"
             if ipv4_data:
-                bg_color = helper.getBgColorFromFlag(ipv4_data['flag'])
+                bg_color = utils.getBgColorFromFlag(ipv4_data['flag'])
 
             # IPv4 address
             ip_item = QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}")
@@ -490,7 +490,7 @@ class EditInterfaceDialog(QDialog):
             # Flag: commited, uncommited, deleted
             bg_color = "white"
             if ipv6_data:
-                bg_color = helper.getBgColorFromFlag(ipv6_data['flag'])
+                bg_color = utils.getBgColorFromFlag(ipv6_data['flag'])
 
             # IPv6 address
             ip_item = QTableWidgetItem(f"{ipv6_data['value'].ip}/{ipv6_data['value'].network.prefixlen}")
@@ -532,7 +532,7 @@ class EditInterfaceDialog(QDialog):
         self.editSubinterfaceDialog.exec()
 
     def refreshDialog(self):
-        helper.clearLayout(self.layout)
+        utils.clearLayout(self.layout)
         self.fillLayout()
         self.setLayout(self.layout)
 

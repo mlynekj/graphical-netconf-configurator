@@ -43,12 +43,13 @@ from devices import Device, Router, Switch, AddDeviceDialog
 from cable import Cable, CableEditMode
 from signals import signal_manager
 import modules.netconf as netconf
-import helper as helper
+import utils as utils
 import modules.ospf as ospf
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
 from threading import Timer, Thread, Event
 import time
+import traceback
 
 
 from ui.ui_pendingchangedetailsdialog import Ui_PendingChangeDetailsDialog
@@ -382,6 +383,7 @@ class PendingChangesWidget(QDockWidget):
     def __init__(self):
         super().__init__("Pending changes")
 
+        self.confirmed_commit_thread = None
         self.stop_countdown_event = Event()
 
         title_label = QLabel("Pending changes")
@@ -474,7 +476,7 @@ class PendingChangesWidget(QDockWidget):
         Exceptions:
             Displays a critical message box if committing changes fails on one or more devices.
         """
-        
+
         # Get the timeout in seconds from the combobox
         timeout_minutes = self.confirmed_commit_timer_combobox.currentText()
         timeout_seconds = int(timeout_minutes.split()[0]) * 60
@@ -511,7 +513,7 @@ class PendingChangesWidget(QDockWidget):
 
             # When at least one device has pending changes - print and begin the confirmed commit procedure (disable buttons, start countdown)
             if commited_devices:
-                helper.printGeneral(f"Performed confirmed commit on devices with ID: {', '.join(commited_devices)}\nTo preserve the changes, commit again within {timeout_seconds} seconds.")
+                utils.printGeneral(f"Performed confirmed commit on devices with ID: {', '.join(commited_devices)}\nTo preserve the changes, commit again within {timeout_seconds} seconds.")
                 
                 # Disable buttons
                 self.confirmed_commit_button.setEnabled(False)
@@ -532,7 +534,8 @@ class PendingChangesWidget(QDockWidget):
         Stops the countdown timer.
         """
         self.stop_countdown_event.set()
-        if self.confirmed_commit_thread.is_alive():
+        
+        if self.confirmed_commit_thread and self.confirmed_commit_thread.is_alive():
             self.confirmed_commit_thread.join()
 
     def _commitPendingChanges(self):
@@ -561,7 +564,7 @@ class PendingChangesWidget(QDockWidget):
                     device.refreshHostnameLabel()
         
             if commited_devices:
-                helper.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
+                utils.printGeneral(f"Performed commit on devices with ID: {', '.join(commited_devices)}")
 
                 # Needed for handling the "Confirm" functionality (when using the "Confirmed commit" button, this button is acting as the confirmation button. When the timer is stopped by confirming, the buttons are re-enabled))
                 self._stopCountdown()
@@ -597,7 +600,7 @@ class PendingChangesWidget(QDockWidget):
                     self.clearPendingChangesFromTable(device.id)
                     discarded_devices.append(device.id)
             if discarded_devices:
-                helper.printGeneral(f"Discarded changes on devices with ID: {', '.join(discarded_devices)}")
+                utils.printGeneral(f"Discarded changes on devices with ID: {', '.join(discarded_devices)}")
 
                 # Needed for handling the "Confirm" functionality (when using the "Confirmed commit" button, the confirm button is acting as the confirmation button. When the timer is stopped by discarding, the buttons are re-enabled)
                 self._stopCountdown()
@@ -608,7 +611,7 @@ class PendingChangesWidget(QDockWidget):
                 QMessageBox.information(self, "No pending changes", "No pending changes to discard.")
         except Exception as e:
             QMessageBox.critical(self, "Discard failed", f"Failed to discard changes on one or more devices: {e}")
-
+            utils.printGeneral(traceback.format_exc())
 
     def _showPendingChangeDetails(self, item):
         """

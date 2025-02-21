@@ -52,7 +52,7 @@ def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, r
     """
     if ospf_device.device_parameters["device_params"] == "junos":
         # Create the filter
-        filter = EditOSPFOpenconfigFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
+        filter = OpenconfigNetworkInstance_Editconfig_ConfigureOspf_Filter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
             
         # RPC                
         rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
@@ -60,7 +60,7 @@ def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, r
     
     elif ospf_device.device_parameters["device_params"] == "iosxe":
         # Create the filter
-        filter = EditOSPFCiscoFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
+        filter = CiscoIOSXEOspf_Editconfig_ConfigureOspf_Filter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
         
         # RPC                
         rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device

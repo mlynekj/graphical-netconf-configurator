@@ -2,7 +2,7 @@
 from lxml import etree as ET
 
 # Custom
-import helper as helper
+import utils as utils
 from definitions import *
 
 # Qt
@@ -33,7 +33,7 @@ def getHostnameWithNetconf(device):
     
     # RPC    
     rpc_reply = device.mngr.get_config(source="running", filter=str(filter_xml))
-    rpc_reply_etree = helper.convertToEtree(rpc_reply, device_type)
+    rpc_reply_etree = utils.convertToEtree(rpc_reply, device_type)
     
     # XPATH
     hostname = rpc_reply_etree.find(".//hostname")

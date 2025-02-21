@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 from pyangbind.lib.serialise import pybindIETFXMLEncoder
 
 # Custom
-import helper as helper
+import utils as utils
 
 # Qt
 from PySide6.QtWidgets import (
@@ -54,7 +54,7 @@ def establishNetconfConnection(device_parameters):
             hostkey_verify=False
         )
         mngr.raise_mode = RaiseMode.ERRORS # Raise exceptions only on errors, not on warnings (https://github.com/ncclient/ncclient/issues/545)
-        helper.printGeneral(f"Successfully established NETCONF connection to: {device_parameters['address']} on port {device_parameters['port']}")
+        utils.printGeneral(f"Successfully established NETCONF connection to: {device_parameters['address']} on port {device_parameters['port']}")
         return mngr
     except transport.errors.SSHError as e:
         QMessageBox.critical(None, "Connection Error", f"Unable to connect: {e}")
