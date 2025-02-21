@@ -16,20 +16,23 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QGuiApplication
 
+from yang.filters import GetFilter, EditconfigFilter
+
+
+
+# ---------- OPERATIONS: ----------
 def getHostnameWithNetconf(device):
     """ Retrieves the device hostname of the specified device. """
     device_type = device.device_parameters['device_params']
 
     # FILTER
     if device_type == "iosxe":
-        filter_xml = ET.parse(CISCO_XML_DIR + "system/get_config-hostname.xml") # For Cisco, use IOS-XE native models
-        rpc_filter = ET.tostring(filter_xml).decode('utf-8') 
+        filter_xml = CiscoIOSXENative_Get_GetHostname_Filter() # For Cisco, use IOS-XE native models
     elif device_type == "junos":
-        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "system/get_config-hostname.xml") # For Juniper, use OpenConfig models
-        rpc_filter = ET.tostring(filter_xml).decode('utf-8') 
+        filter_xml = OpenconfigSystem_Get_GetHostname_Filter() # For Juniper, use OpenConfig models
     
     # RPC    
-    rpc_reply = device.mngr.get_config(source="running", filter=rpc_filter)
+    rpc_reply = device.mngr.get_config(source="running", filter=str(filter_xml))
     rpc_reply_etree = helper.convertToEtree(rpc_reply, device_type)
     
     # XPATH
@@ -45,24 +48,48 @@ def setHostnameWithNetconf(device, new_hostname):
 
     # CONFIG FILTER
     if device_type == "iosxe":
-        filter_xml = ET.parse(CISCO_XML_DIR + "system/edit_config-hostname.xml") # For Cisco, use IOS-XE native models
-        namespaces = {'ns': 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
-        hostname_element = filter_xml.find(".//ns:hostname", namespaces)
-        hostname_element.text = new_hostname
-        filter = ET.tostring(filter_xml).decode('utf-8') 
+        filter_xml = CiscoIOSXENative_Editconfig_EditHostname_Filter(new_hostname) # For Cisco, use IOS-XE native models
     elif device_type == "junos":
-        filter_xml = ET.parse(OPENCONFIG_XML_DIR + "system/edit_config-hostname.xml") # For Juniper, use openconfig models
-        namespaces = {'ns': 'http://openconfig.net/yang/system'}
-        hostname_element = filter_xml.find(".//ns:hostname", namespaces)
-        hostname_element.text = new_hostname
-        filter = ET.tostring(filter_xml).decode('utf-8')
+        filter_xml = OpenconfigSystem_Editconfig_EditHostname_Filter(new_hostname) # For Juniper, use OpenConfig models
     
     # FLAG (needed to update the hostname label on canvas, when commiting changes later on)
     device.has_updated_hostname = True
 
     # RPC
-    rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET_DATASTORE, config=filter)
-    return(rpc_reply, filter)
+    rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET_DATASTORE, config=str(filter_xml))
+    return(rpc_reply, filter_xml)
+
+
+
+# ---------- FILTERS: ----------
+class CiscoIOSXENative_Get_GetHostname_Filter(GetFilter):
+    def __init__(self):
+        self.filter_xml = ET.parse(SYSTEM_YANG_DIR + "Cisco-IOS-XE-native_get_get-hostname.xml")
+
+
+class OpenconfigSystem_Get_GetHostname_Filter(GetFilter):
+    def __init__(self):
+        self.filter_xml = ET.parse(SYSTEM_YANG_DIR + "openconfig-system_get_get-hostname.xml")
+
+
+class CiscoIOSXENative_Editconfig_EditHostname_Filter(EditconfigFilter):
+    def __init__(self, new_hostname):
+        self.filter_xml = ET.parse(SYSTEM_YANG_DIR + "Cisco-IOS-XE-native_edit-config_edit-hostname.xml")
+        namespaces = {'ns': 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'}
+        
+        hostname_element = self.filter_xml.find(".//ns:hostname", namespaces)
+        hostname_element.text = new_hostname
+
+
+class OpenconfigSystem_Editconfig_EditHostname_Filter(EditconfigFilter):
+    def __init__(self, new_hostname):
+        self.filter_xml = ET.parse(SYSTEM_YANG_DIR + "openconfig-system_edit-config_edit-hostname.xml") # For Juniper, use openconfig models
+        namespaces = {'ns': 'http://openconfig.net/yang/system'}
+        
+        hostname_element = self.filter_xml.find(".//ns:hostname", namespaces)
+        hostname_element.text = new_hostname
+
+
 
 # ---------- QT: ----------
 class HostnameDialog(QDialog):

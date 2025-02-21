@@ -34,133 +34,7 @@ import ipaddress
 from ui.ui_interfacesdialog import Ui_Interfaces
 from ui.ui_addinterfacedialog import Ui_add_interface_dialog
 
-# ---------- FILTERS: ----------
-class GetInterfacesOpenconfigFilter:
-    def __init__(self):
-        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/get-all_interfaces.xml")
-
-    def __str__(self):
-        """
-        This method converts the filter_xml attribute to a string using the
-        ElementTree tostring method and decodes it to UTF-8.
-        This is needed for dispatching RPCs with ncclient.
-
-        Returns:
-            str: The string representation of the filter_xml attribute.
-        """
-        return(ET.tostring(self.filter_xml).decode('utf-8'))
-
-
-class EditIPAddressOpenconfigFilter:
-    def __init__(self, interface, subinterface_index, ip, delete_ip=False):
-        self.interface = interface
-        self.subinterface_index = subinterface_index
-        self.ip = ip
-        self.delete_ip = delete_ip
-
-        # Load the XML filter template
-        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/edit_config-ip_address.xml")
-        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
-                           'oc-ip': 'http://openconfig.net/yang/interfaces/ip',
-                           'iana-iftype': 'urn:ietf:params:xml:ns:yang:iana-if-type'}
-
-        # Set the interface name
-        interface_name_element = self.filter_xml.find(".//ns:name", self.namespaces)
-        interface_name_element.text = interface
-
-        # Set the interface type
-        interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
-        if "loopback" in self.interface.lower() or "lo" in self.interface.lower():
-            self.interface_type = "ianaift:softwareLoopback" # Loopback
-        else:
-            self.interface_type = "ianaift:ethernetCsmacd" # Default
-        interface_type_element.text = self.interface_type
-
-        # Set the subinterface index
-        subinterface_index_element = self.filter_xml.find(".//ns:index", self.namespaces)
-        subinterface_index_element.text = str(subinterface_index)
-
-        # Set the IP address and prefix length
-        if self.ip.version == 4:
-            self.createIPV4Filter()
-        elif self.ip.version == 6:
-            self.createIPV6Filter()
-
-    def __str__(self):
-        """
-        This method converts the filter_xml attribute to a string using the
-        ElementTree tostring method and decodes it to UTF-8.
-        This is needed for dispatching RPCs with ncclient.
-
-        Returns:
-            str: The string representation of the filter_xml attribute.
-        """
-        return(ET.tostring(self.filter_xml).decode('utf-8'))
-
-    def createIPV4Filter(self):
-        ipvX_element = self.filter_xml.findall(".//oc-ip:ipvX", self.namespaces)
-        for ipvX in ipvX_element: # Opening and closing tags
-            ipvX.tag = ipvX.tag.replace("ipvX", "ipv4")
-
-        ipv4_element = self.filter_xml.find(".//oc-ip:ipv4", self.namespaces)
-        address_element = ipv4_element.find(".//oc-ip:address", self.namespaces)
-        address_element.set("operation", "delete") if self.delete_ip else None
-        
-        ip_elements = address_element.findall(".//oc-ip:ip", self.namespaces) # The IP address element is stored in TWO places in the XML
-        for ip_element in ip_elements:
-            ip_element.text = str(self.ip.ip)
-        
-        prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
-        prefix_length_element.text = str(self.ip.network.prefixlen)
-
-    def createIPV6Filter(self):
-        ipvX_element = self.filter_xml.findall(".//oc-ip:ipvX", self.namespaces)
-        for ipvX in ipvX_element: # Opening and closing tags
-            ipvX.tag = ipvX.tag.replace("ipvX", "ipv6")
-
-        ipv6_element = self.filter_xml.find(".//oc-ip:ipv6", self.namespaces)
-        address_element = ipv6_element.find(".//oc-ip:address", self.namespaces)
-        address_element.set("operation", "delete") if self.delete_ip else None
-        
-        ip_elements = address_element.findall(".//oc-ip:ip", self.namespaces) # The IP address element is stored in TWO places in the XML
-        for ip_element in ip_elements:
-            ip_element.text = str(self.ip.ip)
-        
-        prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
-        prefix_length_element.text = str(self.ip.network.prefixlen)
-
-
-class AddInterfaceOpenconfigFilter:
-    def __init__(self, interface_id, interface_type):
-        self.interface_id = interface_id
-        self.interface_type = interface_type
-
-        # Load the XML filter template
-        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/interfaces/edit_config-add_interface.xml")
-        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
-                            'iana-iftype': 'urn:ietf:params:xml:ns:yang:iana-if-type'}
-
-        # Set the interface name
-        interface_name_elements = self.filter_xml.findall(".//ns:name", self.namespaces)
-        for element in interface_name_elements:
-            element.text = interface_id
-        
-        # Set the interface type
-        interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
-        if interface_type == "Loopback":
-            interface_type_element.text = "ianaift:softwareLoopback"
-
-    def __str__(self):
-        """
-        This method converts the filter_xml attribute to a string using the
-        ElementTree tostring method and decodes it to UTF-8.
-        This is needed for dispatching RPCs with ncclient.
-
-        Returns:
-            str: The string representation of the filter_xml attribute.
-        """
-        return(ET.tostring(self.filter_xml).decode('utf-8'))
-
+from yang.filters import GetFilter, EditconfigFilter
 
 # ---------- OPERATIONS: ----------
 # -- Retrieval --
@@ -172,7 +46,7 @@ def getInterfacesWithNetconf(device):
     device_type = device.device_parameters['device_params']
 
     # FILTER
-    filter = GetInterfacesOpenconfigFilter()
+    filter = OpenconfigInterfaces_Get_GetAllInterfaces_Filter()
 
     # RPC
     rpc_reply = device.mngr.get(str(filter))
@@ -238,7 +112,7 @@ def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip):
     """
 
     # FILTER
-    filter = EditIPAddressOpenconfigFilter(interface_element, subinterface_index, old_ip, delete_ip=True)
+    filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, old_ip, delete_ip=True)
 
     # RPC
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
@@ -257,7 +131,7 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
     """   
 
     # FILTER
-    filter = EditIPAddressOpenconfigFilter(interface_element, subinterface_index, new_ip)
+    filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, new_ip)
     
     # RPC
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
@@ -266,31 +140,111 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
 # -- Add new interfaces --
 def addInterfaceWithNetconf(device, interface_id, interface_type):
     # FILTER
-    filter = AddInterfaceOpenconfigFilter(interface_id, interface_type)
+    filter = OpenconfigInterfaces_Editconfig_AddInterface_Filter(interface_id, interface_type)
     
     # RPC
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
     return(rpc_reply, filter)
 
 
-# ---------- QT: ----------
-def getBgColorFromFlag(flag):
-    if flag == "commited":
-        return "white"
-    elif flag == "uncommited":
-        return "yellow"
-    elif flag == "deleted":
-        return "red"
-    
-def getTooltipFromFlag(flag):
-    if flag == "commited":
-        return ""
-    elif flag == "uncommited":
-        return "This device has some IP addresses in the candidate datastore, which are not yet active. The changes will be put into effect after commit."
-    elif flag == "deleted":
-        return "This device has some IP addresses set for deletion. The deletion will be put into effect after commit."
-    
 
+# ---------- FILTERS: ----------
+class OpenconfigInterfaces_Get_GetAllInterfaces_Filter(GetFilter):
+    def __init__(self):
+        self.filter_xml = ET.parse(INTERFACES_YANG_DIR + "openconfig-interfaces_get_get-all-interfaces.xml")
+
+
+class OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(EditconfigFilter):
+    def __init__(self, interface, subinterface_index, ip, delete_ip=False):
+        self.interface = interface
+        self.subinterface_index = subinterface_index
+        self.ip = ip
+        self.delete_ip = delete_ip
+
+        # Load the XML filter template
+        self.filter_xml = ET.parse(INTERFACES_YANG_DIR + "openconfig-interfaces_editconfig_edit_ipaddress.xml")
+        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
+                           'oc-ip': 'http://openconfig.net/yang/interfaces/ip',
+                           'iana-iftype': 'urn:ietf:params:xml:ns:yang:iana-if-type'}
+
+        # Set the interface name
+        interface_name_element = self.filter_xml.find(".//ns:name", self.namespaces)
+        interface_name_element.text = interface
+
+        # Set the interface type
+        interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
+        if "loopback" in self.interface.lower() or "lo" in self.interface.lower():
+            self.interface_type = "ianaift:softwareLoopback" # Loopback
+        else:
+            self.interface_type = "ianaift:ethernetCsmacd" # Default
+        interface_type_element.text = self.interface_type
+
+        # Set the subinterface index
+        subinterface_index_element = self.filter_xml.find(".//ns:index", self.namespaces)
+        subinterface_index_element.text = str(subinterface_index)
+
+        # Set the IP address and prefix length
+        if self.ip.version == 4:
+            self.createIPV4Filter()
+        elif self.ip.version == 6:
+            self.createIPV6Filter()
+
+    def createIPV4Filter(self):
+        ipvX_element = self.filter_xml.findall(".//oc-ip:ipvX", self.namespaces)
+        for ipvX in ipvX_element: # Opening and closing tags
+            ipvX.tag = ipvX.tag.replace("ipvX", "ipv4")
+
+        ipv4_element = self.filter_xml.find(".//oc-ip:ipv4", self.namespaces)
+        address_element = ipv4_element.find(".//oc-ip:address", self.namespaces)
+        address_element.set("operation", "delete") if self.delete_ip else None
+        
+        ip_elements = address_element.findall(".//oc-ip:ip", self.namespaces) # The IP address element is stored in TWO places in the XML
+        for ip_element in ip_elements:
+            ip_element.text = str(self.ip.ip)
+        
+        prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
+        prefix_length_element.text = str(self.ip.network.prefixlen)
+
+    def createIPV6Filter(self):
+        ipvX_element = self.filter_xml.findall(".//oc-ip:ipvX", self.namespaces)
+        for ipvX in ipvX_element: # Opening and closing tags
+            ipvX.tag = ipvX.tag.replace("ipvX", "ipv6")
+
+        ipv6_element = self.filter_xml.find(".//oc-ip:ipv6", self.namespaces)
+        address_element = ipv6_element.find(".//oc-ip:address", self.namespaces)
+        address_element.set("operation", "delete") if self.delete_ip else None
+        
+        ip_elements = address_element.findall(".//oc-ip:ip", self.namespaces) # The IP address element is stored in TWO places in the XML
+        for ip_element in ip_elements:
+            ip_element.text = str(self.ip.ip)
+        
+        prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
+        prefix_length_element.text = str(self.ip.network.prefixlen)
+
+
+class OpenconfigInterfaces_Editconfig_AddInterface_Filter(EditconfigFilter):
+    def __init__(self, interface_id, interface_type):
+        self.interface_id = interface_id
+        self.interface_type = interface_type
+
+        # Load the XML filter template
+        self.filter_xml = ET.parse(INTERFACES_YANG_DIR + "openconfig-interfaces_editconfig_add_interface.xml")
+        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces',
+                            'iana-iftype': 'urn:ietf:params:xml:ns:yang:iana-if-type'}
+
+        # Set the interface name
+        interface_name_elements = self.filter_xml.findall(".//ns:name", self.namespaces)
+        for element in interface_name_elements:
+            element.text = interface_id
+        
+        # Set the interface type
+        interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
+        if interface_type == "Loopback":
+            interface_type_element.text = "ianaift:softwareLoopback"
+
+
+
+# ---------- QT: ----------
 class DeviceInterfacesDialog(QDialog):
     def __init__(self, device):
         super().__init__()
@@ -336,11 +290,11 @@ class DeviceInterfacesDialog(QDialog):
                 bg_color = "white"
                 tooltip = ""
                 if ipv4_data:
-                    bg_color = getBgColorFromFlag(ipv4_data['flag'])
-                    tooltip = getTooltipFromFlag(ipv4_data['flag'])
+                    bg_color = helper.getBgColorFromFlag(ipv4_data['flag'])
+                    tooltip = helper.getTooltipFromFlag(ipv4_data['flag'])
                 if ipv6_data:
-                    bg_color = getBgColorFromFlag(ipv6_data['flag'])
-                    tooltip = getTooltipFromFlag(ipv6_data['flag'])
+                    bg_color = helper.getBgColorFromFlag(ipv6_data['flag'])
+                    tooltip = helper.getTooltipFromFlag(ipv6_data['flag'])
 
 
                 # Interface name
@@ -505,7 +459,7 @@ class EditInterfaceDialog(QDialog):
             # Flag: commited, uncommited, deleted
             bg_color = "white"
             if ipv4_data:
-                bg_color = getBgColorFromFlag(ipv4_data['flag'])
+                bg_color = helper.getBgColorFromFlag(ipv4_data['flag'])
 
             # IPv4 address
             ip_item = QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}")
@@ -536,7 +490,7 @@ class EditInterfaceDialog(QDialog):
             # Flag: commited, uncommited, deleted
             bg_color = "white"
             if ipv6_data:
-                bg_color = getBgColorFromFlag(ipv6_data['flag'])
+                bg_color = helper.getBgColorFromFlag(ipv6_data['flag'])
 
             # IPv6 address
             ip_item = QTableWidgetItem(f"{ipv6_data['value'].ip}/{ipv6_data['value'].network.prefixlen}")

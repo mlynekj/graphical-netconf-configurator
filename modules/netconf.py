@@ -93,6 +93,7 @@ def getNetconfCapabilities(device):
     return(capabilities)
 
 
+
 # ---------- QT: ----------
 class NetconfCapabilitiesDialog(QDialog):
     def __init__(self, device):

@@ -45,62 +45,30 @@ import modules.system as system
 import modules.ospf as ospf
 import helper as helper
 from signals import signal_manager
-from definitions import JUNIPER_XML_DIR, CISCO_XML_DIR
+from definitions import *
 
 # Other
 import ipaddress
 import traceback
 
-from ncclient.xml_ import to_ele
-
 from ui.ui_routingtabledialog import Ui_RoutingTableDialog
+from yang.filters import *
 
 from lxml import etree as ET
 
-class GetRoutingTableJuniperRPCPayload():
+# ---------- FILTERS: ----------
+class JunosRpcRoute_Dispatch_GetRoutingInformation_Filter(DispatchFilter):
     def __init__(self):
-        self.rpc_payload_xml = ET.parse(JUNIPER_XML_DIR + "/state/rpc_routing-table.xml")
-
-    def __str__(self):
-        """
-        This method converts the filter_xml attribute to a string using the
-        ElementTree tostring method and decodes it to UTF-8.
-        This is needed for dispatching RPCs with ncclient.
-
-        Returns:
-            str: The string representation of the filter_xml attribute.
-        """
-        return(ET.tostring(self.rpc_payload_xml).decode('utf-8'))
+        self.filter_xml = ET.parse(ROUTING_YANG_DIR + "junos-rpc-route_dispatch_get-routing-information.xml")
     
-    def __ele__(self):
-        """
-        This method converts the filter_xml attribute to an Element object.
-        This is needed for dispatching RPCs with ncclient.
-
-        Returns:
-            xml.etree.ElementTree.Element: The Element object of the filter_xml attribute.
-
-        Resources:
-            https://github.com/ncclient/ncclient/issues/182
-        """
-        return(to_ele(str(self)))
     
-class GetRoutingIetfFilter():
+class IetfRouting_Get_GetRoutingState_Filter(GetFilter):
     def __init__(self):
-        self.rpc_filter = ET.parse(CISCO_XML_DIR + "/routing/get_routing.xml")
-
-    def __str__(self):
-        """
-        This method converts the filter_xml attribute to a string using the
-        ElementTree tostring method and decodes it to UTF-8.
-        This is needed for dispatching RPCs with ncclient.
-
-        Returns:
-            str: The string representation of the filter_xml attribute.
-        """
-        return(ET.tostring(self.rpc_filter).decode('utf-8'))
+        self.filter_xml = ET.parse(ROUTING_YANG_DIR + "ietf-routing_get_get-routing-state.xml")
 
 
+
+# ---------- DEVICE CLASSES: ----------
 class Device(QGraphicsPixmapItem):
     _counter = 0 # Used to generate device IDs
     _registry = {} # Used to store device instances
@@ -426,10 +394,10 @@ class Router(Device):
         """
 
         if self.device_parameters["device_params"] == "iosxe":
-            rpc_filter = GetRoutingIetfFilter()
+            rpc_filter = IetfRouting_Get_GetRoutingState_Filter()
             rpc_reply = self.mngr.get(str(rpc_filter))
         elif self.device_parameters["device_params"] == "junos":
-            rpc_payload = GetRoutingTableJuniperRPCPayload()
+            rpc_payload = JunosRpcRoute_Dispatch_GetRoutingInformation_Filter()
             rpc_reply = self.mngr.dispatch(rpc_payload.__ele__())
         
         return (rpc_reply)
@@ -455,6 +423,7 @@ class Router(Device):
             routingTableDialog = RoutingTableDialog(helper.convertToEtree(routing_table, "junos"), self)
 
         routingTableDialog.exec()
+
 
 class Switch(Device):
     _device_type = "S"
@@ -562,6 +531,7 @@ class OSPFDevice(QGraphicsPixmapItem):
             helper.printRpc(rpc_reply, "Configure OSPF", self.id)
         except Exception as e:
             helper.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
+
 
 
 # ---------- QT: ----------

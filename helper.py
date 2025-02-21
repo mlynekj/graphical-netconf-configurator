@@ -143,3 +143,19 @@ def addPendingChange(device, pending_change_name, rpc_reply=None, filter=None):
 
     signal_manager.pendingChangeAdded.emit(device.id, pending_change_name, prettyXml(rpc_reply), prettyXml(filter))
     device.has_pending_changes = True
+
+def getBgColorFromFlag(flag):
+    if flag == "commited":
+        return "white"
+    elif flag == "uncommited":
+        return "yellow"
+    elif flag == "deleted":
+        return "red"
+
+def getTooltipFromFlag(flag):
+    if flag == "commited":
+        return ""
+    elif flag == "uncommited":
+        return "This device has some IP addresses in the candidate datastore, which are not yet active. The changes will be put into effect after commit."
+    elif flag == "deleted":
+        return "This device has some IP addresses set for deletion. The deletion will be put into effect after commit."

@@ -26,8 +26,9 @@ from PySide6.QtGui import QFont, QGuiApplication, QAction
 from ui.ui_ospfdialog import Ui_OSPFDialog
 from ui.ui_addospfnetworkdialog import Ui_AddOSPFNetworkDialog
 
+from yang.filters import EditconfigFilter
 
-from definitions import OPENCONFIG_XML_DIR, CONFIGURATION_TARGET_DATASTORE, CISCO_XML_DIR
+from definitions import *
 from lxml import etree as ET
 
 # Other
@@ -35,8 +36,40 @@ import ipaddress
 import sys
 from PySide6.QtCore import QFile
 
+# ---------- OPERATIONS: ----------
+def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, reference_bandwidth):
+    """
+    Configures OSPF on a network device using NETCONF. Called from the device's configureOSPF method.
+    Parameters:
+        ospf_device (object): The device object containing OSPF configuration parameters.
+        area (str): The OSPF area to configure.
+        hello_interval (int): The OSPF hello interval.
+        dead_interval (int): The OSPF dead interval.
+        reference_bandwidth (int): The OSPF reference bandwidth.
+    Returns:
+        rpc_reply (object): The RPC reply from the NETCONF edit-config operation.
+        filter (str): The XML filter used in the NETCONF edit-config operation.
+    """
+    if ospf_device.device_parameters["device_params"] == "junos":
+        # Create the filter
+        filter = EditOSPFOpenconfigFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
+            
+        # RPC                
+        rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
+        return(rpc_reply, filter)
+    
+    elif ospf_device.device_parameters["device_params"] == "iosxe":
+        # Create the filter
+        filter = EditOSPFCiscoFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
+        
+        # RPC                
+        rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
+        return(rpc_reply, filter)
+
+
+
 # ---------- FILTERS: ----------
-class EditOSPFOpenconfigFilter():
+class OpenconfigNetworkInstance_Editconfig_ConfigureOspf_Filter(EditconfigFilter):
     def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict):
         self.router_id = router_id
         self.area = area
@@ -49,7 +82,7 @@ class EditOSPFOpenconfigFilter():
         self.interfaces = list(ospf_networks.keys())
 
         # Load the XML filter template
-        self.filter_xml = ET.parse(OPENCONFIG_XML_DIR + "/ospf/edit_config-ospf.xml")
+        self.filter_xml = ET.parse(ROUTING_YANG_DIR + "openconfig-network-instance_edit-config_configure-ospf.xml")
         self.namespaces = {'ns': 'http://openconfig.net/yang/network-instance'}
 
         # Set the router-id
@@ -68,17 +101,6 @@ class EditOSPFOpenconfigFilter():
         # Add the interfaces
         for interface in self.interfaces:
             self._addInterface(interface)
-
-    def __str__(self):
-        """
-        This method converts the filter_xml attribute to a string using the
-        ElementTree tostring method and decodes it to UTF-8.
-        This is needed for dispatching RPCs with ncclient.
-
-        Returns:
-            str: The string representation of the filter_xml attribute.
-        """
-        return(ET.tostring(self.filter_xml).decode('utf-8'))
 
     def _addInterface(self, interface_id):
         ospfv2_area_element = self.filter_xml.find(".//ns:ospfv2/ns:areas/ns:area", self.namespaces)
@@ -108,7 +130,8 @@ class EditOSPFOpenconfigFilter():
                 dead_interval_element = ET.SubElement(timers_config_element, "dead-interval")
                 dead_interval_element.text = str(self.dead_interval)
 
-class EditOSPFCiscoFilter():
+
+class CiscoIOSXEOspf_Editconfig_ConfigureOspf_Filter(EditconfigFilter):
     def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict):
         self.router_id = router_id
         self.area = area
@@ -121,7 +144,7 @@ class EditOSPFCiscoFilter():
         self.ospf_interfaces = list(ospf_networks.keys())
 
         # Load the XML filter template
-        self.filter_xml = ET.parse(CISCO_XML_DIR + "/ospf/edit_config-ospf.xml")
+        self.filter_xml = ET.parse(ROUTING_YANG_DIR + "cisco-IOS-XE-ospf_edit-config_configure-ospf.xml")
         self.namespaces = {'native': 'http://cisco.com/ns/yang/Cisco-IOS-XE-native',
                            'ospf': 'http://cisco.com/ns/yang/Cisco-IOS-XE-ospf'}
         
@@ -194,46 +217,7 @@ class EditOSPFCiscoFilter():
             dead_interval_element = ET.SubElement(ospf_element, "dead-interval") #..ospf/dead-interval       
             dead_interval_element.text = str(self.dead_interval)
 
-    def __str__(self):
-        """
-        This method converts the filter_xml attribute to a string using the
-        ElementTree tostring method and decodes it to UTF-8.
-        This is needed for dispatching RPCs with ncclient.
 
-        Returns:
-            str: The string representation of the filter_xml attribute.
-        """
-        return(ET.tostring(self.filter_xml).decode('utf-8'))
-
-# ---------- OPERATIONS: ----------
-def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, reference_bandwidth):
-    """
-    Configures OSPF on a network device using NETCONF. Called from the device's configureOSPF method.
-    Parameters:
-        ospf_device (object): The device object containing OSPF configuration parameters.
-        area (str): The OSPF area to configure.
-        hello_interval (int): The OSPF hello interval.
-        dead_interval (int): The OSPF dead interval.
-        reference_bandwidth (int): The OSPF reference bandwidth.
-    Returns:
-        rpc_reply (object): The RPC reply from the NETCONF edit-config operation.
-        filter (str): The XML filter used in the NETCONF edit-config operation.
-    """
-    if ospf_device.device_parameters["device_params"] == "junos":
-        # Create the filter
-        filter = EditOSPFOpenconfigFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
-            
-        # RPC                
-        rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
-        return(rpc_reply, filter)
-    
-    elif ospf_device.device_parameters["device_params"] == "iosxe":
-        # Create the filter
-        filter = EditOSPFCiscoFilter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
-        
-        # RPC                
-        rpc_reply = ospf_device.original_device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE) # the mngr is not in the cloned device, but rather in the original device
-        return(rpc_reply, filter)
 
 # ---------- QT: ----------
 class OSPFDialog(QDialog):
@@ -491,5 +475,3 @@ class AddOSPFNetworkDialog(QDialog):
                 QMessageBox.warning(self, "Warning", "Invalid network address.", QMessageBox.Ok)
         else:
             QMessageBox.warning(self, "Warning", "Fill in all fields.", QMessageBox.Ok)
-
-

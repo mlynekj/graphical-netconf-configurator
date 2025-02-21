@@ -620,10 +620,10 @@ class PendingChangesWidget(QDockWidget):
 
         rpc_reply, filter = self.table_widget.item(item.row(), 1).data(Qt.UserRole)
 
-        dialog = PendingChangeDetails(device_id, change_name, rpc_reply, filter)
+        dialog = PendingChangeDetailsDialog(device_id, change_name, rpc_reply, filter)
         dialog.exec()
 
-class PendingChangeDetails(QDialog):
+class PendingChangeDetailsDialog(QDialog):
     """
     QDialog that displays the details of a pending change when the user double-clicks on a pending change in the table.
     It shows the RPC filter that was used to make the change and the RPC reply received after the change was made.
