@@ -201,3 +201,25 @@ def addTreeItems(parent, element):
         addTreeItems(item, child)
     if element.text and element.text.strip():
         QTreeWidgetItem(item, [element.text.strip()])
+
+def getFirstIPAddressesFromSubinterfaces(subinterfaces):
+        """
+        Retrieves the first IPv4 and IPv6 addresses from a list of subinterfaces.
+        Args:
+            subinterfaces (dict): A dictionary where each key is a subinterface identifier and 
+                      each value is a dictionary containing 'ipv4_data' and 'ipv6_data' lists.
+        Returns:
+            tuple: A tuple containing the first IPv4 address (str) and the first IPv6 address (str) found.
+               If no IPv4 or IPv6 address is found, the corresponding value in the tuple will be an empty string.        
+        """
+
+        ipv4_data = ""
+        ipv6_data = ""
+        for subinterface in subinterfaces.values():
+            if subinterface['ipv4_data'] and not ipv4_data:
+                ipv4_data = subinterface['ipv4_data'][0]
+            if subinterface['ipv6_data'] and not ipv6_data:
+                ipv6_data = subinterface['ipv6_data'][0]
+            if ipv4_data and ipv6_data:
+                break
+        return ipv4_data, ipv6_data

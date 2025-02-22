@@ -24,13 +24,15 @@ from PySide6.QtCore import (
     QSize,
     QTimer,
     QObject,
-    QEvent)
+    QEvent,
+    Slot)
 
 # Other
 import math
 
 # Custom
 from devices import Device
+import utils
 
 class Cable(QGraphicsLineItem):
     def __init__(self, device1: object, device1_interface, device2: object, device2_interface):
@@ -52,8 +54,8 @@ class Cable(QGraphicsLineItem):
         self.setPen(QPen(QColor(0, 0, 0), 3))
 
         self.device_interface_labels = []
-        self.device_interface_labels.append(CableInterfaceLabel(self.device1_interface, "device1", self))    
-        self.device_interface_labels.append(CableInterfaceLabel(self.device2_interface, "device2", self))
+        self.device_interface_labels.append(CableInterfaceLabel(interface_name = self.device1_interface, parent = self, device1 = device1))    
+        self.device_interface_labels.append(CableInterfaceLabel(interface_name = self.device2_interface, parent = self, device2 = device2))
 
         self.updatePosition()
 
@@ -75,6 +77,10 @@ class Cable(QGraphicsLineItem):
         for interface_label in self.device_interface_labels:
             interface_label.updatePosition()
 
+    def updateLabelsContent(self):
+        for interface_label in self.device_interface_labels:
+            interface_label.updateLabelContent()
+
     def removeCable(self):
         if self in self.device1.cables:
             self.device1.cables.remove(self)
@@ -86,24 +92,26 @@ class Cable(QGraphicsLineItem):
 
 
 class CableInterfaceLabel(QGraphicsTextItem):
-    def __init__(self, text, device, parent, distance_offset=70):
-        super().__init__(text, parent)
+    def __init__(self, interface_name, parent, device1 = None, device2 = None, distance_offset=70):
+        super().__init__(parent)
         
+        self.interface_name = interface_name
         self.parent = parent
-        self.device = device
+        self.device = device1 if device1 else device2
+        self.device1 = device1
+        self.device2 = device2
         self.distance_offset = distance_offset
 
         self.setFont(QFont('Arial', 8))
         self.setDefaultTextColor(Qt.white)
 
-        self.label_holder = QGraphicsRectItem(self.boundingRect(), parent)
-        self.label_holder.setBrush(QColor(0, 0, 0))
-        self.label_holder.setPen(Qt.NoPen)
-        self.setParentItem(self.label_holder)
+        # LABEL TEXT
+        self.label_holder = QGraphicsRectItem(self.boundingRect(), self.parent)
+        self.updateLabelContent()
 
         # TOOLTIP
         self.setAcceptHoverEvents(True)  # Enable mouse hover over events
-        self.tooltip_text = text
+        self.tooltip_text = self.text
         self.tooltip_timer = QTimer()
         self.tooltip_timer.setSingleShot(True) # only once per hover event
         self.tooltip_timer.timeout.connect(lambda: QToolTip.showText(self.hover_pos, self.tooltip_text))
@@ -120,16 +128,16 @@ class CableInterfaceLabel(QGraphicsTextItem):
         dy = device2_point.y() - device1_point.y()
         line_length = math.sqrt(dx**2 + dy**2)
         if line_length == 0:
-            return device1_point if self.device == "device1" else device2_point
+            return device1_point if self.device1 else device2_point
 
         # Normalize the direction vector
         unit_dx = dx / line_length
         unit_dy = dy / line_length
 
-        if self.device == "device1":
+        if self.device1:
             distance_offset = distance_offset
             device_point = device1_point
-        elif self.device == "device2":
+        elif self.device2:
             distance_offset = -distance_offset
             device_point = device2_point
 
@@ -157,6 +165,26 @@ class CableInterfaceLabel(QGraphicsTextItem):
         self.tooltip_timer.stop()
         QToolTip.hideText()
     
+    def updateLabelContent(self):
+        subinterfaces = self.device.interfaces[self.interface_name]['subinterfaces']
+        ipv4_data, ipv6_data = utils.getFirstIPAddressesFromSubinterfaces(subinterfaces)
+
+        self.text = str(f"{self.interface_name}")
+        if ipv4_data:
+            if not ipv4_data.get("flag", "") == "deleted":
+                self.text += str(f"\n{ipv4_data['value']}")
+        if ipv6_data:
+            if not ipv4_data.get("flag", "") == "deleted":
+                self.text += str(f"\n{ipv6_data['value']}")
+
+        self.setPlainText(self.text)
+        self.tooltip_text = self.text
+
+        self.label_holder.setRect(self.boundingRect())
+        self.label_holder.setBrush(QColor(0, 0, 0))
+        self.label_holder.setPen(Qt.NoPen)
+        self.setParentItem(self.label_holder)
+
 
 class TempCable(QGraphicsLineItem):
     """ Temporary cable that is drawn in the process of creating a new cable """

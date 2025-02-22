@@ -128,7 +128,7 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
         old_ip (str): The IP address to be added.
     Returns:
         rpc_reply: The response from the device after attempting to set the IP address.
-    """   
+    """ 
 
     # FILTER
     filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, new_ip)
@@ -284,7 +284,7 @@ class DeviceInterfacesDialog(QDialog):
             for row, (interface_element, interface_data) in enumerate(self.interfaces.items()):      
                 admin_state = interface_data.get('admin_status', "N/A")
                 oper_state = interface_data.get('oper_status', "N/A")
-                ipv4_data, ipv6_data = self.getFirstIPAddresses(interface_data['subinterfaces'])
+                ipv4_data, ipv6_data = utils.getFirstIPAddressesFromSubinterfaces(interface_data['subinterfaces'])
 
                 # Flag: commited, uncommited, deleted
                 bg_color = "white"
@@ -335,28 +335,6 @@ class DeviceInterfacesDialog(QDialog):
             self.ui.interfaces_table.setRowCount(1)
             self.ui.interfaces_table.setColumnCount(1)
             self.ui.interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
-
-    def getFirstIPAddresses(self, subinterfaces):
-        """
-        Retrieves the first IPv4 and IPv6 addresses from a list of subinterfaces.
-        Args:
-            subinterfaces (dict): A dictionary where each key is a subinterface identifier and 
-                      each value is a dictionary containing 'ipv4_data' and 'ipv6_data' lists.
-        Returns:
-            tuple: A tuple containing the first IPv4 address (str) and the first IPv6 address (str) found.
-               If no IPv4 or IPv6 address is found, the corresponding value in the tuple will be an empty string.        
-        """
-
-        ipv4_data = ""
-        ipv6_data = ""
-        for subinterface in subinterfaces.values():
-            if subinterface['ipv4_data'] and not ipv4_data:
-                ipv4_data = subinterface['ipv4_data'][0]
-            if subinterface['ipv6_data'] and not ipv6_data:
-                ipv6_data = subinterface['ipv6_data'][0]
-            if ipv4_data and ipv6_data:
-                break
-        return ipv4_data, ipv6_data
 
     def showDialog(self):
         button = self.sender()

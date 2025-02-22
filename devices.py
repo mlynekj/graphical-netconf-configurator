@@ -173,6 +173,10 @@ class Device(QGraphicsPixmapItem):
         for cable in self.cables:
             cable.updatePosition()    
 
+    def updateCableLabelsContent(self):
+        for cable in self.cables:
+            cable.updateLabelsContent()
+
     # ---------- MOUSE EVENTS FUNCTIONS ---------- 
     def hoverEnterEvent(self, event):
         # Tooltip
@@ -270,6 +274,8 @@ class Device(QGraphicsPixmapItem):
         rpc_reply, filter = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
         utils.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
         utils.printRpc(rpc_reply, "Delete IP", self)
+
+        # Delete the IP from the self.interfaces dictionary
         if old_ip.version == 4:
             # find the entry to be deleted in the self.interfaces dictionary
             all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"]
@@ -281,13 +287,17 @@ class Device(QGraphicsPixmapItem):
             matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
             matching_entry["flag"] = "deleted"
 
+        # update the cable labels
+        if self.cables:
+            self.updateCableLabelsContent()
+
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
         rpc_reply, filter = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
         utils.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
         utils.printRpc(rpc_reply, "Set IP", self)
         
-        # When adding IP to a new subinterface, create the subinterface first
-        if subinterface_index not in self.interfaces[interface_id]["subinterfaces"]:
+        # Add the IP to the self.interfaces dictionary
+        if subinterface_index not in self.interfaces[interface_id]["subinterfaces"]: # When adding IP to a new subinterface, create the subinterface first
             self.interfaces[interface_id]["subinterfaces"][subinterface_index] = {
                 "ipv4_data": [],
                 "ipv6_data": []
@@ -297,6 +307,10 @@ class Device(QGraphicsPixmapItem):
             self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"].append({"value": new_ip, "flag": "uncommited"})
         elif new_ip.version == 6:
             self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"].append({"value": new_ip, "flag": "uncommited"})
+
+        # Update the cable labels
+        if self.cables:
+            self.updateCableLabelsContent()
 
     def replaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
         rpc_reply_delete, filter_delete = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
