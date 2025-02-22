@@ -190,7 +190,7 @@ class Device(QGraphicsPixmapItem):
         items = []
 
         # Disconnect from device
-        disconnect_action = QAction("Disconnect from the device")
+        disconnect_action = QAction("Disconnect")
         disconnect_action.triggered.connect(self._deleteDevice)
         disconnect_action.setToolTip("Disconnects from the device and removes it from the canvas.")
         items.append(disconnect_action)
@@ -202,7 +202,7 @@ class Device(QGraphicsPixmapItem):
         items.append(show_netconf_capabilities_action)
 
         # Show interfaces
-        show_interfaces_action = QAction("Show Interfaces")
+        show_interfaces_action = QAction("Edit Interfaces")
         show_interfaces_action.triggered.connect(self._showDeviceInterfacesDialog)
         show_interfaces_action.setToolTip("Shows the configuration dialog for the device interfaces.")
         items.append(show_interfaces_action)
@@ -326,6 +326,7 @@ class Device(QGraphicsPixmapItem):
             signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
         except Exception as e:
             utils.printGeneral(f"Error discarding changes: {e}")
+            utils.printGeneral(traceback.format_exc())
             return
 
     def commitChanges(self, confirmed=False, confirm_timeout=None):
@@ -536,6 +537,7 @@ class OSPFDevice(QGraphicsPixmapItem):
             utils.printRpc(rpc_reply, "Configure OSPF", self)
         except Exception as e:
             utils.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
+            utils.printGeneral(traceback.format_exc())
 
 
 
@@ -608,7 +610,7 @@ class AddDeviceDialog(QDialog):
                 self.device_parameters["device_params"] = "junos"
         except ValueError as e:
             QMessageBox.critical(None, "Invalid input", f"Invalid input: {e}")
-            utils.printGeneral(f"Invalid input: {traceback.format_exc()}")
+            utils.printGeneral(traceback.format_exc())
 
         # Check if the device with the same address is not already in the scene
         for device in self.view.scene.items():

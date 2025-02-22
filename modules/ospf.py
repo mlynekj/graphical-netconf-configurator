@@ -94,10 +94,7 @@ class OpenconfigNetworkInstance_Editconfig_ConfigureOspf_Filter(EditconfigFilter
         # Set the area
         ospfv2_area_element = self.filter_xml.find(".//ns:ospfv2/ns:areas/ns:area/ns:identifier", self.namespaces)
         ospfv2_area_element.text = self.area
-
-        # Set the metric
-        # TODO: Juniper nebere "reference-bandwidth", tak asi kontrolovat jestli rozhraní je Gigabit a podle toho nastavit metriku natvrdo
-
+                
         # Add the interfaces
         for interface in self.interfaces:
             self._addInterface(interface)
@@ -113,6 +110,23 @@ class OpenconfigNetworkInstance_Editconfig_ConfigureOspf_Filter(EditconfigFilter
         config_element = ET.SubElement(interface_element, "config")
         config_id_element = ET.SubElement(config_element, "id")
         config_id_element.text = interface_id
+
+        # Reference bandwidth
+        # IMPORTANT: Openconfig does not have a reference bandwidth element, but only allows manullaly specifying the cost of a link. 
+        # As a workaround, the cost is hence calculated manually based on the reference bandwidth (cost = reference_bandwidth / bandwidth (b/s)).
+        if self.reference_bandwidth:
+            reference_bandwidth_bps = int(self.reference_bandwidth) * int(1_000_000)
+            if "fe" in interface_id: # FastEthernet
+                cost = reference_bandwidth_bps / int(100_000_000)
+            elif "ge" in interface_id: # GigabitEthernet
+                cost = reference_bandwidth_bps / int(1_000_000_000)
+            elif "xe" in interface_id: #10GigabitEthernet
+                cost = reference_bandwidth_bps / int(10_000_000_000)
+            else:
+                cost = 1
+                QMessageBox.warning(self, "Warning", f"Reference bandwidth is set, but the link speed of interface: {interface_id} on device with ID: {self.router_id} is not recognized. Default cost of 1 will be used.", QMessageBox.Ok)
+            config_metric_element = ET.SubElement(config_element, "metric")
+            config_metric_element.text = str(int(cost))
 
         # Mark as passive if in the passive_interfaces list
         if interface_id in self.passive_interfaces:

@@ -111,7 +111,7 @@
            <string>Specifiy reference bandwidth. Used for calculating cost.</string>
           </property>
           <property name="text">
-           <string>Reference bandwidth:</string>
+           <string>Reference bandwidth (Mb/s):</string>
           </property>
           <property name="buddy">
            <cstring>reference_bandwidth_input</cstring>
@@ -127,7 +127,7 @@
            </sizepolicy>
           </property>
           <property name="toolTip">
-           <string>Specifiy reference bandwidth. Used for calculating cost.</string>
+           <string>Specifiy reference bandwidth in megabits per second. Used for calculating cost.</string>
           </property>
          </widget>
         </item>

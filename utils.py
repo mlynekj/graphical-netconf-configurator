@@ -104,8 +104,9 @@ def printRpc(rpc_reply, action, device: object):
     Args:
         rpc_reply (str): The RPC reply to be printed.
         action (str): The action associated with the RPC reply.
-        device (str): The device from which the RPC reply was received.
+        device (Device): The device from which the RPC reply was received.
     """
+
     try:
         id = device.id
     except:
