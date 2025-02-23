@@ -3,6 +3,8 @@ from pyangbind.lib.serialise import pybindIETFXMLEncoder
 from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface
 from lxml import etree as ET
 
+from ncclient import operations
+
 # Custom
 import modules.netconf as netconf
 import utils as utils
@@ -110,7 +112,6 @@ def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip):
     Returns:
         rpc_reply: The response from the device after attempting to delete the IP address.
     """
-
     # FILTER
     filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, old_ip, delete_ip=True)
 
@@ -130,21 +131,35 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
         rpc_reply: The response from the device after attempting to set the IP address.
     """ 
 
-    # FILTER
-    filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, new_ip)
-    
-    # RPC
-    rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-    return(rpc_reply, filter)
+    try:
+        # FILTER
+        filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, new_ip)
+        
+        # RPC
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        return(rpc_reply, filter)
+    except operations.errors.RPCError as e:
+        utils.printGeneral(f"Failed to set IP on device {device.id}: {e}")
+        return (rpc_reply)
+    except Exception as e:
+        utils.printGeneral(f"Failed to set IP on device {device.id}: {e}")
+        return None
 
 # -- Add new interfaces --
 def addInterfaceWithNetconf(device, interface_id, interface_type):
-    # FILTER
-    filter = OpenconfigInterfaces_Editconfig_AddInterface_Filter(interface_id, interface_type)
-    
-    # RPC
-    rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-    return(rpc_reply, filter)
+    try:
+        # FILTER
+        filter = OpenconfigInterfaces_Editconfig_AddInterface_Filter(interface_id, interface_type)
+        
+        # RPC
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        return(rpc_reply, filter)
+    except operations.errors.RPCError as e:
+        utils.printGeneral(f"Failed to add interface on device {device.id}: {e}")
+        return (rpc_reply)
+    except Exception as e:
+        utils.printGeneral(f"Failed to add interface on device {device.id}: {e}")
+        return None
 
 
 
@@ -588,8 +603,9 @@ class EditSubinterfaceDialog(QDialog):
             # Editing existing subinterface
             if self.old_ip and self.old_ip != self.new_ip:
                 # If old_ip was entered and the new_ip is different, replace the IP address
-                self.device.deleteInterfaceIP(self.interface_id, self.subinterface_id, self.old_ip)
-                self.device.setInterfaceIP(self.interface_id, self.subinterface_id, self.new_ip)
+                delete_success = self.device.deleteInterfaceIP(self.interface_id, self.subinterface_id, self.old_ip)
+                if delete_success: # Dont set new IP if the old one was not deleted
+                    self.device.setInterfaceIP(self.interface_id, self.subinterface_id, self.new_ip)
                 self.editInterfaceDialog_instance.refreshDialog()
             elif self.old_ip and self.old_ip == self.new_ip:
                 # If old_ip was entered and the new_ip is the same, do nothing

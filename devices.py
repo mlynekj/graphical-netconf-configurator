@@ -254,107 +254,153 @@ class Device(QGraphicsPixmapItem):
     
     # ---------- HOSTNAME MANIPULATION FUNCTIONS ---------- 
     def _getHostname(self):
-        hostname, rpc_reply = system.getHostnameWithNetconf(self)
-        utils.printRpc(rpc_reply, "Get Hostname", self)
-        return(hostname)
+        try:
+            hostname, rpc_reply = system.getHostnameWithNetconf(self)
+            utils.printRpc(rpc_reply, "Get Hostname", self)
+            return(hostname)
+        except Exception as e:
+            utils.printGeneral(f"Error getting hostname: {e}")
+            utils.printGeneral(traceback.format_exc())
+            return None
     
     def setHostname(self, new_hostname):
-        rpc_reply, filter = system.setHostnameWithNetconf(self, new_hostname)
-        utils.addPendingChange(self, f"Set hostname: {new_hostname}", rpc_reply, filter)
-        utils.printRpc(rpc_reply, "Set Hostname", self)
+        try:
+            rpc_reply, filter = system.setHostnameWithNetconf(self, new_hostname)
+            utils.addPendingChange(self, f"Set hostname: {new_hostname}", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Set Hostname", self)
+            
+            # FLAG (needed to update the hostname label on canvas, when commiting changes later on)
+            self.has_updated_hostname = True
+
+            return True
+        except Exception as e:
+            utils.printGeneral(f"Error setting hostname: {e}")
+            utils.printGeneral(traceback.format_exc())
+            QMessageBox.critical(None, "Error", f"Error setting hostname: {e}")
+            return False
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
     def getInterfaces(self):
-        interfaces_data, rpc_reply = interfaces.getInterfacesWithNetconf(self)
-        utils.printRpc(rpc_reply, "Get Interfaces", self)
-        return(interfaces_data)
+        try:
+            interfaces_data, rpc_reply = interfaces.getInterfacesWithNetconf(self)
+            utils.printRpc(rpc_reply, "Get Interfaces", self)
+            return(interfaces_data)
+        except Exception as e:
+            utils.printGeneral(f"Error getting interfaces: {e}")
+            utils.printGeneral(traceback.format_exc())
+            return None
     
     def deleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
-        rpc_reply, filter = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
-        utils.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
-        utils.printRpc(rpc_reply, "Delete IP", self)
+        try:
+            rpc_reply, filter = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
+            if rpc_reply:
+                utils.addPendingChange(self, f"Delete IP: {old_ip} from interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
+                utils.printRpc(rpc_reply, "Delete IP", self)
 
-        # Delete the IP from the self.interfaces dictionary
-        if old_ip.version == 4:
-            # find the entry to be deleted in the self.interfaces dictionary
-            all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"]
-            matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
-            matching_entry["flag"] = "deleted"
-        elif old_ip.version == 6:
-            # find the entry to be deleted in the self.interfaces dictionary
-            all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"]
-            matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
-            matching_entry["flag"] = "deleted"
+                # Delete the IP from the self.interfaces dictionary
+                if old_ip.version == 4:
+                    # find the entry to be deleted in the self.interfaces dictionary
+                    all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"]
+                    matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
+                    matching_entry["flag"] = "deleted"
+                elif old_ip.version == 6:
+                    # find the entry to be deleted in the self.interfaces dictionary
+                    all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"]
+                    matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
+                    matching_entry["flag"] = "deleted"
 
-        # update the cable labels
-        if self.cables:
-            self.updateCableLabelsContent()
+                # update the cable labels
+                if self.cables:
+                    self.updateCableLabelsContent()
+
+                return True
+        except Exception as e:
+            utils.printGeneral(f"Error deleting IP: {e}")
+            utils.printGeneral(traceback.format_exc())
+            QMessageBox.critical(None, "Error", f"Error deleting IP: {e}")
+            return False
 
     def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
-        rpc_reply, filter = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
-        utils.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
-        utils.printRpc(rpc_reply, "Set IP", self)
-        
-        # Add the IP to the self.interfaces dictionary
-        if subinterface_index not in self.interfaces[interface_id]["subinterfaces"]: # When adding IP to a new subinterface, create the subinterface first
-            self.interfaces[interface_id]["subinterfaces"][subinterface_index] = {
-                "ipv4_data": [],
-                "ipv6_data": []
-            }
-        
-        if new_ip.version == 4:
-            self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"].append({"value": new_ip, "flag": "uncommited"})
-        elif new_ip.version == 6:
-            self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"].append({"value": new_ip, "flag": "uncommited"})
+        try:
+            rpc_reply, filter = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
+            if rpc_reply:
+                utils.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply, filter)
+                utils.printRpc(rpc_reply, "Set IP", self)
+                
+                # Add the IP to the self.interfaces dictionary
+                if subinterface_index not in self.interfaces[interface_id]["subinterfaces"]: # When adding IP to a new subinterface, create the subinterface first
+                    self.interfaces[interface_id]["subinterfaces"][subinterface_index] = {
+                        "ipv4_data": [],
+                        "ipv6_data": []
+                    }
+                
+                if new_ip.version == 4:
+                    self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"].append({"value": new_ip, "flag": "uncommited"})
+                elif new_ip.version == 6:
+                    self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"].append({"value": new_ip, "flag": "uncommited"})
 
-        # Update the cable labels
-        if self.cables:
-            self.updateCableLabelsContent()
+                # Update the cable labels
+                if self.cables:
+                    self.updateCableLabelsContent()
 
-    def replaceInterfaceIP(self, interface_id, subinterface_index, old_ip, new_ip):
-        rpc_reply_delete, filter_delete = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
-        rpc_reply_set, filter_set = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
-        utils.addPendingChange(self, f"Delete IP: {old_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_delete, filter_delete)
-        utils.addPendingChange(self, f"Set IP: {new_ip} on interface: {interface_id}.{subinterface_index}", rpc_reply_set, filter_set)
-        utils.printRpc(rpc_reply_delete, "Delete IP", self)
-        utils.printRpc(rpc_reply_set, "Set IP", self)
-        # TODO: add entry to self.interfaces with the flag commited=False
+                return True
+        except Exception as e:
+            utils.printGeneral(f"Error setting IP: {e}")
+            utils.printGeneral(traceback.format_exc())
+            QMessageBox.critical(None, "Error", f"Error setting IP: {e}")
+            return False
 
     def addInterface(self, interface_id, interface_type):
-        rpc_reply, filter = interfaces.addInterfaceWithNetconf(self, interface_id, interface_type)
-        utils.addPendingChange(self, f"Add interface: {interface_id}", rpc_reply, filter)
-        utils.printRpc(rpc_reply, "Add Interface", self)
-        self.interfaces[interface_id] = {
-            "subinterfaces": {}
-        }
+        try:
+            rpc_reply, filter = interfaces.addInterfaceWithNetconf(self, interface_id, interface_type)
+            if rpc_reply:
+                utils.addPendingChange(self, f"Add interface: {interface_id}", rpc_reply, filter)
+                utils.printRpc(rpc_reply, "Add Interface", self)
+                self.interfaces[interface_id] = {
+                    "subinterfaces": {}
+                }
+
+                return True
+        except Exception as e:
+            utils.printGeneral(f"Error adding interface: {e}")
+            utils.printGeneral(traceback.format_exc())
+            QMessageBox.critical(None, "Error", f"Error adding interface: {e}")
+            return False
     
     # ---------- CANDIDATE DATASTORE MANIPULATION FUNCTIONS ----------
     def discardChanges(self):
         try:
             rpc_reply = netconf.discardNetconfChanges(self)
-            utils.printRpc(rpc_reply, "Discard changes", self)
-            self.interfaces = self.getInterfaces() # Refresh interfaces after discard
+            if rpc_reply:
+                utils.printRpc(rpc_reply, "Discard changes", self)
+                self.interfaces = self.getInterfaces() # Refresh interfaces after discard
 
-            self.has_pending_changes = False
-            signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+                self.has_pending_changes = False
+                signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+                return True
         except Exception as e:
             utils.printGeneral(f"Error discarding changes: {e}")
             utils.printGeneral(traceback.format_exc())
-            return
+            QMessageBox.critical(None, "Error", f"Error discarding changes: {e}")
+            return False
 
     def commitChanges(self, confirmed=False, confirm_timeout=None):
         try:
             rpc_reply = netconf.commitNetconfChanges(self, confirmed, confirm_timeout)
-            utils.printRpc(rpc_reply, "Commit changes", self)
-            self.interfaces = self.getInterfaces() # Refresh interfaces after commit
+            if rpc_reply:
+                utils.printRpc(rpc_reply, "Commit changes", self)
+                self.interfaces = self.getInterfaces() # Refresh interfaces after commit
 
-            if not confirmed: # Dont remove the pending changes flag, if the commit is of the confirmed type
-                self.has_pending_changes = False
-                signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+                if not confirmed: # Dont remove the pending changes flag, if the commit is of the confirmed type
+                    self.has_pending_changes = False
+                    signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+                    self.updateCableLabelsText()
+                return True
         except Exception as e:
             utils.printGeneral(f"Error committing changes: {e}")
             utils.printGeneral(traceback.format_exc())
-            return
+            QMessageBox.critical(None, "Error", f"Error committing changes: {e}")
+            return False
     
     # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod
@@ -410,17 +456,20 @@ class Router(Device):
         Returns:
             rpc_reply: The routing table information.
         """
+        try:
+            if self.device_parameters["device_params"] == "iosxe":
+                rpc_filter = IetfRouting_Get_GetRoutingState_Filter()
+                rpc_reply = self.mngr.get(str(rpc_filter))
+            elif self.device_parameters["device_params"] == "junos":
+                rpc_payload = JunosRpcRoute_Dispatch_GetRoutingInformation_Filter()
+                rpc_reply = self.mngr.dispatch(rpc_payload.__ele__())
+            
+            utils.printRpc(rpc_reply, "Get Routing Table", self)
+            return (rpc_reply)
+        except Exception as e:
+            utils.printGeneral(f"Error getting routing table: {e}")
+            utils.printGeneral(traceback.format_exc())
 
-        if self.device_parameters["device_params"] == "iosxe":
-            rpc_filter = IetfRouting_Get_GetRoutingState_Filter()
-            rpc_reply = self.mngr.get(str(rpc_filter))
-        elif self.device_parameters["device_params"] == "junos":
-            rpc_payload = JunosRpcRoute_Dispatch_GetRoutingInformation_Filter()
-            rpc_reply = self.mngr.dispatch(rpc_payload.__ele__())
-        
-        utils.printRpc(rpc_reply, "Get Routing Table", self)
-        return (rpc_reply)
-    
     def showRoutingTable(self):
         """
         Displays the routing table in a dialog window.

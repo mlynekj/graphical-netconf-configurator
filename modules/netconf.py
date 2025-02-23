@@ -71,21 +71,39 @@ def establishNetconfConnection(device_parameters):
  
 def demolishNetconfConnection(device):
     """ Tears down the spcified ncclient connection, by deleting the mng object. """
-    rpc_reply = device.mngr.close_session()
-    return(rpc_reply)
-    # TODO: catch exceptions, probably in device class
+    try:
+        rpc_reply = device.mngr.close_session()
+        return(rpc_reply)
+    except operations.errors.RPCError as e:
+        utils.printGeneral(f"Failed to close NETCONF connection: {e}")
+        return (rpc_reply)
+    except Exception as e:
+        utils.printGeneral(f"Failed to close NETCONF connection: {e}")
+        return None
 
 def commitNetconfChanges(device, confirmed: bool=False, confirm_timeout=None):
     """ Performs the "commit" operation using the specified ncclient connection. """
-    rpc_reply = device.mngr.commit(confirmed, timeout=str(confirm_timeout))
-    return(rpc_reply)
-    # TODO: catch exceptions, probably in device class
+    try:
+        rpc_reply = device.mngr.commit(confirmed, timeout=str(confirm_timeout))
+        return(rpc_reply)
+    except operations.errors.RPCError as e:
+        utils.printGeneral(f"Failed to commit changes: {e}")
+        return (rpc_reply)
+    except Exception as e:
+        utils.printGeneral(f"Failed to commit changes: {e}")
+        return None
 
 def discardNetconfChanges(device):
     """ Performs the "discard-changes" operation using the specified ncclient connection. """
-    rpc_reply = device.mngr.discard_changes()
-    return(rpc_reply)
-    # TODO: catch exceptions, probably in device class
+    try:
+        rpc_reply = device.mngr.discard_changes()
+        return(rpc_reply)
+    except operations.errors.RPCError as e:
+        utils.printGeneral(f"Failed to discard changes: {e}")
+        return (rpc_reply)
+    except Exception as e:
+        utils.printGeneral(f"Failed to discard changes: {e}")
+        return None
 
 def getNetconfCapabilities(device):
     """ Retrieves the capabilities of the specified ncclient connection. """

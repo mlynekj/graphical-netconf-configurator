@@ -51,9 +51,6 @@ def setHostnameWithNetconf(device, new_hostname):
         filter_xml = CiscoIOSXENative_Editconfig_EditHostname_Filter(new_hostname) # For Cisco, use IOS-XE native models
     elif device_type == "junos":
         filter_xml = OpenconfigSystem_Editconfig_EditHostname_Filter(new_hostname) # For Juniper, use OpenConfig models
-    
-    # FLAG (needed to update the hostname label on canvas, when commiting changes later on)
-    device.has_updated_hostname = True
 
     # RPC
     rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET_DATASTORE, config=str(filter_xml))
