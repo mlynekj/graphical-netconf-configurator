@@ -56,13 +56,13 @@ def establishNetconfConnection(device_parameters):
         mngr.raise_mode = RaiseMode.ERRORS # Raise exceptions only on errors, not on warnings (https://github.com/ncclient/ncclient/issues/545)
         utils.printGeneral(f"Successfully established NETCONF connection to: {device_parameters['address']} on port {device_parameters['port']}")
         return mngr
-    except transport.errors.SSHError as e:
+    except transport.SSHError as e:
         QMessageBox.critical(None, "Connection Error", f"Unable to connect: {e}")
         raise ConnectionError(f"Unable to connect: {e}")
-    except transport.errors.AuthenticationError as e:
+    except transport.AuthenticationError as e:
         QMessageBox.critical(None, "Authentication Error", f"Authentication error: {e}")
         raise ConnectionError(f"Authentication error: {e}")
-    except operations.errors.TimeoutExpiredError as e:
+    except operations.TimeoutExpiredError as e:
         QMessageBox.critical(None, "Timeout Error", f"Timeout during connecting expired: {e}")
         raise ConnectionError(f"Timeout during connecting expired: {e}")
     except Exception as e:
@@ -74,7 +74,7 @@ def demolishNetconfConnection(device):
     try:
         rpc_reply = device.mngr.close_session()
         return(rpc_reply)
-    except operations.errors.RPCError as e:
+    except operations.RPCError as e:
         utils.printGeneral(f"Failed to close NETCONF connection: {e}")
         return (rpc_reply)
     except Exception as e:
@@ -86,7 +86,7 @@ def commitNetconfChanges(device, confirmed: bool=False, confirm_timeout=None):
     try:
         rpc_reply = device.mngr.commit(confirmed, timeout=str(confirm_timeout))
         return(rpc_reply)
-    except operations.errors.RPCError as e:
+    except operations.RPCError as e:
         utils.printGeneral(f"Failed to commit changes: {e}")
         return (rpc_reply)
     except Exception as e:
@@ -98,7 +98,7 @@ def discardNetconfChanges(device):
     try:
         rpc_reply = device.mngr.discard_changes()
         return(rpc_reply)
-    except operations.errors.RPCError as e:
+    except operations.RPCError as e:
         utils.printGeneral(f"Failed to discard changes: {e}")
         return (rpc_reply)
     except Exception as e:

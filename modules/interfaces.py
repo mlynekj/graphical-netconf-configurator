@@ -140,7 +140,7 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
         return(rpc_reply, filter)
     except operations.errors.RPCError as e:
         utils.printGeneral(f"Failed to set IP on device {device.id}: {e}")
-        return (rpc_reply)
+        return (rpc_reply, filter)
     except Exception as e:
         utils.printGeneral(f"Failed to set IP on device {device.id}: {e}")
         return None
@@ -382,6 +382,7 @@ class DeviceInterfacesDialog(QDialog):
         else:
             self.device.interfaces = self.device.getInterfaces()
             self.refreshDialog()
+            self.device.updateCableLabelsText()
 
 
 class EditInterfaceDialog(QDialog):

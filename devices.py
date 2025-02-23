@@ -311,7 +311,7 @@ class Device(QGraphicsPixmapItem):
 
                 # update the cable labels
                 if self.cables:
-                    self.updateCableLabelsContent()
+                    self.updateCableLabelsText()
 
                 return True
         except Exception as e:
@@ -341,7 +341,7 @@ class Device(QGraphicsPixmapItem):
 
                 # Update the cable labels
                 if self.cables:
-                    self.updateCableLabelsContent()
+                    self.updateCableLabelsText()
 
                 return True
         except Exception as e:
@@ -377,6 +377,8 @@ class Device(QGraphicsPixmapItem):
 
                 self.has_pending_changes = False
                 signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+
+                self.updateCableLabelsText()
                 return True
         except Exception as e:
             utils.printGeneral(f"Error discarding changes: {e}")

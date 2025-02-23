@@ -250,8 +250,15 @@ class MainWindow(QMainWindow):
         action_cableEditMode.triggered.connect(self._toggleCableMode)
         self.toolbar.addAction(action_cableEditMode)
 
+        # "Save devices to file" button
+        save_device_img = QIcon(QPixmap("graphics/icons/save.png")) # https://www.freepik.com/icon/floppy-disk_12153581#fromView=search&page=1&position=71&uuid=fc4114bf-cd3d-45c7-8ce4-1daf851f9308
+        action_saveDevices = QAction(save_device_img, "Save devices to file", self)
+        action_saveDevices.setToolTip("Save devices to a JSON file \"saved_devices.json\"")
+        action_saveDevices.triggered.connect(self._saveDevicesToFile)
+        self.toolbar.addAction(action_saveDevices)
+
         # "Load devices from file" button
-        load_devices_img = QIcon(QPixmap("graphics/icons/load.png")) # https://www.freepik.com/icon/file_892070#fromView=search&page=1&position=43&uuid=50ac52f8-baa0-416e-bdb5-fa1dde310592
+        load_devices_img = QIcon(QPixmap("graphics/icons/load.png")) # https://www.freepik.com/icon/file-upload_12153583#fromView=resource_detail&position=0
         action_loadDevices = QAction(load_devices_img, "Load devices from file", self)
         action_loadDevices.setToolTip("Load devices from a JSON file \"saved_devices.json\"")
         action_loadDevices.triggered.connect(self._loadDevicesFromFile)
@@ -273,10 +280,41 @@ class MainWindow(QMainWindow):
         else:
             self.cable_edit_mode.exitMode()
 
+    def _saveDevicesToFile(self):
+        if not self.view.scene.items():
+            QMessageBox.warning(self, "No devices", "There are no devices in the scene to save.", QMessageBox.Ok)
+            return
+        
+        with open("saved_devices.json", mode="w") as f:
+            data = {
+                "devices": []
+            }
+
+            for device in self.view.scene.items():
+                if isinstance(device, Device):
+                    device_data = {
+                        "type": "Router" if isinstance(device, Router) else "Switch",
+                        "ip_address": f"{device.device_parameters['address']}:{device.device_parameters['port']}",
+                        "username": device.device_parameters["username"],
+                        "password": device.device_parameters["password"],
+                        "vendor": device.device_parameters["device_params"],
+                        "location": {
+                            "x": device.pos().x(),
+                            "y": device.pos().y()
+                        }
+                    }
+                    data["devices"].append(device_data)
+            
+            json.dump(data, f, indent=4)
+
     def _loadDevicesFromFile(self):
         try:
             with open("saved_devices.json") as f:
                 data = json.load(f)
+                if not data["devices"]:
+                    QMessageBox.warning(self, "No devices", "There are no devices in the file to load.", QMessageBox.Ok)
+                    return
+
                 for device in data["devices"]:
                     # Create the "device_parameters" dictionary used for creating the device instance
                     device_parameters = {}
@@ -363,10 +401,6 @@ class ProtocolsWidget(QDockWidget):
         ospf_button = QPushButton("OSPF")
         ospf_button.clicked.connect(self._showOSPFDialog)
         layout.addWidget(ospf_button)
-        
-        # MPLS button
-        mpls_button = QPushButton("MPLS")
-        layout.addWidget(mpls_button)
 
         button_holder.setLayout(layout)
         self.setWidget(button_holder)
