@@ -588,7 +588,8 @@ class EditSubinterfaceDialog(QDialog):
             # Editing existing subinterface
             if self.old_ip and self.old_ip != self.new_ip:
                 # If old_ip was entered and the new_ip is different, replace the IP address
-                self.device.replaceInterfaceIP(self.interface_id, self.subinterface_id, self.old_ip, self.new_ip)
+                self.device.deleteInterfaceIP(self.interface_id, self.subinterface_id, self.old_ip)
+                self.device.setInterfaceIP(self.interface_id, self.subinterface_id, self.new_ip)
                 self.editInterfaceDialog_instance.refreshDialog()
             elif self.old_ip and self.old_ip == self.new_ip:
                 # If old_ip was entered and the new_ip is the same, do nothing

@@ -77,9 +77,9 @@ class Cable(QGraphicsLineItem):
         for interface_label in self.device_interface_labels:
             interface_label.updatePosition()
 
-    def updateLabelsContent(self):
+    def updateLabelsText(self):
         for interface_label in self.device_interface_labels:
-            interface_label.updateLabelContent()
+            interface_label.setLabelText()
 
     def removeCable(self):
         if self in self.device1.cables:
@@ -107,7 +107,7 @@ class CableInterfaceLabel(QGraphicsTextItem):
 
         # LABEL TEXT
         self.label_holder = QGraphicsRectItem(self.boundingRect(), self.parent)
-        self.updateLabelContent()
+        self.setLabelText()
 
         # TOOLTIP
         self.setAcceptHoverEvents(True)  # Enable mouse hover over events
@@ -165,7 +165,7 @@ class CableInterfaceLabel(QGraphicsTextItem):
         self.tooltip_timer.stop()
         QToolTip.hideText()
     
-    def updateLabelContent(self):
+    def setLabelText(self):
         subinterfaces = self.device.interfaces[self.interface_name]['subinterfaces']
         ipv4_data, ipv6_data = utils.getFirstIPAddressesFromSubinterfaces(subinterfaces)
 

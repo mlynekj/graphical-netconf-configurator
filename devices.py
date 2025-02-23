@@ -150,7 +150,6 @@ class Device(QGraphicsPixmapItem):
         self.label.setPlainText(str(self.hostname))
         self.label_border = self.label.boundingRect()
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
-
     
         return(netconf.getNetconfCapabilities(self))
 
@@ -173,9 +172,9 @@ class Device(QGraphicsPixmapItem):
         for cable in self.cables:
             cable.updatePosition()    
 
-    def updateCableLabelsContent(self):
+    def updateCableLabelsText(self):
         for cable in self.cables:
-            cable.updateLabelsContent()
+            cable.updateLabelsText()
 
     # ---------- MOUSE EVENTS FUNCTIONS ---------- 
     def hoverEnterEvent(self, event):

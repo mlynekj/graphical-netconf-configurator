@@ -512,6 +512,7 @@ class PendingChangesWidget(QDockWidget):
                     device = Device.getDeviceInstance(device_id)
                     device.has_pending_changes = False
                     signal_manager.deviceNoLongerHasPendingChanges.emit(device.id)
+                    device.updateCableLabelsText()
 
             # When at least one device has pending changes - print and begin the confirmed commit procedure (disable buttons, start countdown)
             if commited_devices:
@@ -544,7 +545,7 @@ class PendingChangesWidget(QDockWidget):
         """
         Handles the commit of pending changes on devices. This commit is NOT confirmed and does not have a timeout.
 
-        This method is performing "commit" defined in NETCONF RFC6241.
+        This method is performing "commit" defined in NETCONF RFC6241. This method is also used to confirm the confirmed commit, when it was executed.
         
         Exceptions:
             Displays a critical message box if committing changes fails on one or more devices.
