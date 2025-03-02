@@ -575,6 +575,8 @@ class OSPFDevice(QGraphicsPixmapItem):
         return device_ospf_networks
     
     def addOSPFNetwork(self, network, interface_name):
+        if interface_name not in self.ospf_networks:
+            self.ospf_networks[interface_name] = []
         self.ospf_networks[interface_name].append(network)
 
     def removeOSPFNetwork(self, network, interface_name):
