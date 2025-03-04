@@ -166,5 +166,6 @@ cython_debug/
 .vscode/
 _test.py
 
-saved_devices.json
-saved_devices.json
+# temp draw-io files
+*.dtmp
+*.bkp

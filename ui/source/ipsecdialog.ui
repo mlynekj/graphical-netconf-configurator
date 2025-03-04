@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>IPSECDialog</class>
+ <widget class="QDialog" name="IPSECDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>618</width>
+    <height>686</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item alignment="Qt::AlignmentFlag::AlignHCenter">
+    <widget class="QGraphicsView" name="graphicsView">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>605</width>
+       <height>355</height>
+      </size>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="interfaces_tab">
+      <attribute name="title">
+       <string>Interfaces</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <item>
+        <widget class="QGroupBox" name="dev1_groupbox">
+         <property name="title">
+          <string>dev1</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout">
+          <item row="0" column="4">
+           <widget class="QLineEdit" name="dev1_LAN_network_lineedit"/>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="interface_label_2">
+            <property name="text">
+             <string>Interface</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QComboBox" name="dev1_LAN_interface_combobox"/>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="LAN_label_1">
+            <property name="text">
+             <string>LAN</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLabel" name="network_label_1">
+            <property name="text">
+             <string>Network</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLabel" name="ip_label_1">
+            <property name="text">
+             <string>IP</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QComboBox" name="dev1_WAN_interface_combobox"/>
+          </item>
+          <item row="1" column="4">
+           <widget class="QLineEdit" name="dev1_WAN_ip_lineedit"/>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="interface_label_1">
+            <property name="text">
+             <string>Interface</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="WAN_label_1">
+            <property name="text">
+             <string>WAN</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="dev2_groupbox">
+         <property name="title">
+          <string>dev2</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_2">
+          <item row="0" column="0">
+           <widget class="QLabel" name="LAN_label_2">
+            <property name="text">
+             <string>LAN</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="interface_label_3">
+            <property name="text">
+             <string>Interface</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QComboBox" name="dev2_LAN_interface_combobox"/>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLabel" name="network_label_2">
+            <property name="text">
+             <string>Network</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="4">
+           <widget class="QLineEdit" name="dev2_LAN_network_lineedit"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="WAN_label_2">
+            <property name="text">
+             <string>WAN</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="interface_label_4">
+            <property name="text">
+             <string>Interface</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QComboBox" name="dev2_WAN_interface_combobox"/>
+          </item>
+          <item row="1" column="3">
+           <widget class="QLabel" name="ip_label_2">
+            <property name="text">
+             <string>IP</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="4">
+           <widget class="QLineEdit" name="dev2_WAN_ip_lineedit"/>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="ike_tab">
+      <attribute name="title">
+       <string>IKE</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_3">
+       <item row="0" column="0">
+        <widget class="QLabel" name="ike_auth_label">
+         <property name="text">
+          <string>Authentication algorithm</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="ike_enc_combobox"/>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="ike_enc_label">
+         <property name="text">
+          <string>Encryption algorithm</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QLineEdit" name="ike_psk_input"/>
+       </item>
+       <item row="5" column="1">
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="ike_auth_combobox"/>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="ike_psk_label">
+         <property name="text">
+          <string>Pre-shared key</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="ike_lifetime_label">
+         <property name="text">
+          <string>Lifetime (seconds)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="ike_lifetime_input"/>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="ike_dh_label">
+         <property name="text">
+          <string>Diffie-Hellman group</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QComboBox" name="ike_dh_combobox"/>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="ipsec_tab">
+      <attribute name="title">
+       <string>IPSec</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_4">
+       <item row="1" column="0">
+        <widget class="QLabel" name="ipsec_enc_label">
+         <property name="text">
+          <string>Encryption algorithm</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="ipsec_lifetime_input"/>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="ipsec_enc_combobox"/>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="ipsec_auth_combobox"/>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="ipsec_lifetime_label">
+         <property name="text">
+          <string>Lifetime (seconds)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="ipsec_auth_label">
+         <property name="text">
+          <string>Authentication algorithm</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="advanced_tab">
+      <attribute name="title">
+       <string>Advanced</string>
+      </attribute>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

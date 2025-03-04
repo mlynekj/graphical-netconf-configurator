@@ -451,6 +451,14 @@ class Router(Device):
         """
         return OSPFDevice(self)
     
+    def cloneToIPSECDevice(self):
+        """
+        Clones the device to an IPSECDevice object, which is used in the IPSEC configuration dialog.
+        The cloned device is used to display the device in the IPSEC configuration dialog, without affecting the original device.
+        After the IPSEC configuration is done, the cloned device is deleted.
+        """
+        return IPSECDevice(self)
+    
     # ---------- ROUTING TABLE FUNCTIONS ---------- 
     def getRoutingTable(self):
         """
@@ -508,11 +516,7 @@ class Switch(Device):
         # Switch specific functions go here
 
 
-class OSPFDevice(QGraphicsPixmapItem):
-    """
-    A class to represent a device, that was cloned from Router class. It is used in OSPF configuration dialog, where it serves as a QGraphicItem in the cloned scene.
-    """
-
+class ClonedDevice(QGraphicsPixmapItem):
     def __init__(self, original_device):
         super().__init__()
 
@@ -543,6 +547,14 @@ class OSPFDevice(QGraphicsPixmapItem):
 
         # ID
         self.id = original_device.id
+
+
+class OSPFDevice(ClonedDevice):
+    """
+    A class to represent a device, that was cloned from Router class. It is used in OSPF configuration dialog, where it serves as a QGraphicItem in the cloned scene.
+    """
+    def __init__(self, original_device):
+        super().__init__(original_device)
 
         # OSPF SPECIFIC
         self.passive_interfaces = []
@@ -605,6 +617,14 @@ class OSPFDevice(QGraphicsPixmapItem):
             utils.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
             utils.printGeneral(traceback.format_exc())
 
+
+class IPSECDevice(ClonedDevice):
+    def __init__(self, original_device):
+        super().__init__(original_device)
+
+        # IPSEC SPECIFIC
+        self.ipsec_policies = []
+        self.ipsec_interfaces = []
 
 
 # ---------- QT: ----------

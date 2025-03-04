@@ -45,6 +45,7 @@ from signals import signal_manager
 import modules.netconf as netconf
 import utils as utils
 import modules.ospf as ospf
+import modules.ipsec as ipsec
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
 from threading import Timer, Thread, Event
@@ -76,7 +77,7 @@ class MainView(QGraphicsView):
         self._loadCursors()
 
     @contextmanager
-    def generateClonedScene(self):
+    def generateClonedScene(self, used_for = "OSPF"):
         selected_items = self.scene.selectedItems()
         if not selected_items:
             yield(None)
@@ -90,7 +91,8 @@ class MainView(QGraphicsView):
         # Create cloned devices, based selection
         for item in selected_items:
             if isinstance(item, Device):
-                new_device = item.cloneToOSPFDevice()
+                if used_for == "OSPF":
+                    new_device = item.cloneToOSPFDevice()
                 cloned_scene.addItem(new_device)
                 cloned_devices.append(new_device)
                 cloned_devices_ids.append(new_device.id)
@@ -120,6 +122,33 @@ class MainView(QGraphicsView):
             for item in cloned_scene.items():
                 cloned_scene.removeItem(item)
             cloned_scene.clear()
+
+    @contextmanager
+    def generateClonedDevices(self, used_for = "IPSEC"):
+        cloned_devices = []
+        cloned_devices_ids = []
+        
+        selected_items = self.scene.selectedItems()
+        if not selected_items:
+            yield(None)
+            return
+        
+        if used_for == "IPSEC":
+            if len(selected_items) != 2:
+                yield(None)
+                return
+            
+        for item in selected_items:
+            if isinstance(item, Device):
+                if used_for == "IPSEC":
+                    new_device = item.cloneToIPSECDevice()
+                cloned_devices.append(new_device)
+                cloned_devices_ids.append(new_device.id)
+        
+
+        yield(cloned_devices)
+
+
 
 
     # ---------- MOUSE BEHAVIOUR AND APPEREANCE FUNCTIONS ----------         
@@ -402,17 +431,29 @@ class ProtocolsWidget(QDockWidget):
         ospf_button.clicked.connect(self._showOSPFDialog)
         layout.addWidget(ospf_button)
 
+        # IPSEC button
+        ipsec_button = QPushButton("IPSEC")
+        ipsec_button.clicked.connect(self._showIPSECDialog)
+        layout.addWidget(ipsec_button)
+
         button_holder.setLayout(layout)
         self.setWidget(button_holder)
 
     def _showOSPFDialog(self):
-        with self.main_view.generateClonedScene() as cloned_scene:
+        with self.main_view.generateClonedScene("OSPF") as cloned_scene:
             if cloned_scene:
                 dialog = ospf.OSPFDialog(cloned_scene)
                 dialog.exec()
             else:
                 QMessageBox.warning(self, "Warning", "Select devices to configure OSPF on!", QMessageBox.Ok)
 
+    def _showIPSECDialog(self):
+        with self.main_view.generateClonedDevices("IPSEC") as cloned_devices:
+            if cloned_devices:
+                dialog = ipsec.IPSECDialog(cloned_devices)
+                dialog.exec()
+            else:
+                QMessageBox.warning(self, "Warning", "Select exactly two devices to configure IPSEC on. (The start and the end of the tunnel)", QMessageBox.Ok)
 
 # Right dock widget
 class PendingChangesWidget(QDockWidget):
