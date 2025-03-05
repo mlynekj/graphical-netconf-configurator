@@ -169,3 +169,5 @@ _test.py
 # temp draw-io files
 *.dtmp
 *.bkp
+
+saved_devices.json
