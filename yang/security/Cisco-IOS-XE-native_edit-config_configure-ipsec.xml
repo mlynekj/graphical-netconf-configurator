@@ -1,0 +1,77 @@
+<config>
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+	<ip>
+	  <access-list>
+		<extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+		  <name></name>
+		  <access-list-seq-rule>
+			<sequence>10</sequence>
+			<ace-rule>
+			  <action>permit</action>
+			  <protocol>ip</protocol>
+			  <ipv4-address></ipv4-address>
+			  <mask></mask>
+			  <dest-ipv4-address></dest-ipv4-address>
+			  <dest-mask></dest-mask>
+			</ace-rule>
+		  </access-list-seq-rule>
+		</extended>
+	  </access-list>
+	</ip>
+	<crypto>
+	  <ipsec xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-crypto">
+		<transform-set>
+		  <tag></tag>
+		  <esp></esp>
+		  <esp-hmac></esp-hmac>
+		  <mode>
+			<tunnel/>
+		  </mode>
+		</transform-set>
+		<security-association>
+		  <lifetime>
+		    <seconds></seconds>
+		  </lifetime>
+		</security-association>
+	  </ipsec>
+	  <isakmp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-crypto">
+		<key>
+		  <key-address>
+			<key></key>
+			<addr4-container>
+			  <address></address>
+			</addr4-container>
+		  </key-address>
+		</key>
+		<policy>
+		  <number></number>
+		  <authentication>pre-share</authentication>
+		  <encryption>
+		  </encryption>
+		  <hash></hash>
+		  <group></group>
+		  <lifetime></lifetime>
+		</policy>
+	  </isakmp>
+	  <map xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-crypto">
+		<map-seq>
+		  <map>
+			<name></name>
+			<seq></seq>
+			<match>
+			  <address></address>
+			</match>
+			<set>
+			  <peer>
+				<address></address>
+			  </peer>
+			  <transform-set></transform-set>
+			</set>
+		  </map>
+		</map-seq>
+	  </map>
+	</crypto>
+	<interface>
+	</interface>
+  </native>
+</config>

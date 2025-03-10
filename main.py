@@ -123,32 +123,6 @@ class MainView(QGraphicsView):
                 cloned_scene.removeItem(item)
             cloned_scene.clear()
 
-    @contextmanager
-    def generateClonedDevices(self, used_for = "IPSEC"):
-        cloned_devices = []
-        cloned_devices_ids = []
-        
-        selected_items = self.scene.selectedItems()
-        if not selected_items:
-            yield(None)
-            return
-        
-        if used_for == "IPSEC":
-            if len(selected_items) != 2:
-                yield(None)
-                return
-            
-        for item in selected_items:
-            if isinstance(item, Device):
-                if used_for == "IPSEC":
-                    new_device = item.cloneToIPSECDevice()
-                cloned_devices.append(new_device)
-                cloned_devices_ids.append(new_device.id)
-        
-
-        yield(cloned_devices)
-
-
 
 
     # ---------- MOUSE BEHAVIOUR AND APPEREANCE FUNCTIONS ----------         
@@ -448,12 +422,18 @@ class ProtocolsWidget(QDockWidget):
                 QMessageBox.warning(self, "Warning", "Select devices to configure OSPF on!", QMessageBox.Ok)
 
     def _showIPSECDialog(self):
-        with self.main_view.generateClonedDevices("IPSEC") as cloned_devices:
-            if cloned_devices:
-                dialog = ipsec.IPSECDialog(cloned_devices)
-                dialog.exec()
-            else:
-                QMessageBox.warning(self, "Warning", "Select exactly two devices to configure IPSEC on. (The start and the end of the tunnel)", QMessageBox.Ok)
+        selected_items = self.main_view.scene.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Warning", "Select devices to configure IPSEC on!", QMessageBox.Ok)
+            return
+        
+        if len(selected_items) != 2:
+            QMessageBox.warning(self, "Warning", "Select exactly two devices to configure IPSEC on!", QMessageBox.Ok)
+            return
+            
+        dialog = ipsec.IPSECDialog(selected_items)
+        dialog.exec()
+            
 
 # Right dock widget
 class PendingChangesWidget(QDockWidget):

@@ -43,6 +43,7 @@ import modules.netconf as netconf
 import modules.interfaces as interfaces
 import modules.system as system
 import modules.ospf as ospf
+import modules.ipsec as ipsec
 import utils as utils
 from signals import signal_manager
 from definitions import *
@@ -451,13 +452,16 @@ class Router(Device):
         """
         return OSPFDevice(self)
     
-    def cloneToIPSECDevice(self):
-        """
-        Clones the device to an IPSECDevice object, which is used in the IPSEC configuration dialog.
-        The cloned device is used to display the device in the IPSEC configuration dialog, without affecting the original device.
-        After the IPSEC configuration is done, the cloned device is deleted.
-        """
-        return IPSECDevice(self)
+    # ---------- IPSEC FUNCTIONS ---------- 
+    def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
+        try:
+            rpc_reply, filter = ipsec.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
+            #utils.addPendingChange(self.original_device, f"Configure IPSec tunnel between: TODO", rpc_reply, filter)
+            #utils.printRpc(rpc_reply, "Configure IPSec", self)
+            print(filter)
+        except Exception as e:
+            utils.printGeneral(f"Error configuring IPSec on device {self.id}: {e}")
+            utils.printGeneral(traceback.format_exc())
     
     # ---------- ROUTING TABLE FUNCTIONS ---------- 
     def getRoutingTable(self):
@@ -616,15 +620,6 @@ class OSPFDevice(ClonedDevice):
         except Exception as e:
             utils.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
             utils.printGeneral(traceback.format_exc())
-
-
-class IPSECDevice(ClonedDevice):
-    def __init__(self, original_device):
-        super().__init__(original_device)
-
-        # IPSEC SPECIFIC
-        self.ipsec_policies = []
-        self.ipsec_interfaces = []
 
 
 # ---------- QT: ----------
