@@ -60,11 +60,12 @@ import ipaddress
 def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_parameters):
     if device.device_parameters["device_params"] == "junos":
         # Create the filter
-        raise NotImplementedError("Junos is not supported for IPSec configuration.")
-        filter = ""    
+        filter = JunosConf_Editconfig_ConfigureIPSec_Filter(dev_parameters, ike_parameters, ipsec_parameters)   
         
         # RPC                
-        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        #rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        rpc_reply = ""
+        print(filter)                
         return(rpc_reply, filter)
     
     elif device.device_parameters["device_params"] == "iosxe":
@@ -72,7 +73,6 @@ def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_para
         filter = CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(dev_parameters, ike_parameters, ipsec_parameters)
         
         # RPC
-        print(filter)                
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         return(rpc_reply, filter)
 
@@ -217,7 +217,93 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         tag_element.text = self.crypto_map_values["name"]
 
 
+class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
+    def __init__(self, dev_parameters: dict, ike_parameters: dict, ipsec_parameters: dict):
+        self.filter_xml = ET.parse(SECURITY_YANG_DIR + "junos-conf_edit-config_configure-ipsec.xml")
+        self.namespaces = {"conf": "http://yang.juniper.net/junos"}
 
+        self._createIkeFilter(ike_parameters, dev_parameters)
+        self._createIPSecFilter(ipsec_parameters, dev_parameters)
+
+    def _createIkeFilter(self, ike_parameters, dev_parameters):
+        # Preprocessing
+        proposal_name = f"proposal_{ike_parameters["dh"]}_{ike_parameters["authentication"]}_{ike_parameters["encryption"]}_{ike_parameters["lifetime"]}"
+        policy_name = f"policy_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
+        gateway_name = f"gateway_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
+        encryption = f"{ike_parameters["encryption"]}-cbc"
+
+        # Store the values for later use
+        self.ike_values = {
+            "proposal_name": proposal_name,
+            "policy_name": policy_name,
+            "gateway_name": gateway_name,
+            "authentication": ike_parameters["authentication"],
+            "encryption": encryption,
+            "dh": ike_parameters["dh"],
+            "lifetime": ike_parameters["lifetime"],
+            "psk": ike_parameters["psk"],
+            "remote_peer_ip": dev_parameters["remote_peer_ip"],
+            "external_interface": dev_parameters["WAN_interface"]
+        }
+
+        # Create the filter
+        ike_element = self.filter_xml.find(".//conf:ike", self.namespaces)
+        # IKE Proposal
+        ike_element.find(".//conf:proposal/conf:name", self.namespaces).text = str(self.ike_values["proposal_name"])
+        ike_element.find(".//conf:proposal/conf:dh-group", self.namespaces).text = str(self.ike_values["dh"])
+        ike_element.find(".//conf:proposal/conf:authentication-algorithm", self.namespaces).text = str(self.ike_values["authentication"])
+        ike_element.find(".//conf:proposal/conf:encryption-algorithm", self.namespaces).text = str(self.ike_values["encryption"])
+        ike_element.find(".//conf:proposal/conf:lifetime-seconds", self.namespaces).text = str(self.ike_values["lifetime"])
+        # IKE Policy
+        ike_element.find(".//conf:policy/conf:name", self.namespaces).text = str(self.ike_values["policy_name"])
+        ike_element.find(".//conf:policy/conf:proposals", self.namespaces).text = str(self.ike_values["proposal_name"])
+        ike_element.find(".//conf:policy/conf:pre-shared-key/conf:ascii-text", self.namespaces).text = str(self.ike_values["psk"])
+        # IKE Gateway
+        ike_element.find(".//conf:gateway/conf:name", self.namespaces).text = str(self.ike_values["gateway_name"])
+        ike_element.find(".//conf:gateway/conf:ike-policy", self.namespaces).text = str(self.ike_values["policy_name"])
+        ike_element.find(".//conf:gateway/conf:address", self.namespaces).text = str(self.ike_values["remote_peer_ip"])
+        ike_element.find(".//conf:gateway/conf:external-interface", self.namespaces).text = str(self.ike_values["external_interface"])
+
+    def _createIPSecFilter(self, ipsec_parameters, dev_parameters):
+        # Preprocessing
+        proposal_name = f"proposal_{ipsec_parameters["authentication"]}_{ipsec_parameters["encryption"]}_{ipsec_parameters["lifetime"]}"
+        policy_name = f"policy_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
+        vpn_name = f"vpn_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
+        if ipsec_parameters["authentication"] == "sha-hmac":
+            authentication = "hmac-sha1-96"
+        elif ipsec_parameters["authentication"] == "sha256-hmac":
+            authentication = "hmac-sha256-128"
+        encryption = f"{ipsec_parameters["encryption"]}-cbc"
+
+        # Store the values for later use
+        ipsec_values = {
+            "proposal_name": proposal_name,
+            "policy_name": policy_name,
+            "vpn_name": vpn_name,
+            "authentication": authentication,
+            "encryption": encryption,
+            "lifetime": ipsec_parameters["lifetime"]
+        }
+
+        # Create the filter
+        ipsec_element = self.filter_xml.find(".//conf:ipsec", self.namespaces)
+        # IPSec Proposal
+        ipsec_element.find(".//conf:proposal/conf:name", self.namespaces).text = str(ipsec_values["proposal_name"])
+        ipsec_element.find(".//conf:proposal/conf:authentication-algorithm", self.namespaces).text = str(ipsec_values["authentication"])
+        ipsec_element.find(".//conf:proposal/conf:encryption-algorithm", self.namespaces).text = str(ipsec_values["encryption"])
+        ipsec_element.find(".//conf:proposal/conf:lifetime-seconds", self.namespaces).text = str(ipsec_values["lifetime"])
+        # IPSec Policy
+        ipsec_element.find(".//conf:policy/conf:name", self.namespaces).text = str(ipsec_values["policy_name"]) 
+        ipsec_element.find(".//conf:policy/conf:proposals", self.namespaces).text = str(ipsec_values["proposal_name"])
+        # VPN
+        ipsec_element.find(".//conf:vpn/conf:name", self.namespaces).text = str(ipsec_values["vpn_name"])
+        ipsec_element.find(".//conf:vpn/conf:ike/conf:gateway", self.namespaces).text = str(self.ike_values["gateway_name"])
+        ipsec_element.find(".//conf:vpn/conf:ike/conf:ipsec-policy", self.namespaces).text = str(self.ike_values["gateway_name"])
+
+    def _createAddressBooksFilter(self, dev_parameters):
+        trusted_address_book_element = self.filter_xml.find(".//conf:address-book[conf:name='trusted']", self.namespaces)
+        trusted_address_book_element.find(".//conf:address/conf:name", self.namespaces).text = str(f"{dev_parameters["local_private_network"]}_local_private_network")
+        trusted_address_book_element.find(".//conf:address/conf:ip-prefix", self.namespaces).text = str(dev_parameters["local_private_network"])        
 
 # ---------- QT: ----------
 class IPSECDialog(QDialog):
@@ -241,11 +327,11 @@ class IPSECDialog(QDialog):
         self.ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self._okButtonHandler)
         self.ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.reject)
 
-        self.ui.ike_auth_combobox.addItems(["md5", "sha1", "sha256", "sha384", "sha512"])
-        self.ui.ike_enc_combobox.addItems(["aes-128", "aes-192", "aes-256", "3des"])
-        self.ui.ike_dh_combobox.addItems(["group1", "group2", "group5", "group14", "group15", "group16", "group19", "group20", "group21", "group24"])
+        self.ui.ike_auth_combobox.addItems(["md5", "sha1", "sha256", "sha384"]) # Supported both by Cisco and Juniper
+        self.ui.ike_enc_combobox.addItems(["aes-128", "aes-192", "aes-256", "3des"]) # Supported both by Cisco and Juniper (Juniper: aes-128-cbc, aes-192-cbc, aes-256-cbc, 3des-cbc)
+        self.ui.ike_dh_combobox.addItems(["group1", "group2", "group5", "group14", "group19", "group20", "group24"]) # Supported both by Cisco and Juniper (Juniper: group1, group2, group5, group14, group19, group20, group24)
 
-        self.ui.ipsec_auth_combobox.addItems(["sha-hmac", "sha256-hmac", "sha384-hmac", "sha512-hmac"])
+        self.ui.ipsec_auth_combobox.addItems(["sha-hmac", "sha256-hmac"]) # Supported both by Cisco and Juniper (Juniper: hmac-sha1-96, hmac-sha256-128)
         self.ui.ipsec_enc_combobox.addItems(["aes-128", "aes-192", "aes-256", "3des"])
 
         self.ui.ike_lifetime_input.setText("3600") # TODO: only for testing purposes

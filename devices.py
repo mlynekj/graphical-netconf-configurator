@@ -456,8 +456,8 @@ class Router(Device):
     def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
         try:
             rpc_reply, filter = ipsec.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
-            utils.addPendingChange(self, f"Configure IPSec tunnel between: TODO", rpc_reply, filter)
-            utils.printRpc(rpc_reply, "Configure IPSec", self)
+            #utils.addPendingChange(self, f"Configure IPSec tunnel between: TODO", rpc_reply, filter)
+            #utils.printRpc(rpc_reply, "Configure IPSec", self)
         except Exception as e:
             utils.printGeneral(f"Error configuring IPSec on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
