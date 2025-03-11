@@ -58,6 +58,7 @@
 		  <map>
 			<name></name>
 			<seq></seq>
+			<ipsec-isakmp/>
 			<match>
 			  <address></address>
 			</match>

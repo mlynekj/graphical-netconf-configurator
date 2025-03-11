@@ -2,13 +2,13 @@
     "devices": [
         {
             "type": "Router",
-            "ip_address": "172.16.10.82:830",
+            "ip_address": "172.16.10.92:830",
             "username": "jakub",
             "password": "cisco",
             "vendor": "iosxe",
             "location": {
-                "x": 190.0,
-                "y": 13.0
+                "x": -339.0,
+                "y": -45.0
             }
         },
         {
@@ -18,8 +18,8 @@
             "password": "cisco",
             "vendor": "iosxe",
             "location": {
-                "x": 0.0,
-                "y": 0.0
+                "x": -161.0,
+                "y": -49.0
             }
         }
     ]

@@ -19,10 +19,12 @@ from PySide6.QtWidgets import (
     QToolTip,
     QPushButton,
     QVBoxLayout,
+    QGridLayout,
     QDialogButtonBox,
     QComboBox,
     QDialog,
     QVBoxLayout,
+    QLabel,
     QMessageBox,
     QTreeWidgetItem)
 from PySide6.QtGui import (
@@ -33,7 +35,8 @@ from PySide6.QtGui import (
     QAction,
     QFont,
     QIcon,
-    QAction)
+    QAction,
+    QIntValidator)
 from PySide6.QtCore import (
     Qt,
     QLineF,
@@ -68,9 +71,9 @@ def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_para
         # Create the filter
         filter = CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(dev_parameters, ike_parameters, ipsec_parameters)
         
-        # RPC                
-        #rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-        rpc_reply = ""
+        # RPC
+        print(filter)                
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         return(rpc_reply, filter)
 
 
@@ -93,16 +96,16 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
     def _createAccessListFilter(self, dev_parameters):
         # Store the values for later use
         self.access_list_values = {
-            "name": "100", # TODO: add an user input field in the advanced tab
-            "sequence": "10",
+            "name": dev_parameters["cisco_specific"]["acl_number"],
+            "sequence": "10", # hardcoded - only one rule in the ACL
             "source_network": dev_parameters["local_private_network"],
             "destination_network": dev_parameters["remote_private_network"],
         }
         
         # Create the filter
         extended_acl_element = self.filter_xml.find(".//native:ip/native:access-list/acl:extended", self.namespaces)
-        extended_acl_element.find(".//acl:name", self.namespaces).text = self.access_list_values["name"]
-        extended_acl_element.find(".//acl:sequence", self.namespaces).text = self.access_list_values["sequence"]
+        extended_acl_element.find(".//acl:name", self.namespaces).text = str(self.access_list_values["name"])
+        extended_acl_element.find(".//acl:sequence", self.namespaces).text = str(self.access_list_values["sequence"])
         extended_acl_element.find(".//acl:ace-rule/acl:ipv4-address", self.namespaces).text = str(self.access_list_values["source_network"].network_address)
         extended_acl_element.find(".//acl:ace-rule/acl:mask", self.namespaces).text = str(self.access_list_values["source_network"].hostmask)
         extended_acl_element.find(".//acl:ace-rule/acl:dest-ipv4-address", self.namespaces).text = str(self.access_list_values["destination_network"].network_address)
@@ -110,43 +113,44 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
 
     def _createTransformSetFilter(self, ipsec_parameters):
         # Preprocessing
-        esp_hmac_element = f"esp-{ipsec_parameters["authentication"]}" # Set the IPSec authentication element (ESP-HMAC)
+        esp_hmac = f"esp-{ipsec_parameters["authentication"]}" # Set the IPSec authentication element (ESP-HMAC)
         if ipsec_parameters["encryption"] == "3des": # Set the IPSec encryption element (ESP-AES + length in bits, or ESP-3DES)
-            esp_element = "esp-3des"
-        elif ipsec_parameters["encryption"].startswith("aes"):
-            esp_element = "esp-aes"
-            key_bit_element = ipsec_parameters["encryption"].split("-")[1] if len(ipsec_parameters["encryption"].split()) == 2 else None
-        tag_element = f"{ipsec_parameters['authentication']}_{ipsec_parameters['encryption']}" # Create name of the transform-set based on the authentication and encryption algorithms
+            esp = "esp-3des"
+        elif "aes" in str(ipsec_parameters["encryption"]):
+            esp = "esp-aes"
+        key_bit = ipsec_parameters["encryption"].split("-")[1] if len(ipsec_parameters["encryption"].split("-")) == 2 else None
+        tag = f"{ipsec_parameters['authentication']}_{ipsec_parameters['encryption']}".replace("-", "_") # Create name of the transform-set based on the authentication and encryption algorithms
 
         # Store the values for later use
         self.transform_set_values = {
-            "tag": tag_element,
-            "esp": esp_element,
-            "key_bit": key_bit_element,
-            "esp_hmac": esp_hmac_element,
+            "tag": tag,
+            "esp": esp,
+            "key_bit": key_bit if key_bit else None,
+            "esp_hmac": esp_hmac,
             "lifetime": ipsec_parameters["lifetime"]
         }
         
         # Create the filter
         ipsec_element = self.filter_xml.find(".//crypto:ipsec", self.namespaces)
-        ipsec_element.find(".//crypto:transform-set/crypto:tag", self.namespaces).text = self.transform_set_values["tag"]
-        ipsec_element.find(".//crypto:transform-set/crypto:esp", self.namespaces).text = self.transform_set_values["esp"]
-        ipsec_element.find(".//crypto:transform-set/crypto:esp-hmac", self.namespaces).text = self.transform_set_values["esp_hmac"]
-        ipsec_element.find(".//crypto:seconds", self.namespaces).text = self.transform_set_values["lifetime"]
+        ipsec_element.find(".//crypto:transform-set/crypto:tag", self.namespaces).text = str(self.transform_set_values["tag"])
+        ipsec_element.find(".//crypto:transform-set/crypto:esp", self.namespaces).text = str(self.transform_set_values["esp"])
+        ipsec_element.find(".//crypto:transform-set/crypto:esp-hmac", self.namespaces).text = str(self.transform_set_values["esp_hmac"])
+        ipsec_element.find(".//crypto:seconds", self.namespaces).text = str(self.transform_set_values["lifetime"])
+        transform_set_element = ipsec_element.find(".//crypto:transform-set", self.namespaces)
         if self.transform_set_values["key_bit"]: # If the encryption is AES - set the length in bits in a child element
-            key_bit_element = ET.SubElement(ipsec_element, "key-bit")
+            key_bit_element = ET.SubElement(transform_set_element, "key-bit")
             key_bit_element.text = self.transform_set_values["key_bit"]
 
     def _createIsakmpFilter(self, ike_parameters, dev_parameters):
         # Preprocessing
         key = ike_parameters["psk"] #Pre-shared key element
         address = dev_parameters["remote_peer_ip"] #Remote peer element
-        policy_number = "1" #Policy number # TODO: add an user input field in the advanced tab 
+        policy_number = dev_parameters["cisco_specific"]["isakmp_policy_number"] # ISAKMP policy number element
         if ike_parameters["encryption"] == "3des": # Encryption elements
             encryption = "a3des"
         elif ike_parameters["encryption"].startswith("aes"):
             encryption = "aes"
-            key_bit = ike_parameters["encryption"].split("-")[1]
+        key_bit = ike_parameters["encryption"].split("-")[1] if len(ike_parameters["encryption"].split("-")) == 2 else ""
         dh_group = str(ike_parameters["dh"]).replace("group", "") # "group5" -> "5"
 
         # Store the values for later use
@@ -163,12 +167,12 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         
         # Create the filter
         isakmp_element = self.filter_xml.find(".//crypto:isakmp", self.namespaces)
-        isakmp_element.find(".//crypto:key/crypto:key-address/crypto:key", self.namespaces).text = isakmp_values["key"]
+        isakmp_element.find(".//crypto:key/crypto:key-address/crypto:key", self.namespaces).text = str(isakmp_values["key"])
         isakmp_element.find(".//crypto:key/crypto:key-address/crypto:addr4-container/crypto:address", self.namespaces).text = str(isakmp_values["address"])
-        isakmp_element.find(".//crypto:policy/crypto:number", self.namespaces).text = isakmp_values["policy_number"]
-        isakmp_element.find(".//crypto:policy/crypto:group", self.namespaces).text = isakmp_values["dh_group"]
-        isakmp_element.find(".//crypto:policy/crypto:hash", self.namespaces).text = isakmp_values["hash"]
-        isakmp_element.find(".//crypto:policy/crypto:lifetime", self.namespaces).text = isakmp_values["lifetime"]
+        isakmp_element.find(".//crypto:policy/crypto:number", self.namespaces).text = str(isakmp_values["policy_number"])
+        isakmp_element.find(".//crypto:policy/crypto:group", self.namespaces).text = str(isakmp_values["dh_group"])
+        isakmp_element.find(".//crypto:policy/crypto:hash", self.namespaces).text = str(isakmp_values["hash"])
+        isakmp_element.find(".//crypto:policy/crypto:lifetime", self.namespaces).text = str(isakmp_values["lifetime"])
         
         encryption_element = isakmp_element.find(".//crypto:policy/crypto:encryption", self.namespaces)
         encryption_type_element = ET.SubElement(encryption_element, isakmp_values["encryption"]) 
@@ -178,12 +182,11 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
     
     def _createCryptoMapFilter(self, dev_parameters):
         # Preprocessing
-        crypto_map_name = str(dev_parameters["remote_peer_ip"]).replace(".", "_") # Create a crypto map name based on the remote peer IP address
-        crypto_map_sequence = 1 # TODO: pridat user input field v advanced tabu
+        crypto_map_sequence = dev_parameters["cisco_specific"]["crypto_map_sequence"] # Crypto map sequence number element
 
         # Store the values for later use
         self.crypto_map_values = {
-            "name": crypto_map_name,
+            "name": "netconf_cm",
             "sequence": crypto_map_sequence,
             "peer_address": dev_parameters["remote_peer_ip"],
         }
@@ -192,9 +195,9 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         crypto_map_element = self.filter_xml.find(".//crypto:map", self.namespaces)
         crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:name", self.namespaces).text = str(self.crypto_map_values["name"])
         crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:seq", self.namespaces).text = str(self.crypto_map_values["sequence"])
-        crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:match/crypto:address", self.namespaces).text = self.access_list_values["name"]
+        crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:match/crypto:address", self.namespaces).text = str(self.access_list_values["name"])
         crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:set/crypto:peer/crypto:address", self.namespaces).text = str(self.crypto_map_values["peer_address"])
-        crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:set/crypto:transform-set", self.namespaces).text = self.transform_set_values["tag"]
+        crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:set/crypto:transform-set", self.namespaces).text = str(self.transform_set_values["tag"])
         
     def _applyCryptoMapToInteface(self, dev_parameters):
         # Split the interface name (e.g. GigabitEthernet1) into type and number (GigabitEthernet, 1)
@@ -207,7 +210,8 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         interface_number_element = ET.SubElement(interface_type_element, "name")
         interface_number_element.text = interface_number
         
-        crypto_element = ET.SubElement(interface_type_element, "crypto")
+        crypto_namespace = "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto"
+        crypto_element = ET.SubElement(interface_type_element, f"{{{crypto_namespace}}}crypto", nsmap={None: crypto_namespace})
         map_element = ET.SubElement(crypto_element, "map")
         tag_element = ET.SubElement(map_element, "tag")
         tag_element.text = self.crypto_map_values["name"]
@@ -231,6 +235,7 @@ class IPSECDialog(QDialog):
         self.ipsec_scene.addPixmap(self.ipsec_scheme_background)
 
         self._fillIPSECScene()
+        self._fillAdvancedTab()
         self.ui.graphicsView.setScene(self.ipsec_scene)
 
         self.ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self._okButtonHandler)
@@ -246,6 +251,57 @@ class IPSECDialog(QDialog):
         self.ui.ike_lifetime_input.setText("3600") # TODO: only for testing purposes
         self.ui.ipsec_lifetime_input.setText("3600") # TODO: only for testing purposes
         self.ui.ike_psk_input.setText("cisco") # TODO: only for testing purposes
+
+    def _fillAdvancedTab(self):
+        if self.dev1.device_parameters["device_params"] == "junos":
+            self.ui.dev1_advanced_groupbox.setTitle(f"{self.dev1.hostname} (Junos)")
+        elif self.dev1.device_parameters["device_params"] == "iosxe":
+            self.ui.dev1_advanced_groupbox.setTitle(f"{self.dev1.hostname} (IOS-XE)")
+            self.dev1_layout = QGridLayout(self.ui.dev1_advanced_groupbox)
+            self.dev1_acl_number_label = QLabel("ACL number:")
+            self.dev1_acl_number_input = QLineEdit()
+            self.dev1_acl_number_input.setPlaceholderText("100")
+            self.dev1_acl_number_input.setToolTip("Enter a number in the extended range (100-199).")
+            self.dev1_layout.addWidget(self.dev1_acl_number_label, 0, 0)
+            self.dev1_layout.addWidget(self.dev1_acl_number_input, 0, 1)
+
+            self.dev1_isakmp_policy_number_label = QLabel("ISAKMP policy number:")
+            self.dev1_isakmp_policy_number_input = QLineEdit()
+            self.dev1_isakmp_policy_number_input.setPlaceholderText("1")
+            self.dev1_layout.addWidget(self.dev1_isakmp_policy_number_label, 1, 0)
+            self.dev1_layout.addWidget(self.dev1_isakmp_policy_number_input, 1, 1)
+
+            self.dev1_crypto_map_sequence_label = QLabel("Crypto map sequence number:")
+            self.dev1_crypto_map_sequence_input = QLineEdit()
+            self.dev1_crypto_map_sequence_input.setPlaceholderText("1")
+            self.dev1_layout.addWidget(self.dev1_crypto_map_sequence_label, 2, 0)
+            self.dev1_layout.addWidget(self.dev1_crypto_map_sequence_input, 2, 1)
+
+        if self.dev2.device_parameters["device_params"] == "junos":
+            self.ui.dev2_advanced_groupbox.setTitle(f"{self.dev2.hostname} (Junos)")
+        elif self.dev2.device_parameters["device_params"] == "iosxe":
+            self.ui.dev2_advanced_groupbox.setTitle(f"{self.dev2.hostname} (IOS-XE)")
+            self.dev2_layout = QGridLayout(self.ui.dev2_advanced_groupbox)
+            self.dev2_acl_number_label = QLabel("ACL number:")
+            self.dev2_acl_number_input = QLineEdit()
+            self.dev2_acl_number_input.setPlaceholderText("100")
+            self.dev2_acl_number_input.setToolTip("Enter a number in the extended range (100-199).")
+            self.dev2_layout.addWidget(self.dev2_acl_number_label, 0, 0)
+            self.dev2_layout.addWidget(self.dev2_acl_number_input, 0, 1)
+
+            self.dev2_isakmp_policy_number_label = QLabel("ISAKMP policy number:")
+            self.dev2_isakmp_policy_number_input = QLineEdit()
+            self.dev2_isakmp_policy_number_input.setPlaceholderText("1")
+            self.dev2_layout.addWidget(self.dev2_isakmp_policy_number_label, 1, 0)
+            self.dev2_layout.addWidget(self.dev2_isakmp_policy_number_input, 1, 1)
+
+            self.dev2_crypto_map_sequence_label = QLabel("Crypto map sequence number:")
+            self.dev2_crypto_map_sequence_input = QLineEdit()
+            self.dev2_crypto_map_sequence_input.setPlaceholderText("1")
+            self.dev2_layout.addWidget(self.dev2_crypto_map_sequence_label, 2, 0)
+            self.dev2_layout.addWidget(self.dev2_crypto_map_sequence_input, 2, 1)
+
+            
         
 
     def _fillIPSECScene(self):
@@ -404,12 +460,13 @@ class IPSECDialog(QDialog):
         Reads the input fields, validates them and initiates an IPSEC configuration on both devices.
         """
 
+
         dev1_parameters = {
             "LAN_interface": self.ui.dev1_LAN_interface_combobox.currentText() if self.ui.dev1_LAN_interface_combobox.currentText() else None,
             "WAN_interface": self.ui.dev1_WAN_interface_combobox.currentText() if self.ui.dev1_WAN_interface_combobox.currentText() else None,
             "local_private_network": ipaddress.IPv4Network(self.ui.dev1_LAN_network_lineedit.text()) if self.ui.dev1_LAN_network_lineedit.text() else None,
             "remote_private_network": ipaddress.IPv4Network(self.ui.dev2_LAN_network_lineedit.text()) if self.ui.dev2_LAN_network_lineedit.text() else None,
-            "remote_peer_ip": ipaddress.IPv4Address(self.ui.dev2_WAN_ip_lineedit.text()) if self.ui.dev2_WAN_ip_lineedit.text() else None
+            "remote_peer_ip": ipaddress.IPv4Address(self.ui.dev2_WAN_ip_lineedit.text()) if self.ui.dev2_WAN_ip_lineedit.text() else None,
         }
 
         dev2_parameters = {
@@ -417,7 +474,7 @@ class IPSECDialog(QDialog):
             "WAN_interface": self.ui.dev2_WAN_interface_combobox.currentText() if self.ui.dev2_WAN_interface_combobox.currentText() else None,
             "local_private_network": ipaddress.IPv4Network(self.ui.dev2_LAN_network_lineedit.text()) if self.ui.dev2_LAN_network_lineedit.text() else None,
             "remote_private_network": ipaddress.IPv4Network(self.ui.dev1_LAN_network_lineedit.text()) if self.ui.dev1_LAN_network_lineedit.text() else None,
-            "remote_peer_ip": ipaddress.IPv4Address(self.ui.dev1_WAN_ip_lineedit.text()) if self.ui.dev1_WAN_ip_lineedit.text() else None
+            "remote_peer_ip": ipaddress.IPv4Address(self.ui.dev1_WAN_ip_lineedit.text()) if self.ui.dev1_WAN_ip_lineedit.text() else None,
         }
 
         ike_parameters = {
@@ -434,6 +491,37 @@ class IPSECDialog(QDialog):
             "lifetime": self.ui.ipsec_lifetime_input.text() if self.ui.ipsec_lifetime_input.text() else None
         }
 
+        if self.dev1.device_parameters["device_params"] == "iosxe":
+            dev1_parameters["cisco_specific"] = {
+                "acl_number": int(self.dev1_acl_number_input.text()) if self.dev1_acl_number_input.text() else None,
+                "isakmp_policy_number": int(self.dev1_isakmp_policy_number_input.text()) if self.dev1_isakmp_policy_number_input.text() else None,
+                "crypto_map_sequence": int(self.dev1_crypto_map_sequence_input.text()) if self.dev1_crypto_map_sequence_input.text() else None
+            }
+            if None in dev1_parameters["cisco_specific"].values():
+                QMessageBox.critical(self, "Error", f"Fill in all values in the \"Advanced\" tab for the device {self.dev1.hostname}.")
+                return
+            if dev1_parameters["cisco_specific"]["acl_number"] not in range(100, 200):
+                QMessageBox.critical(self, "Error", "The ACL number must be in the range 100-199.")
+                return
+        elif self.dev1.device_parameters["device_params"] == "junos":
+            pass
+
+        if self.dev2.device_parameters["device_params"] == "iosxe":
+            dev2_parameters["cisco_specific"] = {
+                "acl_number": int(self.dev2_acl_number_input.text()) if self.dev2_acl_number_input.text() else None,
+                "isakmp_policy_number": int(self.dev2_isakmp_policy_number_input.text()) if self.dev2_isakmp_policy_number_input.text() else None,
+                "crypto_map_sequence": int(self.dev2_crypto_map_sequence_input.text()) if self.dev2_crypto_map_sequence_input.text() else None
+            }
+            if None in dev2_parameters["cisco_specific"].values():
+                QMessageBox.critical(self, "Error", f"Fill in all values in the \"Advanced\" tab for the device {self.dev2.hostname}.")
+                return
+            if dev2_parameters["cisco_specific"]["acl_number"] not in range(100, 200):
+                QMessageBox.critical(self, "Error", "The ACL number must be in the range 100-199.")
+                return
+        elif self.dev2.device_parameters["device_params"] == "junos":
+            pass
+
+        # Input validation
         if None in dev1_parameters.values() or None in dev2_parameters.values():
             QMessageBox.critical(self, "Error", "Fill in all fields in the \"Interfaces\" tab.")
             return

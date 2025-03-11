@@ -263,6 +263,22 @@ class Ui_IPSECDialog(object):
         self.tabWidget.addTab(self.ipsec_tab, "")
         self.advanced_tab = QWidget()
         self.advanced_tab.setObjectName(u"advanced_tab")
+        self.verticalLayout_3 = QVBoxLayout(self.advanced_tab)
+        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
+        self.dev1_advanced_groupbox = QGroupBox(self.advanced_tab)
+        self.dev1_advanced_groupbox.setObjectName(u"dev1_advanced_groupbox")
+
+        self.verticalLayout_3.addWidget(self.dev1_advanced_groupbox)
+
+        self.dev2_advanced_groupbox = QGroupBox(self.advanced_tab)
+        self.dev2_advanced_groupbox.setObjectName(u"dev2_advanced_groupbox")
+
+        self.verticalLayout_3.addWidget(self.dev2_advanced_groupbox)
+
+        self.verticalSpacer_4 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+
+        self.verticalLayout_3.addItem(self.verticalSpacer_4)
+
         self.tabWidget.addTab(self.advanced_tab, "")
 
         self.verticalLayout_2.addWidget(self.tabWidget)
@@ -276,7 +292,7 @@ class Ui_IPSECDialog(object):
 
         self.retranslateUi(IPSECDialog)
 
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(3)
 
 
         QMetaObject.connectSlotsByName(IPSECDialog)
@@ -309,6 +325,8 @@ class Ui_IPSECDialog(object):
         self.ipsec_lifetime_label.setText(QCoreApplication.translate("IPSECDialog", u"Lifetime (seconds)", None))
         self.ipsec_auth_label.setText(QCoreApplication.translate("IPSECDialog", u"Authentication algorithm", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.ipsec_tab), QCoreApplication.translate("IPSECDialog", u"IPSec", None))
+        self.dev1_advanced_groupbox.setTitle(QCoreApplication.translate("IPSECDialog", u"dev1", None))
+        self.dev2_advanced_groupbox.setTitle(QCoreApplication.translate("IPSECDialog", u"dev2", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.advanced_tab), QCoreApplication.translate("IPSECDialog", u"Advanced", None))
     # retranslateUi
 
