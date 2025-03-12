@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QStyle,
     QToolBar,
+    QGroupBox,
     QMessageBox,)
 from PySide6.QtCore import Qt, QSize, Slot
 from PySide6.QtGui import QFont, QGuiApplication, QAction, QBrush, QColor
@@ -35,6 +36,7 @@ import ipaddress
 
 from ui.ui_interfacesdialog import Ui_Interfaces
 from ui.ui_addinterfacedialog import Ui_add_interface_dialog
+from ui.ui_editinterfacedialog import Ui_Ui_edit_interface_dialog
 
 from yang.filters import GetFilter, EditconfigFilter
 
@@ -389,11 +391,14 @@ class EditInterfaceDialog(QDialog):
     def __init__(self, instance, device, interface_id):
         super().__init__()
 
+        self.ui = Ui_Ui_edit_interface_dialog()
+        self.ui.setupUi(self)
+        self.setWindowTitle(f"Edit interface: {interface_id}")
+
         self.instance = instance
         self.device = device
         self.interface_id = interface_id
 
-        self.setWindowTitle(f"Edit interface: {self.interface_id}")
         self.setGeometry(
             QStyle.alignedRect(
                 Qt.LeftToRight,
@@ -403,37 +408,31 @@ class EditInterfaceDialog(QDialog):
             )
         )
 
-        self.layout = QVBoxLayout()
         self.fillLayout()
-        self.setLayout(self.layout)
 
     def fillLayout(self):
-        # Toolbar
-        self.toolbar = QToolBar("Edit interface", self)
-        self.action_addSubinterface = QAction("Add subinterface", self)
-        self.action_addSubinterface.triggered.connect(lambda _, index=None : self.showDialog(index))
-        self.toolbar.addAction(self.action_addSubinterface)
-        self.layout.addWidget(self.toolbar)
+        self.ui.add_subinterface_button.clicked.connect(lambda _, index=None : self.showDialog(index))
 
         # Get subinterfaces, create a layout for each subinterface containg: Header, Table
         self.subinterfaces = self.device.interfaces[self.interface_id]['subinterfaces']
         for subinterface_index, subinterface_data in self.subinterfaces.items():
-            subinterface_layout = QVBoxLayout()
+            # Groupbox for each subinterface
+            subinterface_groupbox = QGroupBox()
+            subinterface_groupbox.setTitle(f"Subinterface: {subinterface_index}")
+            subinterface_groupbox_layout = QVBoxLayout()
             
-            # Header ("Subinterface: x | [Add IP address]")
-            subinterface_label = QLabel(f"Subinterface: {subinterface_index}")
-            subinterface_label.setFont(QFont("Arial", 16))
+            # Sublayout for the buttons at the top ("Add IP address")
+            subinterface_top_layout = QHBoxLayout()
             add_ip_button = QPushButton("Add IP address")
             add_ip_button.clicked.connect(lambda _, index=subinterface_index : self.showDialog(index))
-            header_layout = QHBoxLayout()
-            header_layout.addWidget(subinterface_label)
-            header_layout.addWidget(add_ip_button)
-            subinterface_layout.addLayout(header_layout)
+            subinterface_top_layout.addWidget(add_ip_button)
+            subinterface_top_layout.addStretch()
+            subinterface_groupbox_layout.addLayout(subinterface_top_layout)
 
-            # Table
-            subinterface_layout.addWidget(self.createSubinterfaceTable(subinterface_index, subinterface_data))
-            
-            self.layout.addLayout(subinterface_layout)
+            # Table for each subinterface
+            subinterface_groupbox_layout.addWidget(self.createSubinterfaceTable(subinterface_index, subinterface_data))
+            subinterface_groupbox.setLayout(subinterface_groupbox_layout)
+            self.ui.tables_layout.addWidget(subinterface_groupbox)
 
     def createSubinterfaceTable(self, subinterface_index, subinterface_data):
         """

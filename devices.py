@@ -43,7 +43,7 @@ import modules.netconf as netconf
 import modules.interfaces as interfaces
 import modules.system as system
 import modules.ospf as ospf
-import modules.ipsec as ipsec
+import modules.security as security
 import utils as utils
 from signals import signal_manager
 from definitions import *
@@ -455,7 +455,7 @@ class Router(Device):
     # ---------- IPSEC FUNCTIONS ---------- 
     def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
         try:
-            rpc_reply, filter = ipsec.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
+            rpc_reply, filter = security.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
             #utils.addPendingChange(self, f"Configure IPSec tunnel between: TODO", rpc_reply, filter)
             #utils.printRpc(rpc_reply, "Configure IPSec", self)
         except Exception as e:
@@ -469,7 +469,7 @@ class Router(Device):
         Returns:
             rpc_reply: The routing table information.
         """
-        try:
+        try: # TODO: sjednotit s procesem ziskavani security zones na firewallu
             if self.device_parameters["device_params"] == "iosxe":
                 rpc_filter = IetfRouting_Get_GetRoutingState_Filter()
                 rpc_reply = self.mngr.get(str(rpc_filter))
@@ -528,7 +528,33 @@ class Firewall(Router):
         firewall_icon_img = QImage("graphics/devices/firewall.png")
         self.setPixmap(QPixmap.fromImage(firewall_icon_img))
 
-        # Firewall specific functions go here
+    def getInterfaces(self):
+        super().getInterfaces()
+        self._addSecurityZonesDataToInterfaces()
+
+    def _addSecurityZonesDataToInterfaces(self):
+        try:
+            rpc_payload, rpc_reply = security.getSecurityZonesWithNetconf(self)
+            utils.printRpc(rpc_reply, "Get Security Zones", self)
+            
+            # Extract security zones names
+            rpc_reply_etree = utils.convertToEtree(rpc_reply, self.device_parameters["device_params"])
+            security_zones_names_tags = rpc_reply_etree.findall(".//zones-information/zones-security/zones-security-zonename")
+            self.security_zones_names = [zone.text for zone in security_zones_names_tags]
+
+            # Add security zones data to the interfaces dictionary
+            for zone in self.security_zones_names:
+                interfaces_tags = rpc_reply_etree.findall(f".//zones-information/zones-security[zones-security-zonename='{zone}']/zones-security-interfaces/zones-security-interface-name")
+                interfaces = [interface.text for interface in interfaces_tags]
+                for interface in interfaces:
+                    interface_stripped = interface.split(".")[0] # remove subinterface number
+                    self.interfaces[interface_stripped]["security_zone"] = zone
+
+        except Exception as e:
+            utils.printGeneral(f"Error getting security zones: {e}")
+            utils.printGeneral(traceback.format_exc())
+            return None
+
 
 class ClonedDevice(QGraphicsPixmapItem):
     def __init__(self, original_device):

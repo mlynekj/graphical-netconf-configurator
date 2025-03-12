@@ -39,13 +39,13 @@ from PySide6.QtGui import (
     QPen)
 
 # Custom
-from devices import Device, Router, Switch, AddDeviceDialog
+from devices import Device, Router, Switch, Firewall, AddDeviceDialog
 from cable import Cable, CableEditMode
 from signals import signal_manager
 import modules.netconf as netconf
 import utils as utils
 import modules.ospf as ospf
-import modules.ipsec as ipsec
+import modules.security as security
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
 from threading import Timer, Thread, Event
@@ -294,9 +294,9 @@ class MainWindow(QMainWindow):
             }
 
             for device in self.view.scene.items():
-                if isinstance(device, Device):
+                if isinstance(device, Device): # ignore cables
                     device_data = {
-                        "type": "Router" if isinstance(device, Router) else "Switch",
+                        "type": type(device).__name__,
                         "ip_address": f"{device.device_parameters['address']}:{device.device_parameters['port']}",
                         "username": device.device_parameters["username"],
                         "password": device.device_parameters["password"],
@@ -334,10 +334,7 @@ class MainWindow(QMainWindow):
                     device_parameters["device_params"] = device["vendor"]
        
                     # Create the device instance
-                    if device["type"] == "Router":
-                        self._createDeviceFromSave(device_parameters, "Router", x=device["location"]["x"], y=device["location"]["y"])
-                    elif device["type"] == "Switch":
-                        self._createDeviceFromSave(device_parameters, "Switch", x=device["location"]["x"], y=device["location"]["y"])
+                    self._createDeviceFromSave(device_parameters, device["type"], x=device["location"]["x"], y=device["location"]["y"])
 
         except FileNotFoundError:
             QMessageBox.warning(self, "File not found", "File \"saved_devices.json\" not found.", QMessageBox.Ok)
@@ -360,6 +357,9 @@ class MainWindow(QMainWindow):
         elif device_type == "Switch":
             switch = Switch(device_parameters, x=x, y=y)
             self.view.scene.addItem(switch)
+        elif device_type == "Firewall":
+            firewall = Firewall(device_parameters, x=x, y=y)
+            self.view.scene.addItem(firewall)
 
 
 # Bottom dock widget
@@ -431,7 +431,7 @@ class ProtocolsWidget(QDockWidget):
             QMessageBox.warning(self, "Warning", "Select exactly two devices to configure IPSEC on!", QMessageBox.Ok)
             return
             
-        dialog = ipsec.IPSECDialog(selected_items)
+        dialog = security.IPSECDialog(selected_items)
         dialog.exec()
             
 

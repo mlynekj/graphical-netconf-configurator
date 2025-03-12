@@ -51,7 +51,7 @@ from PySide6.QtGui import QPixmap, QPen, QColor
 from lxml import etree as ET
 from definitions import SECURITY_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
-from yang.filters import EditconfigFilter
+from yang.filters import EditconfigFilter, DispatchFilter
 
 
 import ipaddress
@@ -76,8 +76,17 @@ def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_para
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         return(rpc_reply, filter)
 
+def getSecurityZonesWithNetconf(device):
+     rpc_payload = JunosRpcZones_Dispatch_GetZones_Filter()
+     rpc_reply = device.mngr.dispatch(rpc_payload.__ele__())
+     return (rpc_payload, rpc_reply)
 
 # ---------- FILTERS: ----------
+class JunosRpcZones_Dispatch_GetZones_Filter(DispatchFilter):
+    def __init__(self):
+        self.filter_xml = ET.parse(SECURITY_YANG_DIR + "junos-rpc-zones_dispatch_get-zones.xml")
+
+
 class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
     def __init__(self, dev_parameters: dict, ike_parameters: dict, ipsec_parameters: dict):  
         # Load the XML filter template
