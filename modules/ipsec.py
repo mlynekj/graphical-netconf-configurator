@@ -224,6 +224,9 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
 
         self._createIkeFilter(ike_parameters, dev_parameters)
         self._createIPSecFilter(ipsec_parameters, dev_parameters)
+        self._createAddressBooksFilter(dev_parameters)
+        self._createPoliciesFilter(dev_parameters)
+        self._createSecurityZonesFilter(dev_parameters)
 
     def _createIkeFilter(self, ike_parameters, dev_parameters):
         # Preprocessing
@@ -276,7 +279,7 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         encryption = f"{ipsec_parameters["encryption"]}-cbc"
 
         # Store the values for later use
-        ipsec_values = {
+        self.ipsec_values = {
             "proposal_name": proposal_name,
             "policy_name": policy_name,
             "vpn_name": vpn_name,
@@ -288,22 +291,77 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         # Create the filter
         ipsec_element = self.filter_xml.find(".//conf:ipsec", self.namespaces)
         # IPSec Proposal
-        ipsec_element.find(".//conf:proposal/conf:name", self.namespaces).text = str(ipsec_values["proposal_name"])
-        ipsec_element.find(".//conf:proposal/conf:authentication-algorithm", self.namespaces).text = str(ipsec_values["authentication"])
-        ipsec_element.find(".//conf:proposal/conf:encryption-algorithm", self.namespaces).text = str(ipsec_values["encryption"])
-        ipsec_element.find(".//conf:proposal/conf:lifetime-seconds", self.namespaces).text = str(ipsec_values["lifetime"])
+        ipsec_element.find(".//conf:proposal/conf:name", self.namespaces).text = str(self.ipsec_values["proposal_name"])
+        ipsec_element.find(".//conf:proposal/conf:authentication-algorithm", self.namespaces).text = str(self.ipsec_values["authentication"])
+        ipsec_element.find(".//conf:proposal/conf:encryption-algorithm", self.namespaces).text = str(self.ipsec_values["encryption"])
+        ipsec_element.find(".//conf:proposal/conf:lifetime-seconds", self.namespaces).text = str(self.ipsec_values["lifetime"])
         # IPSec Policy
-        ipsec_element.find(".//conf:policy/conf:name", self.namespaces).text = str(ipsec_values["policy_name"]) 
-        ipsec_element.find(".//conf:policy/conf:proposals", self.namespaces).text = str(ipsec_values["proposal_name"])
+        ipsec_element.find(".//conf:policy/conf:name", self.namespaces).text = str(self.ipsec_values["policy_name"]) 
+        ipsec_element.find(".//conf:policy/conf:proposals", self.namespaces).text = str(self.ipsec_values["proposal_name"])
         # VPN
-        ipsec_element.find(".//conf:vpn/conf:name", self.namespaces).text = str(ipsec_values["vpn_name"])
+        ipsec_element.find(".//conf:vpn/conf:name", self.namespaces).text = str(self.ipsec_values["vpn_name"])
         ipsec_element.find(".//conf:vpn/conf:ike/conf:gateway", self.namespaces).text = str(self.ike_values["gateway_name"])
         ipsec_element.find(".//conf:vpn/conf:ike/conf:ipsec-policy", self.namespaces).text = str(self.ike_values["gateway_name"])
 
     def _createAddressBooksFilter(self, dev_parameters):
+        # Preprocessing
+        trusted_address_name = f"{dev_parameters["local_private_network"]}_local_private_network".replace("/", "_").replace(".", "_")
+        untrusted_address_name = f"{dev_parameters["remote_peer_ip"]}s_remote_private_network".replace("/", "_").replace(".", "_")
+        
+        # Store the values for later use
+        self.address_books_values = {
+            "trusted_address_name": trusted_address_name,
+            "untrusted_address_name": untrusted_address_name
+        }
+
+        # Create the filter
+        # "Trusted"
         trusted_address_book_element = self.filter_xml.find(".//conf:address-book[conf:name='trusted']", self.namespaces)
-        trusted_address_book_element.find(".//conf:address/conf:name", self.namespaces).text = str(f"{dev_parameters["local_private_network"]}_local_private_network")
+        trusted_address_book_element.find(".//conf:address/conf:name", self.namespaces).text = str(self.address_books_values["trusted_address_name"])
         trusted_address_book_element.find(".//conf:address/conf:ip-prefix", self.namespaces).text = str(dev_parameters["local_private_network"])        
+        # "Untrusted"
+        untrusted_address_book_element = self.filter_xml.find(".//conf:address-book[conf:name='untrusted']", self.namespaces)
+        untrusted_address_book_element.find(".//conf:address/conf:name", self.namespaces).text = str(self.address_books_values["untrusted_address_name"])
+        untrusted_address_book_element.find(".//conf:address/conf:ip-prefix", self.namespaces).text = str(dev_parameters["remote_private_network"])
+
+    def _createPoliciesFilter(self, dev_parameters):
+        # Preprocessing
+        policy_trust_to_untrust_name = f"policy_{dev_parameters["local_peer_ip"]}_to_{dev_parameters["remote_peer_ip"]}_vpn_out".replace(".", "_")
+        policy_untrust_to_trust_name = f"policy_{dev_parameters["remote_peer_ip"]}_to_{dev_parameters["local_peer_ip"]}_vpn_in".replace(".", "_")
+
+        # Store the values for later use
+        self.policies_values = {
+            "policy_trust_to_untrust_name": policy_trust_to_untrust_name,
+            "policy_untrust_to_trust_name": policy_untrust_to_trust_name
+        }
+        
+        # Create the filter
+        # "Trust to Untrust"
+        policy_trust_to_untrust_element = self.filter_xml.find(".//conf:policies/conf:policy[conf:from-zone-name='trust'][conf:to-zone-name='untrust']", self.namespaces)
+        policy_trust_to_untrust_element.find(".//conf:name", self.namespaces).text = str(self.policies_values["policy_trust_to_untrust_name"])
+        policy_trust_to_untrust_element.find(".//conf:match/conf:source-address", self.namespaces).text = str(self.address_books_values["trusted_address_name"])
+        policy_trust_to_untrust_element.find(".//conf:match/conf:destination-address", self.namespaces).text = str(self.address_books_values["untrusted_address_name"])
+        policy_trust_to_untrust_element.find(".//conf:then/conf:permit/conf:tunnel/conf:ipsec-vpn", self.namespaces).text = str(self.ipsec_values["vpn_name"])
+
+        # "Untrust to Trust"
+        policy_untrust_to_trust_element = self.filter_xml.find(".//conf:policies/conf:policy[conf:from-zone-name='untrust'][conf:to-zone-name='trust']", self.namespaces)
+        policy_untrust_to_trust_element.find(".//conf:name", self.namespaces).text = str(self.policies_values["policy_untrust_to_trust_name"])
+        policy_untrust_to_trust_element.find(".//conf:match/conf:source-address", self.namespaces).text = str(self.address_books_values["untrusted_address_name"])
+        policy_untrust_to_trust_element.find(".//conf:match/conf:destination-address", self.namespaces).text = str(self.address_books_values["trusted_address_name"])
+        policy_untrust_to_trust_element.find(".//conf:then/conf:permit/conf:tunnel/conf:ipsec-vpn", self.namespaces).text = str(self.ipsec_values["vpn_name"])
+
+    def _createSecurityZonesFilter(self, dev_parameters):
+        # Preprocessing
+
+        # Store the values for later use
+
+        # Create the filter
+        # "Trust"
+        zone_trust_element = self.filter_xml.find(".//conf:security-zone[conf:name='trust']", self.namespaces)
+        zone_trust_element.find(".//conf:interfaces/conf:name", self.namespaces).text = str(dev_parameters["LAN_interface"])
+        # "Untrust"
+        zone_untrust_element = self.filter_xml.find(".//conf:security-zone[conf:name='untrust']", self.namespaces)
+        zone_untrust_element.find(".//conf:interfaces/conf:name", self.namespaces).text = str(dev_parameters["WAN_interface"])
 
 # ---------- QT: ----------
 class IPSECDialog(QDialog):
@@ -553,6 +611,7 @@ class IPSECDialog(QDialog):
             "local_private_network": ipaddress.IPv4Network(self.ui.dev1_LAN_network_lineedit.text()) if self.ui.dev1_LAN_network_lineedit.text() else None,
             "remote_private_network": ipaddress.IPv4Network(self.ui.dev2_LAN_network_lineedit.text()) if self.ui.dev2_LAN_network_lineedit.text() else None,
             "remote_peer_ip": ipaddress.IPv4Address(self.ui.dev2_WAN_ip_lineedit.text()) if self.ui.dev2_WAN_ip_lineedit.text() else None,
+            "local_peer_ip": ipaddress.IPv4Address(self.ui.dev1_WAN_ip_lineedit.text()) if self.ui.dev1_WAN_ip_lineedit.text() else None
         }
 
         dev2_parameters = {
@@ -561,6 +620,7 @@ class IPSECDialog(QDialog):
             "local_private_network": ipaddress.IPv4Network(self.ui.dev2_LAN_network_lineedit.text()) if self.ui.dev2_LAN_network_lineedit.text() else None,
             "remote_private_network": ipaddress.IPv4Network(self.ui.dev1_LAN_network_lineedit.text()) if self.ui.dev1_LAN_network_lineedit.text() else None,
             "remote_peer_ip": ipaddress.IPv4Address(self.ui.dev1_WAN_ip_lineedit.text()) if self.ui.dev1_WAN_ip_lineedit.text() else None,
+            "local_peer_ip": ipaddress.IPv4Address(self.ui.dev2_WAN_ip_lineedit.text()) if self.ui.dev2_WAN_ip_lineedit.text() else None
         }
 
         ike_parameters = {

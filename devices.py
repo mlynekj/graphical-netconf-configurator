@@ -518,6 +518,17 @@ class Switch(Device):
 
         # Switch specific functions go here
 
+class Firewall(Router):
+    _device_type = "F"
+
+    def __init__(self, device_parameters, x=0, y=0):
+        super().__init__(device_parameters, x, y)
+
+        # ICON
+        firewall_icon_img = QImage("graphics/devices/firewall.png")
+        self.setPixmap(QPixmap.fromImage(firewall_icon_img))
+
+        # Firewall specific functions go here
 
 class ClonedDevice(QGraphicsPixmapItem):
     def __init__(self, original_device):
@@ -645,13 +656,13 @@ class AddDeviceDialog(QDialog):
         self.passwordTextInput.setPlaceholderText("Password")
         self.layout.addWidget(self.passwordTextInput)
 
-        self.deviceTypeComboInput = QComboBox()
-        self.deviceTypeComboInput.addItems(["Router", "Switch"])
-        self.layout.addWidget(self.deviceTypeComboInput)
-
         self.deviceVendorComboInput = QComboBox()
         self.deviceVendorComboInput.addItems(["Cisco IOS XE", "Juniper"])
         self.layout.addWidget(self.deviceVendorComboInput)
+
+        self.deviceTypeComboInput = QComboBox()
+        self.deviceTypeComboInput.addItems(["Router", "Firewall", "Switch"])
+        self.layout.addWidget(self.deviceTypeComboInput)
 
         # Buttons
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -702,6 +713,8 @@ class AddDeviceDialog(QDialog):
         # Add the device with the correct type (exception handling is done in the _addRouter and _addSwitch methods)                
         if self.deviceTypeComboInput.currentText() == "Router":
             self._addRouter()
+        elif self.deviceTypeComboInput.currentText() == "Firewall":
+            self._addFirewall()
         elif self.deviceTypeComboInput.currentText() == "Switch":
             self._addSwitch()
 
@@ -711,6 +724,11 @@ class AddDeviceDialog(QDialog):
         router = Router(self.device_parameters)
         self.view.scene.addItem(router)
         return(router)
+    
+    def _addFirewall(self):
+        firewall = Firewall(self.device_parameters)
+        self.view.scene.addItem(firewall)
+        return(firewall)
     
     def _addSwitch(self):
         switch = Switch(self.device_parameters)
