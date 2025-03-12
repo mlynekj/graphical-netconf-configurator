@@ -36,7 +36,7 @@ import ipaddress
 
 from ui.ui_interfacesdialog import Ui_Interfaces
 from ui.ui_addinterfacedialog import Ui_add_interface_dialog
-from ui.ui_editinterfacedialog import Ui_Ui_edit_interface_dialog
+from ui.ui_editinterfacedialog import Ui_edit_interface_dialog
 
 from yang.filters import GetFilter, EditconfigFilter
 
@@ -391,7 +391,7 @@ class EditInterfaceDialog(QDialog):
     def __init__(self, instance, device, interface_id):
         super().__init__()
 
-        self.ui = Ui_Ui_edit_interface_dialog()
+        self.ui = Ui_edit_interface_dialog()
         self.ui.setupUi(self)
         self.setWindowTitle(f"Edit interface: {interface_id}")
 
@@ -407,6 +407,13 @@ class EditInterfaceDialog(QDialog):
                 QGuiApplication.primaryScreen().availableGeometry()
             )
         )
+
+        # If the device is of type Firewall, add UI elements for managing security zones
+        if device.__class__.__name__ == 'Firewall': # isInstance(item, Firewall), without the need to import Firewall
+            # TODO: predelat do comboboxu, ktery bude vysilat signaly pri zmene?
+            edit_security_zones_button = QPushButton("Edit security zones")
+            #edit_security_zones_button.clicked.connect(self.showEditSecurityZonesDialog)
+            self.ui.interface_top_layout.addWidget(edit_security_zones_button)
 
         self.fillLayout()
 

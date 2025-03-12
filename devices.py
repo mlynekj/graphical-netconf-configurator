@@ -529,8 +529,9 @@ class Firewall(Router):
         self.setPixmap(QPixmap.fromImage(firewall_icon_img))
 
     def getInterfaces(self):
-        super().getInterfaces()
+        interfaces = super().getInterfaces()
         self._addSecurityZonesDataToInterfaces()
+        return interfaces
 
     def _addSecurityZonesDataToInterfaces(self):
         try:
@@ -553,7 +554,7 @@ class Firewall(Router):
         except Exception as e:
             utils.printGeneral(f"Error getting security zones: {e}")
             utils.printGeneral(traceback.format_exc())
-            return None
+            return
 
 
 class ClonedDevice(QGraphicsPixmapItem):
