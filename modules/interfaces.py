@@ -408,12 +408,16 @@ class EditInterfaceDialog(QDialog):
             )
         )
 
-        # If the device is of type Firewall, add UI elements for managing security zones
-        if device.__class__.__name__ == 'Firewall': # isInstance(item, Firewall), without the need to import Firewall
-            # TODO: predelat do comboboxu, ktery bude vysilat signaly pri zmene?
-            edit_security_zones_button = QPushButton("Edit security zones")
-            #edit_security_zones_button.clicked.connect(self.showEditSecurityZonesDialog)
-            self.ui.interface_top_layout.addWidget(edit_security_zones_button)
+        # If the device is of type Firewall, show UI elements for managing security zones
+        if device.__class__.__name__ == 'Firewall': # isInstance(item, Firewall), without the need to import class Firewall
+            self.ui.security_zone_frame.setVisible(True)
+            self.ui.security_zone_combobox.addItems(device.security_zones)
+            self.ui.security_zone_combobox.addItems(" ")
+            self.ui.security_zone_combobox.setCurrentText(device.interfaces[interface_id].get('security_zone', " "))
+            self.ui.change_security_zone_button.clicked.connect(lambda: self.changeSecurityZone(self.ui.security_zone_combobox.currentText()))
+        else:
+            self.ui.security_zone_frame.setVisible(False)
+
 
         self.fillLayout()
 
@@ -526,6 +530,12 @@ class EditInterfaceDialog(QDialog):
         """ Refresh the parent dialog when this dialog is closed. """
         self.instance.refreshDialog()
         super().closeEvent(event)
+
+    def changeSecurityZone(self, security_zone):
+        if self.device.interfaces[self.interface_id].get("security_zone", None) is not None: # if the interface already has a security zone assigned
+            self.device.configureInterfacesSecurityZone(self.interface_id, self.device.interfaces[self.interface_id]["security_zone"], remove_interface_from_zone=True) # remove the interface from the old zone
+        self.device.configureInterfacesSecurityZone(self.interface_id, security_zone)
+        
 
     def showDialog(self, subinterface_index, ip = None):       
         self.editSubinterfaceDialog = EditSubinterfaceDialog(self, self.device, self.interface_id, subinterface_index, ip)

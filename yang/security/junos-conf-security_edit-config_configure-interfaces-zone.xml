@@ -1,0 +1,14 @@
+<config>
+	<configuration xmlns="http://yang.juniper.net/junos">
+		<security>
+			<zones>
+				<security-zone>
+					<name></name>
+					<interfaces>
+						<name></name>
+					</interfaces>
+				</security-zone>
+			</zones>
+		</security>
+	</configuration>
+</config>

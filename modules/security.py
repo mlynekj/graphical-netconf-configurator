@@ -81,6 +81,12 @@ def getSecurityZonesWithNetconf(device):
      rpc_reply = device.mngr.dispatch(rpc_payload.__ele__())
      return (rpc_payload, rpc_reply)
 
+def configureInterfacesZoneWithNetconf(device, interface, zone, remove_interface_from_zone=False):
+    filter = JunosConfSecurity_EditConfig_ConfigureInterfacesZone_Filter(interface, zone, remove_interface_from_zone)
+    print(filter)
+    rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+    return (rpc_reply, filter)
+
 # ---------- FILTERS: ----------
 class JunosRpcZones_Dispatch_GetZones_Filter(DispatchFilter):
     def __init__(self):
@@ -371,6 +377,22 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         # "Untrust"
         zone_untrust_element = self.filter_xml.find(".//conf:security-zone[conf:name='untrust']", self.namespaces)
         zone_untrust_element.find(".//conf:interfaces/conf:name", self.namespaces).text = str(dev_parameters["WAN_interface"])
+
+
+class JunosConfSecurity_EditConfig_ConfigureInterfacesZone_Filter(EditconfigFilter):
+    def __init__(self, interface, zone, remove_interface_from_zone=False):
+        self.filter_xml = ET.parse(SECURITY_YANG_DIR + "junos-conf-security_edit-config_configure-interfaces-zone.xml")
+        self.namespaces = {"conf": "http://yang.juniper.net/junos"}
+
+        self._createFilter(interface, zone, remove_interface_from_zone)
+
+    def _createFilter(self, interface, zone, remove_interface_from_zone):
+        security_zone_element = self.filter_xml.find(".//conf:security-zone", self.namespaces)
+        security_zone_element.find(".//conf:name", self.namespaces).text = str(zone)
+        security_zone_element.find(".//conf:interfaces/conf:name", self.namespaces).text = str(interface)
+        if remove_interface_from_zone:
+            interface_element = security_zone_element.find(".//conf:interfaces", self.namespaces)
+            interface_element.set("operation", "delete")
 
 # ---------- QT: ----------
 class IPSECDialog(QDialog):

@@ -530,31 +530,56 @@ class Firewall(Router):
 
     def getInterfaces(self):
         interfaces = super().getInterfaces()
-        self._addSecurityZonesDataToInterfaces()
-        return interfaces
+        interfaces_with_security_zone_data = self._addSecurityZonesDataToInterfacesDict(interfaces)
+        return interfaces_with_security_zone_data
 
-    def _addSecurityZonesDataToInterfaces(self):
+    def _addSecurityZonesDataToInterfacesDict(self, interfaces_dict: dict):
         try:
             rpc_payload, rpc_reply = security.getSecurityZonesWithNetconf(self)
             utils.printRpc(rpc_reply, "Get Security Zones", self)
             
             # Extract security zones names
             rpc_reply_etree = utils.convertToEtree(rpc_reply, self.device_parameters["device_params"])
-            security_zones_names_tags = rpc_reply_etree.findall(".//zones-information/zones-security/zones-security-zonename")
-            self.security_zones_names = [zone.text for zone in security_zones_names_tags]
-
+            security_zones_tags = rpc_reply_etree.findall(".//zones-information/zones-security/zones-security-zonename")
+            self.security_zones = [zone.text for zone in security_zones_tags]
+    
             # Add security zones data to the interfaces dictionary
-            for zone in self.security_zones_names:
+            for zone in self.security_zones:
                 interfaces_tags = rpc_reply_etree.findall(f".//zones-information/zones-security[zones-security-zonename='{zone}']/zones-security-interfaces/zones-security-interface-name")
                 interfaces = [interface.text for interface in interfaces_tags]
                 for interface in interfaces:
                     interface_stripped = interface.split(".")[0] # remove subinterface number
-                    self.interfaces[interface_stripped]["security_zone"] = zone
+                    interfaces_dict[interface_stripped]["security_zone"] = zone
+
+            return(interfaces_dict)
 
         except Exception as e:
             utils.printGeneral(f"Error getting security zones: {e}")
             utils.printGeneral(traceback.format_exc())
             return
+        
+    def configureInterfacesSecurityZone(self, interface_id, security_zone, remove_interface_from_zone=False):
+        try:
+            if security_zone == " ":
+                QMessageBox.critical(None, "Error", "Please select a security zone.")
+                return
+
+            rpc_reply, filter = security.configureInterfacesZoneWithNetconf(self, interface_id, security_zone, remove_interface_from_zone)
+            if remove_interface_from_zone:
+                utils.addPendingChange(self, f"Remove security zone: {security_zone} from interface: {interface_id}", rpc_reply, filter)
+                utils.printRpc(rpc_reply, "Remove Security Zone", self)
+                self.interfaces[interface_id].pop("security_zone", None) # Update the self.interfaces dictionary
+            else:
+                utils.addPendingChange(self, f"Set security zone: {security_zone} on interface: {interface_id}", rpc_reply, filter)
+                utils.printRpc(rpc_reply, "Set Security Zone", self)
+                self.interfaces[interface_id]["security_zone"] = security_zone # Update the self.interfaces dictionary
+
+            return True
+        except Exception as e:
+            utils.printGeneral(f"Error setting security zone: {e}")
+            utils.printGeneral(traceback.format_exc())
+            QMessageBox.critical(None, "Error", f"Error setting security zone: {e}")
+            return False
 
 
 class ClonedDevice(QGraphicsPixmapItem):
