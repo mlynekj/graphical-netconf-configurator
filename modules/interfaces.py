@@ -533,8 +533,13 @@ class EditInterfaceDialog(QDialog):
 
     def changeSecurityZone(self, security_zone):
         if self.device.interfaces[self.interface_id].get("security_zone", None) is not None: # if the interface already has a security zone assigned
-            self.device.configureInterfacesSecurityZone(self.interface_id, self.device.interfaces[self.interface_id]["security_zone"], remove_interface_from_zone=True) # remove the interface from the old zone
-        self.device.configureInterfacesSecurityZone(self.interface_id, security_zone)
+            result = self.device.configureInterfacesSecurityZone(self.interface_id, self.device.interfaces[self.interface_id]["security_zone"], remove_interface_from_zone=True) # remove the interface from the old zone
+        result = self.device.configureInterfacesSecurityZone(self.interface_id, security_zone)
+
+        if result == True:
+            QMessageBox.information(self, "Information", f"Security zone for interface {self.interface_id} has been changed to {security_zone}.")
+        elif result == False:
+            QMessageBox.warning(self, "Warning", f"Failed to change the security zone for interface {self.interface_id}.")
         
 
     def showDialog(self, subinterface_index, ip = None):       

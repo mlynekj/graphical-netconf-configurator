@@ -63,8 +63,7 @@ def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_para
         filter = JunosConf_Editconfig_ConfigureIPSec_Filter(dev_parameters, ike_parameters, ipsec_parameters)   
         
         # RPC                
-        #rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-        rpc_reply = ""
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         print(filter)                
         return(rpc_reply, filter)
     
@@ -81,9 +80,8 @@ def getSecurityZonesWithNetconf(device):
      rpc_reply = device.mngr.dispatch(rpc_payload.__ele__())
      return (rpc_payload, rpc_reply)
 
-def configureInterfacesZoneWithNetconf(device, interface, zone, remove_interface_from_zone=False):
+def configureSecurityZoneToInterfaceWithNetconf(device, interface, zone, remove_interface_from_zone=False):
     filter = JunosConfSecurity_EditConfig_ConfigureInterfacesZone_Filter(interface, zone, remove_interface_from_zone)
-    print(filter)
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
     return (rpc_reply, filter)
 
@@ -241,7 +239,7 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         self._createIPSecFilter(ipsec_parameters, dev_parameters)
         self._createAddressBooksFilter(dev_parameters)
         self._createPoliciesFilter(dev_parameters)
-        self._createSecurityZonesFilter(dev_parameters)
+        #self._createSecurityZonesFilter(dev_parameters)
 
     def _createIkeFilter(self, ike_parameters, dev_parameters):
         # Preprocessing
@@ -316,7 +314,7 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         # VPN
         ipsec_element.find(".//conf:vpn/conf:name", self.namespaces).text = str(self.ipsec_values["vpn_name"])
         ipsec_element.find(".//conf:vpn/conf:ike/conf:gateway", self.namespaces).text = str(self.ike_values["gateway_name"])
-        ipsec_element.find(".//conf:vpn/conf:ike/conf:ipsec-policy", self.namespaces).text = str(self.ike_values["gateway_name"])
+        ipsec_element.find(".//conf:vpn/conf:ike/conf:ipsec-policy", self.namespaces).text = str(self.ipsec_values["policy_name"])
 
     def _createAddressBooksFilter(self, dev_parameters):
         # Preprocessing

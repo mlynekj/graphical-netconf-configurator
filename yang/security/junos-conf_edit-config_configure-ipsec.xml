@@ -116,36 +116,6 @@
             </policy>
         </policy>
     </policies>
-    <zones>
-        <security-zone>
-            <name>trust</name>
-            <host-inbound-traffic>
-                <system-services>
-                    <name>all</name>
-                </system-services>
-                <protocols>
-                    <name>all</name>
-                </protocols>
-            </host-inbound-traffic>
-            <interfaces>
-                <name></name>
-            </interfaces>
-        </security-zone>
-        <security-zone>
-            <name>untrust</name>
-            <host-inbound-traffic>
-                <system-services>
-                    <name>all</name>
-                </system-services>
-                <protocols>
-                    <name>all</name>
-                </protocols>
-            </host-inbound-traffic>
-            <interfaces>
-                <name></name>
-            </interfaces>
-        </security-zone>
-    </zones>
 </security>
 </configuration>
 </config>

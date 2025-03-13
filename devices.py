@@ -456,8 +456,8 @@ class Router(Device):
     def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
         try:
             rpc_reply, filter = security.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
-            #utils.addPendingChange(self, f"Configure IPSec tunnel between: TODO", rpc_reply, filter)
-            #utils.printRpc(rpc_reply, "Configure IPSec", self)
+            utils.addPendingChange(self, f"Configure IPSec tunnel", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Configure IPSec", self)
         except Exception as e:
             utils.printGeneral(f"Error configuring IPSec on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
@@ -562,9 +562,9 @@ class Firewall(Router):
         try:
             if security_zone == " ":
                 QMessageBox.critical(None, "Error", "Please select a security zone.")
-                return
+                return False
 
-            rpc_reply, filter = security.configureInterfacesZoneWithNetconf(self, interface_id, security_zone, remove_interface_from_zone)
+            rpc_reply, filter = security.configureSecurityZoneToInterfaceWithNetconf(self, interface_id, security_zone, remove_interface_from_zone)
             if remove_interface_from_zone:
                 utils.addPendingChange(self, f"Remove security zone: {security_zone} from interface: {interface_id}", rpc_reply, filter)
                 utils.printRpc(rpc_reply, "Remove Security Zone", self)
