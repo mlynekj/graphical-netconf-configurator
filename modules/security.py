@@ -61,10 +61,18 @@ def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_para
     if device.device_parameters["device_params"] == "junos":
         # Create the filter
         filter = JunosConf_Editconfig_ConfigureIPSec_Filter(dev_parameters, ike_parameters, ipsec_parameters)   
-        
+        print(filter)
         # RPC                
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-        print(filter)                
+        
+        # Show reminder to check the security zones
+        message = (
+            "Make sure that the interfaces are assigned to the correct security zones.\n"
+            f"{dev_parameters['LAN_interface']} -> LAN interface (e.g. \"trust\")\n"
+            f"{dev_parameters['WAN_interface']} -> WAN interface (e.g \"untrust\")"
+        )
+        QMessageBox.information(None, f"Warning: Check security zones on device {device.hostname}", message)
+
         return(rpc_reply, filter)
     
     elif device.device_parameters["device_params"] == "iosxe":
@@ -239,21 +247,28 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         self._createIPSecFilter(ipsec_parameters, dev_parameters)
         self._createAddressBooksFilter(dev_parameters)
         self._createPoliciesFilter(dev_parameters)
-        #self._createSecurityZonesFilter(dev_parameters)
 
     def _createIkeFilter(self, ike_parameters, dev_parameters):
         # Preprocessing
-        proposal_name = f"proposal_{ike_parameters["dh"]}_{ike_parameters["authentication"]}_{ike_parameters["encryption"]}_{ike_parameters["lifetime"]}"
-        policy_name = f"policy_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
-        gateway_name = f"gateway_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
+        proposal_name = f"pro_{ike_parameters["dh"]}_{ike_parameters["authentication"]}_{ike_parameters["encryption"]}_{ike_parameters["lifetime"]}"
+        policy_name = f"pol_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
+        gateway_name = f"gat_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
         encryption = f"{ike_parameters["encryption"]}-cbc"
+        if ike_parameters["authentication"] == "sha1":
+            authentication = "sha1"
+        elif ike_parameters["authentication"] == "sha256":
+            authentication = "sha-256"
+        elif ike_parameters["authentication"] == "sha384":
+            authentication = "sha-384"
+        elif ike_parameters["authentication"] == "md5":
+            authentication = "md5"
 
         # Store the values for later use
         self.ike_values = {
             "proposal_name": proposal_name,
             "policy_name": policy_name,
             "gateway_name": gateway_name,
-            "authentication": ike_parameters["authentication"],
+            "authentication": authentication,
             "encryption": encryption,
             "dh": ike_parameters["dh"],
             "lifetime": ike_parameters["lifetime"],
@@ -282,13 +297,13 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
 
     def _createIPSecFilter(self, ipsec_parameters, dev_parameters):
         # Preprocessing
-        proposal_name = f"proposal_{ipsec_parameters["authentication"]}_{ipsec_parameters["encryption"]}_{ipsec_parameters["lifetime"]}"
-        policy_name = f"policy_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
+        proposal_name = f"pro_{ipsec_parameters["authentication"]}_{ipsec_parameters["encryption"]}_{ipsec_parameters["lifetime"]}"
+        policy_name = f"pol_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
         vpn_name = f"vpn_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
         if ipsec_parameters["authentication"] == "sha-hmac":
             authentication = "hmac-sha1-96"
         elif ipsec_parameters["authentication"] == "sha256-hmac":
-            authentication = "hmac-sha256-128"
+            authentication = "hmac-sha-256-128"
         encryption = f"{ipsec_parameters["encryption"]}-cbc"
 
         # Store the values for later use
@@ -339,8 +354,8 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
 
     def _createPoliciesFilter(self, dev_parameters):
         # Preprocessing
-        policy_trust_to_untrust_name = f"policy_{dev_parameters["local_peer_ip"]}_to_{dev_parameters["remote_peer_ip"]}_vpn_out".replace(".", "_")
-        policy_untrust_to_trust_name = f"policy_{dev_parameters["remote_peer_ip"]}_to_{dev_parameters["local_peer_ip"]}_vpn_in".replace(".", "_")
+        policy_trust_to_untrust_name = f"{dev_parameters["local_peer_ip"]}_to_{dev_parameters["remote_peer_ip"]}_out".replace(".", "_")
+        policy_untrust_to_trust_name = f"{dev_parameters["remote_peer_ip"]}_to_{dev_parameters["local_peer_ip"]}_in".replace(".", "_")
 
         # Store the values for later use
         self.policies_values = {
@@ -362,20 +377,6 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         policy_untrust_to_trust_element.find(".//conf:match/conf:source-address", self.namespaces).text = str(self.address_books_values["untrusted_address_name"])
         policy_untrust_to_trust_element.find(".//conf:match/conf:destination-address", self.namespaces).text = str(self.address_books_values["trusted_address_name"])
         policy_untrust_to_trust_element.find(".//conf:then/conf:permit/conf:tunnel/conf:ipsec-vpn", self.namespaces).text = str(self.ipsec_values["vpn_name"])
-
-    def _createSecurityZonesFilter(self, dev_parameters):
-        # Preprocessing
-
-        # Store the values for later use
-
-        # Create the filter
-        # "Trust"
-        zone_trust_element = self.filter_xml.find(".//conf:security-zone[conf:name='trust']", self.namespaces)
-        zone_trust_element.find(".//conf:interfaces/conf:name", self.namespaces).text = str(dev_parameters["LAN_interface"])
-        # "Untrust"
-        zone_untrust_element = self.filter_xml.find(".//conf:security-zone[conf:name='untrust']", self.namespaces)
-        zone_untrust_element.find(".//conf:interfaces/conf:name", self.namespaces).text = str(dev_parameters["WAN_interface"])
-
 
 class JunosConfSecurity_EditConfig_ConfigureInterfacesZone_Filter(EditconfigFilter):
     def __init__(self, interface, zone, remove_interface_from_zone=False):
@@ -421,13 +422,13 @@ class IPSECDialog(QDialog):
         self.ui.ipsec_auth_combobox.addItems(["sha-hmac", "sha256-hmac"]) # Supported both by Cisco and Juniper (Juniper: hmac-sha1-96, hmac-sha256-128)
         self.ui.ipsec_enc_combobox.addItems(["aes-128", "aes-192", "aes-256", "3des"])
 
-        self.ui.ike_lifetime_input.setText("3600") # TODO: only for testing purposes
-        self.ui.ipsec_lifetime_input.setText("3600") # TODO: only for testing purposes
-        self.ui.ike_psk_input.setText("cisco") # TODO: only for testing purposes
-
     def _fillAdvancedTab(self):
         if self.dev1.device_parameters["device_params"] == "junos":
             self.ui.dev1_advanced_groupbox.setTitle(f"{self.dev1.hostname} (Junos)")
+            self.dev1_junos_layout = QGridLayout(self.ui.dev1_advanced_groupbox)
+            self.dev1_junos_label = QLabel("No advanced settings available for Junos devices.")
+            self.dev1_junos_layout.addWidget(self.dev1_junos_label, 0, 0)
+
         elif self.dev1.device_parameters["device_params"] == "iosxe":
             self.ui.dev1_advanced_groupbox.setTitle(f"{self.dev1.hostname} (IOS-XE)")
             self.dev1_layout = QGridLayout(self.ui.dev1_advanced_groupbox)
@@ -452,6 +453,10 @@ class IPSECDialog(QDialog):
 
         if self.dev2.device_parameters["device_params"] == "junos":
             self.ui.dev2_advanced_groupbox.setTitle(f"{self.dev2.hostname} (Junos)")
+            self.dev2_junos_layout = QGridLayout(self.ui.dev2_advanced_groupbox)
+            self.dev2_junos_label = QLabel("No advanced settings available for Junos devices.")
+            self.dev2_junos_layout.addWidget(self.dev2_junos_label, 0, 0)
+
         elif self.dev2.device_parameters["device_params"] == "iosxe":
             self.ui.dev2_advanced_groupbox.setTitle(f"{self.dev2.hostname} (IOS-XE)")
             self.dev2_layout = QGridLayout(self.ui.dev2_advanced_groupbox)
@@ -710,4 +715,4 @@ class IPSECDialog(QDialog):
         self.dev1.configureIPSec(dev1_parameters, ike_parameters, ipsec_parameters)
         self.dev2.configureIPSec(dev2_parameters, ike_parameters, ipsec_parameters)
 
-        self.accept()      
+        self.accept()

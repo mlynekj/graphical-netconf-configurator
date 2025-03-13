@@ -80,7 +80,7 @@
         <policy>
             <from-zone-name>trust</from-zone-name>
             <to-zone-name>untrust</to-zone-name>
-            <policy>
+            <policy insert="first">
                 <name></name>
                 <match>
                     <source-address></source-address>
@@ -99,7 +99,7 @@
         <policy>
             <from-zone-name>untrust</from-zone-name>
             <to-zone-name>trust</to-zone-name>
-            <policy>
+            <policy insert="first">
                 <name></name>
                 <match>
                     <source-address></source-address>

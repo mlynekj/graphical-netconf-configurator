@@ -2,13 +2,24 @@
     "devices": [
         {
             "type": "Firewall",
-            "ip_address": "172.16.10.85:830",
+            "ip_address": "172.16.10.93:830",
             "username": "root",
             "password": "Juniper123",
             "vendor": "junos",
             "location": {
                 "x": 0.0,
                 "y": 0.0
+            }
+        },
+        {
+            "type": "Firewall",
+            "ip_address": "172.16.10.85:830",
+            "username": "root",
+            "password": "Juniper123",
+            "vendor": "junos",
+            "location": {
+                "x": 250.0,
+                "y": 5.0
             }
         }
     ]
