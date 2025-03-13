@@ -126,7 +126,7 @@ def cancelNetconfCommit(device):
         utils.printGeneral(f"Failed to cancel commit: {e}")
         return None
 
-def rollbackZeroNetconfChanges(device):
+def rollbackNetconfChanges(device):
     """ Performs the "rollback" operation using the specified ncclient connection. """
     try:
         rpc_payload = JunosRpc_Dispatch_RollbackZero_Filter()

@@ -405,11 +405,10 @@ class Device(QGraphicsPixmapItem):
         
     def cancelCommit(self):
         try: # TODO: sjednotit s procesem ziskavani security zones na firewallu ????? - pozustatek po kopirovani, zkontrolovat
-            if self.device_parameters["device_params"] == "iosxe":
-                rpc_reply = netconf.cancelNetconfCommit(self) # via <cancel-commit> operation
-            elif self.device_parameters["device_params"] == "junos":
-                
-                rpc_reply = netconf.rollbackZeroNetconfChanges(self) # Juniper DOES NOT support the <cancel-commit> operation, so we have to use the <rollback> operation instead
+            if self.device_parameters["device_params"] == "iosxe": # Cisco SUPPORTS the standard <cancel-commit> operation
+                rpc_reply = netconf.cancelNetconfCommit(self) 
+            elif self.device_parameters["device_params"] == "junos": # Juniper DOES NOT support the <cancel-commit> operation, so we have to use the <rollback> operation instead
+                rpc_reply = netconf.rollbackNetconfChanges(self) 
                 self.commitChanges()
 
             if rpc_reply:

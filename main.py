@@ -592,27 +592,6 @@ class PendingChangesWidget(QDockWidget):
         except Exception as e:
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
 
-    def _cancelConfirmedCommit(self):
-        devices = Device.getAllDevicesInstances()
-        try:
-            for device in devices:
-                if device.has_pending_changes:
-                    device.cancelCommit()
-                    self.clearPendingChangesFromTable(device.id)
-
-            self._stopCountdown()
-            self.commit_button.setText("Commit")
-            self.confirmed_commit_button.setEnabled(True)
-            self.confirmed_commit_timer_combobox.setEnabled(True)
-
-            self.discard_button.setText("Discard all")
-            self.discard_button.clicked.disconnect()
-            self.discard_button.clicked.connect(self._discardAllPendingChanges)
-        except Exception as e:
-            QMessageBox.critical(self, "Cancel failed", f"Failed to cancel commit on one or more devices: {e}")
-            utils.printGeneral(traceback.format_exc())
-
-
     def _stopCountdown(self):
         """
         Stops the countdown timer.
@@ -700,6 +679,27 @@ class PendingChangesWidget(QDockWidget):
         except Exception as e:
             QMessageBox.critical(self, "Discard failed", f"Failed to discard changes on one or more devices: {e}")
             utils.printGeneral(traceback.format_exc())
+
+    def _cancelConfirmedCommit(self):
+        devices = Device.getAllDevicesInstances()
+        try:
+            for device in devices:
+                if device.has_pending_changes:
+                    device.cancelCommit()
+                    self.clearPendingChangesFromTable(device.id)
+
+            self._stopCountdown()
+            self.commit_button.setText("Commit")
+            self.confirmed_commit_button.setEnabled(True)
+            self.confirmed_commit_timer_combobox.setEnabled(True)
+
+            self.discard_button.setText("Discard all")
+            self.discard_button.clicked.disconnect()
+            self.discard_button.clicked.connect(self._discardAllPendingChanges)
+        except Exception as e:
+            QMessageBox.critical(self, "Cancel failed", f"Failed to cancel commit on one or more devices: {e}")
+            utils.printGeneral(traceback.format_exc())
+
 
     def _showPendingChangeDetails(self, item):
         """
