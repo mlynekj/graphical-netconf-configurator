@@ -581,11 +581,37 @@ class PendingChangesWidget(QDockWidget):
                 self.stop_countdown_event.clear()
                 self.confirmed_commit_thread = Thread(target=_countdown)
                 self.confirmed_commit_thread.start()
+
+                # Change the "Discard all" button to "Cancel commit" button
+                self.discard_button.setText("Cancel commit")
+                self.discard_button.clicked.disconnect()
+                self.discard_button.clicked.connect(self._cancelConfirmedCommit)
             else:
                 QMessageBox.information(self, "No pending changes", "No pending changes to commit.")
 
         except Exception as e:
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
+
+    def _cancelConfirmedCommit(self):
+        devices = Device.getAllDevicesInstances()
+        try:
+            for device in devices:
+                if device.has_pending_changes:
+                    device.cancelCommit()
+                    self.clearPendingChangesFromTable(device.id)
+
+            self._stopCountdown()
+            self.commit_button.setText("Commit")
+            self.confirmed_commit_button.setEnabled(True)
+            self.confirmed_commit_timer_combobox.setEnabled(True)
+
+            self.discard_button.setText("Discard all")
+            self.discard_button.clicked.disconnect()
+            self.discard_button.clicked.connect(self._discardAllPendingChanges)
+        except Exception as e:
+            QMessageBox.critical(self, "Cancel failed", f"Failed to cancel commit on one or more devices: {e}")
+            utils.printGeneral(traceback.format_exc())
+
 
     def _stopCountdown(self):
         """
@@ -629,6 +655,10 @@ class PendingChangesWidget(QDockWidget):
                 self.commit_button.setText("Commit")
                 self.confirmed_commit_button.setEnabled(True)
                 self.confirmed_commit_timer_combobox.setEnabled(True)
+
+                self.discard_button.setText("Discard all")
+                self.discard_button.clicked.disconnect()
+                self.discard_button.clicked.connect(self._discardAllPendingChanges)
             else:
                 QMessageBox.information(self, "No pending changes", "No pending changes to commit.")
 
@@ -654,7 +684,7 @@ class PendingChangesWidget(QDockWidget):
             for device in devices:
                 if device.has_pending_changes:
                     device.discardChanges()
-                    device.has_pending_changes = False
+                    device.has_pending_changes = False # TODO: probably not needed, check
                     self.clearPendingChangesFromTable(device.id)
                     discarded_devices.append(device.id)
             if discarded_devices:

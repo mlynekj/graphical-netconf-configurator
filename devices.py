@@ -375,10 +375,8 @@ class Device(QGraphicsPixmapItem):
             if rpc_reply:
                 utils.printRpc(rpc_reply, "Discard changes", self)
                 self.interfaces = self.getInterfaces() # Refresh interfaces after discard
-
                 self.has_pending_changes = False
                 signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
-
                 self.updateCableLabelsText()
                 return True
         except Exception as e:
@@ -403,6 +401,29 @@ class Device(QGraphicsPixmapItem):
             utils.printGeneral(f"Error committing changes: {e}")
             utils.printGeneral(traceback.format_exc())
             QMessageBox.critical(None, "Error", f"Error committing changes: {e}")
+            return False
+        
+    def cancelCommit(self):
+        try: # TODO: sjednotit s procesem ziskavani security zones na firewallu ????? - pozustatek po kopirovani, zkontrolovat
+            if self.device_parameters["device_params"] == "iosxe":
+                rpc_reply = netconf.cancelNetconfCommit(self) # via <cancel-commit> operation
+            elif self.device_parameters["device_params"] == "junos":
+                
+                rpc_reply = netconf.rollbackZeroNetconfChanges(self) # Juniper DOES NOT support the <cancel-commit> operation, so we have to use the <rollback> operation instead
+                self.commitChanges()
+
+            if rpc_reply:
+                utils.printRpc(rpc_reply, "Cancel commit", self)
+                self.interfaces = self.getInterfaces()
+                self.has_pending_changes = False
+                signal_manager.deviceNoLongerHasPendingChanges.emit(self.id)
+                self.updateCableLabelsText()
+                return True
+
+        except Exception as e:
+            utils.printGeneral(f"Error cancelling commit: {e}")
+            utils.printGeneral(traceback.format_exc())
+            QMessageBox.critical(None, "Error", f"Error cancelling commit: {e}")
             return False
     
     # ---------- REGISTRY FUNCTIONS ---------- 

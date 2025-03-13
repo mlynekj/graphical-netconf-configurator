@@ -29,6 +29,15 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QGuiApplication
 
+from yang.filters import DispatchFilter
+from definitions import SYSTEM_YANG_DIR
+
+# ---------- FILTERS: ----------
+class JunosRpc_Dispatch_RollbackZero_Filter(DispatchFilter):
+    def __init__(self):
+        self.filter_xml = ET.parse(SYSTEM_YANG_DIR + "junos-rpc_dispatch_rollback_pending_changes.xml")
+
+
 
 def establishNetconfConnection(device_parameters):
     """
@@ -103,6 +112,31 @@ def discardNetconfChanges(device):
         return (rpc_reply)
     except Exception as e:
         utils.printGeneral(f"Failed to discard changes: {e}")
+        return None
+    
+def cancelNetconfCommit(device):
+    """ Performs the "cancel-commit" operation using the specified ncclient connection. """
+    try:
+        rpc_reply = device.mngr.cancel_commit()
+        return(rpc_reply)
+    except operations.RPCError as e:
+        utils.printGeneral(f"Failed to cancel commit: {e}")
+        return (rpc_reply)
+    except Exception as e:
+        utils.printGeneral(f"Failed to cancel commit: {e}")
+        return None
+
+def rollbackZeroNetconfChanges(device):
+    """ Performs the "rollback" operation using the specified ncclient connection. """
+    try:
+        rpc_payload = JunosRpc_Dispatch_RollbackZero_Filter()
+        rpc_reply = device.mngr.dispatch(rpc_payload.__ele__())
+        return(rpc_reply)
+    except operations.RPCError as e:
+        utils.printGeneral(f"Failed to rollback changes: {e}")
+        return (rpc_reply)
+    except Exception as e:
+        utils.printGeneral(f"Failed to rollback changes: {e}")
         return None
 
 def getNetconfCapabilities(device):
