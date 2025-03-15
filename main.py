@@ -39,7 +39,7 @@ from PySide6.QtGui import (
     QPen)
 
 # Custom
-from devices import Device, Router, Switch, Firewall, AddDeviceDialog
+from devices import Device, Router, Switch, Firewall, AddDeviceDialog, addFirewall, addRouter, addSwitch
 from cable import Cable, CableEditMode
 from signals import signal_manager
 import modules.netconf as netconf
@@ -351,15 +351,12 @@ class MainWindow(QMainWindow):
                     QMessageBox.warning(self, "Device already exists", f"The device with the address: {device_parameters["address"]} is already in the scene.")
                     return
         
-        if device_type == "Router":
-            router = Router(device_parameters, x=x, y=y)
-            self.view.scene.addItem(router)
-        elif device_type == "Switch":
-            switch = Switch(device_parameters, x=x, y=y)
-            self.view.scene.addItem(switch)
-        elif device_type == "Firewall":
-            firewall = Firewall(device_parameters, x=x, y=y)
-            self.view.scene.addItem(firewall)
+        if "Router" in device_type:
+            addRouter(device_parameters, self.view.scene, device_type)
+        elif "Switch" in device_type:
+            addSwitch(device_parameters, self.view.scene, device_type)
+        elif "Firewall" in device_type:
+            addFirewall(device_parameters, self.view.scene, device_type)
 
 
 # Bottom dock widget
@@ -430,6 +427,12 @@ class ProtocolsWidget(QDockWidget):
         if len(selected_items) != 2:
             QMessageBox.warning(self, "Warning", "Select exactly two devices to configure IPSEC on!", QMessageBox.Ok)
             return
+        
+        for device in selected_items:
+            if not hasattr(device, "configureIPSec"):
+                QMessageBox.critical(None, "Error", "One or both of the devices do not support IPsec configuration.")
+                print(device)
+                return
             
         dialog = security.IPSECDialog(selected_items)
         dialog.exec()

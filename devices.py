@@ -57,6 +57,29 @@ from yang.filters import *
 
 from lxml import etree as ET
 
+def addRouter(device_parameters, scene, class_type):
+    if class_type == "IOSXERouter":
+        router = IOSXERouter(device_parameters)
+    elif class_type == "JUNOSRouter":
+        router = JUNOSRouter(device_parameters)
+
+    scene.addItem(router)
+    return(router)
+
+def addFirewall(device_parameters, scene, class_type):
+    if class_type == "JUNOSFirewall":
+        firewall = JUNOSFirewall(device_parameters)
+
+    scene.addItem(firewall)
+    return(firewall)
+
+def addSwitch(device_parameters, scene, class_type):
+    if class_type == "IOSXESwitch":
+        switch = IOSXESwitch(device_parameters)
+
+    scene.addItem(switch)
+    return(switch)
+
 # ---------- FILTERS: ----------
 class JunosRpcRoute_Dispatch_GetRoutingInformation_Filter(DispatchFilter):
     def __init__(self):
@@ -70,10 +93,11 @@ class IetfRouting_Get_GetRoutingState_Filter(GetFilter):
 
 
 # ---------- DEVICE CLASSES: ----------
+# GENERAL CLASSES
 class Device(QGraphicsPixmapItem):
     _counter = 0 # Used to generate device IDs
     _registry = {} # Used to store device instances
-    _device_type = "D"
+    _device_type = "dv"
     
     def __init__(self, device_parameters, x=0, y=0):
         """
@@ -148,7 +172,7 @@ class Device(QGraphicsPixmapItem):
         else:
             self.hostname = self._getHostname()
 
-        self.label.setPlainText(str(self.hostname))
+        self.label.setPlainText(f"{str(self.hostname)}\n({self.id})")
         self.label_border = self.label.boundingRect()
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
     
@@ -438,9 +462,10 @@ class Device(QGraphicsPixmapItem):
     def getAllDevicesInstances(cls):
         return list(cls._registry.values())
 
+
     
 class Router(Device):
-    _device_type = "R"
+    _device_type = "rt"
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -471,16 +496,6 @@ class Router(Device):
         After the OSPF configuration is done, the cloned device is deleted.
         """
         return OSPFDevice(self)
-    
-    # ---------- IPSEC FUNCTIONS ---------- 
-    def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
-        try:
-            rpc_reply, filter = security.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
-            utils.addPendingChange(self, f"Configure IPSec tunnel", rpc_reply, filter)
-            utils.printRpc(rpc_reply, "Configure IPSec", self)
-        except Exception as e:
-            utils.printGeneral(f"Error configuring IPSec on device {self.id}: {e}")
-            utils.printGeneral(traceback.format_exc())
     
     # ---------- ROUTING TABLE FUNCTIONS ---------- 
     def getRoutingTable(self):
@@ -526,8 +541,9 @@ class Router(Device):
         routingTableDialog.exec()
 
 
+
 class Switch(Device):
-    _device_type = "S"
+    _device_type = "sw"
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -536,10 +552,10 @@ class Switch(Device):
         switch_icon_img = QImage("graphics/devices/switch.png")
         self.setPixmap(QPixmap.fromImage(switch_icon_img))
 
-        # Switch specific functions go here
+
 
 class Firewall(Router):
-    _device_type = "F"
+    _device_type = "fw"
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -547,6 +563,41 @@ class Firewall(Router):
         # ICON
         firewall_icon_img = QImage("graphics/devices/firewall.png")
         self.setPixmap(QPixmap.fromImage(firewall_icon_img))
+
+
+
+# VENDOR-SPECIFIC CLASSES
+class IOSXERouter(Router):
+    def __init__(self, device_parameters, x=0, y=0):
+        super().__init__(device_parameters, x, y)
+
+    # ---------- IPSEC FUNCTIONS ---------- 
+    def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
+        try:
+            rpc_reply, filter = security.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
+            utils.addPendingChange(self, f"Configure IPSec tunnel", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Configure IPSec", self)
+        except Exception as e:
+            utils.printGeneral(f"Error configuring IPSec on device {self.id}: {e}")
+            utils.printGeneral(traceback.format_exc())
+
+
+
+class JUNOSRouter(Router):
+    def __init__(self, device_parameters, x=0, y=0):
+        super().__init__(device_parameters, x, y)
+
+
+
+class IOSXESwitch(Switch):
+    def __init__(self, device_parameters, x=0, y=0):
+        super().__init__(device_parameters, x, y)
+
+
+
+class JUNOSFirewall(Firewall):
+    def __init__(self, device_parameters, x=0, y=0):
+        super().__init__(device_parameters, x, y)
 
     def getInterfaces(self):
         interfaces = super().getInterfaces()
@@ -600,8 +651,21 @@ class Firewall(Router):
             utils.printGeneral(traceback.format_exc())
             QMessageBox.critical(None, "Error", f"Error setting security zone: {e}")
             return False
+        
+    # ---------- IPSEC FUNCTIONS ---------- 
+    def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
+        try:
+            rpc_reply, filter = security.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
+            utils.addPendingChange(self, f"Configure IPSec tunnel", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Configure IPSec", self)
+        except Exception as e:
+            utils.printGeneral(f"Error configuring IPSec on device {self.id}: {e}")
+            utils.printGeneral(traceback.format_exc())
 
 
+
+# ---------- CLONED DEVICE CLASSES: ----------
+# TODO: refactor the OSPF to NOT USE cloned devices   
 class ClonedDevice(QGraphicsPixmapItem):
     def __init__(self, original_device):
         super().__init__()
@@ -633,6 +697,7 @@ class ClonedDevice(QGraphicsPixmapItem):
 
         # ID
         self.id = original_device.id
+
 
 
 class OSPFDevice(ClonedDevice):
@@ -704,6 +769,7 @@ class OSPFDevice(ClonedDevice):
             utils.printGeneral(traceback.format_exc())
 
 
+
 # ---------- QT: ----------
 class AddDeviceDialog(QDialog):
     def __init__(self, view):
@@ -728,12 +794,8 @@ class AddDeviceDialog(QDialog):
         self.passwordTextInput.setPlaceholderText("Password")
         self.layout.addWidget(self.passwordTextInput)
 
-        self.deviceVendorComboInput = QComboBox()
-        self.deviceVendorComboInput.addItems(["Cisco IOS XE", "Juniper"])
-        self.layout.addWidget(self.deviceVendorComboInput)
-
         self.deviceTypeComboInput = QComboBox()
-        self.deviceTypeComboInput.addItems(["Router", "Firewall", "Switch"])
+        self.deviceTypeComboInput.addItems(["Router - Cisco IOS XE", "Router - Juniper JunOS", "Switch - Cisco IOS XE", "Firewall - Juniper JunOS (SRX)"])
         self.layout.addWidget(self.deviceTypeComboInput)
 
         # Buttons
@@ -767,10 +829,11 @@ class AddDeviceDialog(QDialog):
             # Username + Password + Device vendor
             self.device_parameters["username"] = self.usernameTextInput.text()
             self.device_parameters["password"] = self.passwordTextInput.text()
-            if self.deviceVendorComboInput.currentText() == "Cisco IOS XE":
+            if "Cisco IOS XE" in self.deviceTypeComboInput.currentText():
                 self.device_parameters["device_params"] = "iosxe"
-            elif self.deviceVendorComboInput.currentText() == "Juniper":
+            elif "Juniper JunOS" in self.deviceTypeComboInput.currentText():
                 self.device_parameters["device_params"] = "junos"
+            
         except ValueError as e:
             QMessageBox.critical(None, "Invalid input", f"Invalid input: {e}")
             utils.printGeneral(traceback.format_exc())
@@ -782,30 +845,18 @@ class AddDeviceDialog(QDialog):
                     QMessageBox.warning(self, "Device already exists", "The device with the same address is already in the scene.")
                     return
 
-        # Add the device with the correct type (exception handling is done in the _addRouter and _addSwitch methods)                
-        if self.deviceTypeComboInput.currentText() == "Router":
-            self._addRouter()
-        elif self.deviceTypeComboInput.currentText() == "Firewall":
-            self._addFirewall()
-        elif self.deviceTypeComboInput.currentText() == "Switch":
-            self._addSwitch()
+        # Add the device with the correct type               
+        if self.deviceTypeComboInput.currentText() == "Router - Cisco IOS XE":
+            addRouter(self.device_parameters, self.view.scene, "IOSXERouter")
+        elif self.deviceTypeComboInput.currentText() == "Router - Juniper JunOS":
+            addRouter(self.device_parameters, self.view.scene, "JUNOSRouter")
+        elif self.deviceTypeComboInput.currentText() == "Switch - Cisco IOS XE":
+            addSwitch(self.device_parameters, self.view.scene, "IOSXESwitch")
+        elif self.deviceTypeComboInput.currentText() == "Firewall - Juniper JunOS (SRX)":
+            addFirewall(self.device_parameters, self.view.scene, "JUNOSFirewall")
 
         self.accept()
-
-    def _addRouter(self):
-        router = Router(self.device_parameters)
-        self.view.scene.addItem(router)
-        return(router)
     
-    def _addFirewall(self):
-        firewall = Firewall(self.device_parameters)
-        self.view.scene.addItem(firewall)
-        return(firewall)
-    
-    def _addSwitch(self):
-        switch = Switch(self.device_parameters)
-        self.view.scene.addItem(switch)
-        return(switch)
     
 
 class RoutingTableDialog(QDialog):
