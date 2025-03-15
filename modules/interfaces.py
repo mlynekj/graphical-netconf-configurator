@@ -418,7 +418,6 @@ class EditInterfaceDialog(QDialog):
         else:
             self.ui.security_zone_frame.setVisible(False)
 
-
         self.fillLayout()
 
     def fillLayout(self):
@@ -547,9 +546,8 @@ class EditInterfaceDialog(QDialog):
         self.editSubinterfaceDialog.exec()
 
     def refreshDialog(self):
-        utils.clearLayout(self.layout)
+        utils.clearLayout(self.ui.tables_layout)
         self.fillLayout()
-        self.setLayout(self.layout)
 
 
 class EditSubinterfaceDialog(QDialog):
