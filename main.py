@@ -46,6 +46,8 @@ import modules.netconf as netconf
 import utils as utils
 import modules.ospf as ospf
 import modules.security as security
+import modules.interfaces as interfaces
+import modules.vlan as vlan
 from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
 from threading import Timer, Thread, Event
@@ -226,7 +228,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
 
         # Protocols configuration dock
-        self.protocolsWidget = ProtocolsWidget(self.view)
+        self.protocolsWidget = BatchConfigurationWidget(self.view)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.protocolsWidget)
 
         # Pending changes dock
@@ -379,13 +381,13 @@ class ConsoleWidget(QDockWidget):
 
 
 # Left dock widget
-class ProtocolsWidget(QDockWidget):
+class BatchConfigurationWidget(QDockWidget):
     def __init__(self, main_view):
-        super().__init__("Configure protocols")
+        super().__init__("Batch configuration")
 
         self.main_view = main_view
 
-        title_label = QLabel("Configure protocols")
+        title_label = QLabel("Batch configuration")
         title_label.setAlignment(Qt.AlignCenter)
         self.setTitleBarWidget(title_label)
 
@@ -407,10 +409,18 @@ class ProtocolsWidget(QDockWidget):
         ipsec_button.clicked.connect(self._showIPSECDialog)
         layout.addWidget(ipsec_button)
 
+        # VLAN button
+        vlan_button = QPushButton("VLAN")
+        vlan_button.clicked.connect(self._showVLANDialog)
+        layout.addWidget(vlan_button)
+
         button_holder.setLayout(layout)
         self.setWidget(button_holder)
 
     def _showOSPFDialog(self):
+        # TODO: refactor to not use cloned devices - only clone the QPixmapItem with the X and Y coordinates, and then interact with the original devices
+        # TODO: after that, when starting OSPF dialog, check for OSPF capability on the device (similar to IPSEC)
+        
         with self.main_view.generateClonedScene("OSPF") as cloned_scene:
             if cloned_scene:
                 dialog = ospf.OSPFDialog(cloned_scene)
@@ -431,12 +441,29 @@ class ProtocolsWidget(QDockWidget):
         for device in selected_items:
             if not hasattr(device, "configureIPSec"):
                 QMessageBox.critical(None, "Error", "One or both of the devices do not support IPsec configuration.")
-                print(device)
                 return
             
         dialog = security.IPSECDialog(selected_items)
         dialog.exec()
             
+    def _showVLANDialog(self):
+        selected_items = self.main_view.scene.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Warning", "Select devices to configure VLANs on!", QMessageBox.Ok)
+            return
+        
+
+        vlan_supported_switches = []
+        for device in selected_items:
+            if not hasattr(device, "addVlan") and not hasattr(device, "configureInterfaceVlan"):
+                QMessageBox.critical(None, "Error", "One or more of the devices do not support VLAN configuration.")
+                return
+            else:
+                vlan_supported_switches.append(device)
+
+        dialog = vlan.EditVlansDialog(vlan_supported_switches)
+        dialog.exec()
+
 
 # Right dock widget
 class PendingChangesWidget(QDockWidget):

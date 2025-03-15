@@ -44,6 +44,7 @@ import modules.interfaces as interfaces
 import modules.system as system
 import modules.ospf as ospf
 import modules.security as security
+import modules.vlan as vlan
 import utils as utils
 from signals import signal_manager
 from definitions import *
@@ -552,7 +553,25 @@ class Switch(Device):
         switch_icon_img = QImage("graphics/devices/switch.png")
         self.setPixmap(QPixmap.fromImage(switch_icon_img))
 
+        self.vlans = self.getVlans()
+        print(self.interfaces)
 
+
+    def getVlans(self):
+        try:
+            vlan_data, rpc_reply = vlan.getVlansWithNetconf(self)
+            utils.printRpc(rpc_reply, "Get VLANs", self)
+            return(vlan_data)
+        except Exception as e:
+            utils.printGeneral(f"Error getting VLANs: {e}")
+            utils.printGeneral(traceback.format_exc())
+            return None
+
+    def addVlan(self):
+        pass
+
+    def configureInterfaceVlan(self):
+        pass
 
 class Firewall(Router):
     _device_type = "fw"
@@ -592,7 +611,6 @@ class JUNOSRouter(Router):
 class IOSXESwitch(Switch):
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
-
 
 
 class JUNOSFirewall(Firewall):

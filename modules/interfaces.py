@@ -44,7 +44,7 @@ from yang.filters import GetFilter, EditconfigFilter
 # -- Retrieval --
 def getInterfacesWithNetconf(device):
     """
-    TODO:
+    TODO: documentation
     """
 
     device_type = device.device_parameters['device_params']
@@ -64,8 +64,12 @@ def getInterfacesWithNetconf(device):
         # After update of JUNOS (vRouter 24.2R1.S2) Juniper returns !THREE! <interfaces>...</interfaces> tags for each interface, 
         # so i need to skip the duplicate tags to avoid overwriting the data with empty values
         if name not in interfaces:
-            admin_status = interface_element.xpath('../state/admin-status')[0].text
-            oper_status = interface_element.xpath('../state/oper-status')[0].text
+            admin_status_element = interface_element.find('../state/admin-status')
+            admin_status = interface_element.find('../state/admin-status').text if admin_status_element is not None else None
+            oper_status_element = interface_element.find('../state/oper-status')
+            oper_status = interface_element.find('../state/oper-status').text if oper_status_element is not None else None
+            description_element = interface_element.find('../config/description')
+            description = interface_element.find('../config/description').text if description_element is not None else None
 
             subinterfaces = {}
             subinterface_indexes = interface_element.xpath('../subinterfaces/subinterface/index')
@@ -82,8 +86,14 @@ def getInterfacesWithNetconf(device):
             interfaces[name] = {
                 'admin_status': admin_status,
                 'oper_status': oper_status,
+                'description': description,
                 'subinterfaces': subinterfaces
             }
+
+            # If the device has VLAN capabilites, get VLAN data
+            if hasattr(device, "addVlan") and hasattr(device, "configureInterfaceVlan"):
+                vlan_data = extractVlanDataFromInterface(interface_element)
+                interfaces[name]["vlan_data"] = vlan_data
 
     return(interfaces, rpc_reply)
 
@@ -96,11 +106,25 @@ def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
         ipvX_address = ipvX_object.find('state/ip')
         ipvX_prefix_length = ipvX_object.find('state/prefix-length')
         if ipvX_address is not None and ipvX_prefix_length is not None: 
-            # cannot use "if ipvX_address and ipvX_prefix_length"
-            # because "FutureWarning: The behavior of this method will change in future versions. Use specific 'len(elem)' or 'elem is not None' test instead"
             ip_interface = IPv4Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}") if version == "ipv4" else IPv6Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}")
             ipvX_data.append({'value': ip_interface, 'flag': 'commited'})
     return(ipvX_data)
+
+def extractVlanDataFromInterface(interface_element):
+    vlan_data = {}
+    vlan_element = interface_element.find('../ethernet/switched-vlan/config')
+    if vlan_element is not None:
+        interface_mode = vlan_element.find('interface-mode')
+        if interface_mode is not None:
+            vlan_data["switchport_mode"] = interface_mode.text.lower()
+            if vlan_data["switchport_mode"] == "access":
+                vlan = vlan_element.find('access-vlan')
+                vlan_data["vlan"] = vlan.text if vlan is not None else None
+            elif vlan_data["switchport_mode"] == "trunk":
+                vlans = vlan_element.findall('trunk-vlans')
+                vlan_data["vlans"] = [vlan.text for vlan in vlans] if vlans is not None else None
+
+    return vlan_data
 
 # -- Manipulation with IPs --
 def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip):
@@ -260,7 +284,6 @@ class OpenconfigInterfaces_Editconfig_AddInterface_Filter(EditconfigFilter):
             interface_type_element.text = "ianaift:softwareLoopback"
 
 
-
 # ---------- QT: ----------
 class DeviceInterfacesDialog(QDialog):
     def __init__(self, device):
@@ -288,12 +311,13 @@ class DeviceInterfacesDialog(QDialog):
         # Populate the table with the interfaces
         if self.interfaces:
             self.ui.interfaces_table.setRowCount(len(self.interfaces))
-            self.ui.interfaces_table.setColumnCount(6)
+            self.ui.interfaces_table.setColumnCount(7)
             self.ui.interfaces_table.setHorizontalHeaderLabels(["Interface", 
                                         "Admin state", 
                                         "Operational state", 
                                         "IPv4", 
                                         "IPv6",
+                                        "Description"
                                         ""])
             self.ui.interfaces_table.horizontalHeader().setStretchLastSection(True)
             self.ui.interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -301,6 +325,7 @@ class DeviceInterfacesDialog(QDialog):
             for row, (interface_element, interface_data) in enumerate(self.interfaces.items()):      
                 admin_state = interface_data.get('admin_status', "N/A")
                 oper_state = interface_data.get('oper_status', "N/A")
+                description = interface_data.get('description', "N/A")
                 ipv4_data, ipv6_data = utils.getFirstIPAddressesFromSubinterfaces(interface_data['subinterfaces'])
 
                 # Flag: commited, uncommited, deleted
@@ -344,10 +369,16 @@ class DeviceInterfacesDialog(QDialog):
                 ipv6_item.setBackground(QBrush(QColor(bg_color)))
                 ipv6_item.setToolTip(tooltip)
                 self.ui.interfaces_table.setItem(row, 4, ipv6_item)
+                # Description
+                description_item = QTableWidgetItem(description)
+                description_item.setFlags(oper_state_item.flags() ^ Qt.ItemIsEditable)
+                description_item.setBackground(QBrush(QColor(bg_color)))
+                description_item.setToolTip(tooltip)
+                self.ui.interfaces_table.setItem(row, 5, description_item)
                 # Edit button
                 button_item = QPushButton("Edit")
                 button_item.clicked.connect(self.showDialog)
-                self.ui.interfaces_table.setCellWidget(row, 5, button_item)      
+                self.ui.interfaces_table.setCellWidget(row, 6, button_item)      
         else :
             self.ui.interfaces_table.setRowCount(1)
             self.ui.interfaces_table.setColumnCount(1)
@@ -639,6 +670,7 @@ class EditSubinterfaceDialog(QDialog):
             self.editInterfaceDialog_instance.refreshDialog()
         self.accept()
 
+
 class AddInterfaceDialog(QDialog):
     def __init__(self, device):
         super().__init__()
@@ -699,4 +731,4 @@ class AddInterfaceDialog(QDialog):
     def checkValidInterfaceName(self, name, checked_name):
         if name.startswith(checked_name):
             return True
-            
+        

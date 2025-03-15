@@ -7,6 +7,7 @@ INTERFACES_YANG_DIR = os.path.join(YANG_DIR, "interfaces/")
 ROUTING_YANG_DIR = os.path.join(YANG_DIR, "routing/")
 SYSTEM_YANG_DIR = os.path.join(YANG_DIR, "system/")
 SECURITY_YANG_DIR = os.path.join(YANG_DIR, "security/")
+VLAN_YANG_DIR = os.path.join(YANG_DIR, "vlan/")
 
 # CONSTANTS
 # Defines the target datastore for configuration changes
