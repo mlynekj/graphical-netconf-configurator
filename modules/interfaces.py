@@ -122,7 +122,7 @@ def extractVlanDataFromInterface(interface_element):
                 vlan_data["vlan"] = vlan.text if vlan is not None else None
             elif vlan_data["switchport_mode"] == "trunk":
                 vlans = vlan_element.findall('trunk-vlans')
-                vlan_data["vlans"] = [vlan.text for vlan in vlans] if vlans is not None else None
+                vlan_data["vlan"] = [vlan.text for vlan in vlans] if vlans is not None else None
 
     return vlan_data
 
