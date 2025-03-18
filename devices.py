@@ -545,6 +545,7 @@ class Router(Device):
 
 class Switch(Device):
     _device_type = "sw"
+    isL2Device = True
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -570,13 +571,23 @@ class Switch(Device):
     def addVlan(self):
         pass
 
-    def configureInterfaceVlan(self):
+    def deleteInterfaceVlan(self, interfaces):
         try:
-            rpc_reply, filter = vlan.configureInterfaceVlanWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
-            utils.addPendingChange(self, f"Configure VLANs on interfaces", rpc_reply, filter)
-            utils.printRpc(rpc_reply, "Configure VLANs on interfaces", self)
+            rpc_reply, filter = vlan.deleteInterfaceVlanWithNetconf(self, interfaces)
+            utils.addPendingChange(self, f"Delete VLANs on interfaces", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Delete VLANs on interfaces", self)
         except Exception as e:
-            utils.printGeneral(f"Error configuring VLANs on device {self.id}: {e}")
+            utils.printGeneral(f"Error deleting VLANs on device {self.id}: {e}")
+            utils.printGeneral(traceback.format_exc())
+
+    def setIntefaceVlan(self, interfaces):
+        try:
+            rpc_reply, filter = vlan.setInterfaceVlanWithNetconf(self, interfaces)
+            #utils.addPendingChange(self, f"Set VLANs on interfaces", rpc_reply, filter)
+            #utils.printRpc(rpc_reply, "Set VLANs on interfaces", self)
+            print(filter)
+        except Exception as e:
+            utils.printGeneral(f"Error setting VLANs on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
 
 class Firewall(Router):

@@ -65,13 +65,55 @@ def getVlansWithNetconf(device) -> dict:
 
     return(vlans, rpc_reply)
 
-def configureInterfaceVlanWithNetconf(device, interfaces: dict):
-    pass
+def deleteInterfaceVlanWithNetconf(device, interfaces: dict):
+    if device.device_parameters['device_params'] == 'iosxe':
+        # FILTER
+        filter = OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(interfaces, delete=True)
+
+        # RPC
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        #rpc_reply = ""
+        return(rpc_reply, filter)
+
+    if device.device_parameters['device_params'] == 'junos':
+        raise NotImplementedError("Junos VLANs not implemented")
+    
+def setInterfaceVlanWithNetconf(device, interfaces: dict):
+    if device.device_parameters['device_params'] == 'iosxe':
+        # FILTER
+        filter = OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(interfaces, delete=False)
+
+        # RPC
+        #rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        rpc_reply = ""
+        return(rpc_reply, filter)
+
+    if device.device_parameters['device_params'] == 'junos':
+        raise NotImplementedError("Junos VLANs not implemented")
 
 # ---------- FILTERS: ----------
 class CiscoIOSXEVlan_Get_GetVlanList_Filter(GetFilter):
     def __init__(self):
         self.filter_xml = ET.parse(VLAN_YANG_DIR + "Cisco-IOS-XE-vlan_get_get-vlan-list.xml")
+
+
+class OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(EditconfigFilter):
+    def __init__(self, interfaces: dict, delete=False):
+        self.filter_xml = ET.parse(VLAN_YANG_DIR + "openconfig-interfaces_editconfig_configure-interface-vlan.xml")
+        self.namespaces = {"oc-intf": "http://openconfig.net/yang/interfaces"}
+
+        for interface, interface_data in interfaces.items():
+            self._addInterface(interface, delete)
+
+    def _addInterface(self, interface_name, delete):
+        interfaces_element = self.filter_xml.find(".//oc-intf:interfaces", self.namespaces)
+        interface_element = ET.SubElement(interfaces_element, "interface")
+        name_element = ET.SubElement(interface_element, "name").text = interface_name
+        ethernet_element = ET.SubElement(interface_element, "ethernet", xmlns="http://openconfig.net/yang/interfaces/ethernet")
+        switched_vlan_element = ET.SubElement(ethernet_element, "switched-vlan", xmlns="http://openconfig.net/yang/vlan")
+        if delete:
+            switched_vlan_element.set("operation", "delete")
+
 
 
 # ---------- QT: ----------
@@ -260,4 +302,4 @@ class EditVlansDialog(QDialog):
     def confirmEdit(self):
         for device in self.devices:
             uncommited_interfaces = {k: v for k, v in self.edited_devices[device.id].items() if v['flag'] == "uncommited"}
-            device.configureInterfaceVlan(uncommited_interfaces)
+            device.deleteInterfaceVlan(uncommited_interfaces)

@@ -92,7 +92,7 @@ def getInterfacesWithNetconf(device):
             interfaces[name]["subinterfaces"] = subinterfaces
 
             # if the device has VLAN capabilites TODO: change to more robust - create a flag in the class? - do this for all the other features (isL2Device, isL3Device?)
-            if hasattr(device, "addVlan") and hasattr(device, "configureInterfaceVlan"):
+            if hasattr(device, "isL2Device") and device.isL2Device:
                 vlan_data = extractVlanDataFromInterface(interface_element)
                 interfaces[name]["vlan_data"] = vlan_data
                 interfaces[name]["flag"] = "commited"
