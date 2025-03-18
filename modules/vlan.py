@@ -84,8 +84,7 @@ def setInterfaceVlanWithNetconf(device, interfaces: dict):
         filter = OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(interfaces, delete=False)
 
         # RPC
-        #rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-        rpc_reply = ""
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         return(rpc_reply, filter)
 
     if device.device_parameters['device_params'] == 'junos':
@@ -102,10 +101,10 @@ class OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(EditconfigFi
         self.filter_xml = ET.parse(VLAN_YANG_DIR + "openconfig-interfaces_editconfig_configure-interface-vlan.xml")
         self.namespaces = {"oc-intf": "http://openconfig.net/yang/interfaces"}
 
-        for interface, interface_data in interfaces.items():
-            self._addInterface(interface, delete)
+        for interface_name, interface_data in interfaces.items():
+            self._addInterface(interface_name, interface_data, delete)
 
-    def _addInterface(self, interface_name, delete):
+    def _addInterface(self, interface_name, interface_data, delete):
         interfaces_element = self.filter_xml.find(".//oc-intf:interfaces", self.namespaces)
         interface_element = ET.SubElement(interfaces_element, "interface")
         name_element = ET.SubElement(interface_element, "name").text = interface_name
@@ -113,7 +112,20 @@ class OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(EditconfigFi
         switched_vlan_element = ET.SubElement(ethernet_element, "switched-vlan", xmlns="http://openconfig.net/yang/vlan")
         if delete:
             switched_vlan_element.set("operation", "delete")
-
+            return
+        
+        # This will only be executed, if the operation is not "delete"
+        config_element = ET.SubElement(switched_vlan_element, "config")
+        interface_mode_element = ET.SubElement(config_element, "interface-mode")
+        if interface_data["vlan_data"]["switchport_mode"] == "access":
+            interface_mode_element.text = "ACCESS"
+            access_vlan_element = ET.SubElement(config_element, "access-vlan")
+            access_vlan_element.text = interface_data["vlan_data"]["vlan"].strip()
+        elif interface_data["vlan_data"]["switchport_mode"] == "trunk":
+            interface_mode_element.text = "TRUNK"
+            for vlan in interface_data["vlan_data"]["vlan"].split(", "):
+                trunk_vlan_element = ET.SubElement(config_element, "trunk-vlans")
+                trunk_vlan_element.text = vlan.strip()
 
 
 # ---------- QT: ----------
@@ -303,3 +315,4 @@ class EditVlansDialog(QDialog):
         for device in self.devices:
             uncommited_interfaces = {k: v for k, v in self.edited_devices[device.id].items() if v['flag'] == "uncommited"}
             device.deleteInterfaceVlan(uncommited_interfaces)
+            device.setInterfaceVlan(uncommited_interfaces)

@@ -467,6 +467,7 @@ class Device(QGraphicsPixmapItem):
     
 class Router(Device):
     _device_type = "rt"
+    isL3Device = True
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -555,7 +556,6 @@ class Switch(Device):
         self.setPixmap(QPixmap.fromImage(switch_icon_img))
 
         self.vlans = self.getVlans()
-        print(self.interfaces)
 
 
     def getVlans(self):
@@ -580,18 +580,18 @@ class Switch(Device):
             utils.printGeneral(f"Error deleting VLANs on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
 
-    def setIntefaceVlan(self, interfaces):
+    def setInterfaceVlan(self, interfaces):
         try:
             rpc_reply, filter = vlan.setInterfaceVlanWithNetconf(self, interfaces)
-            #utils.addPendingChange(self, f"Set VLANs on interfaces", rpc_reply, filter)
-            #utils.printRpc(rpc_reply, "Set VLANs on interfaces", self)
-            print(filter)
+            utils.addPendingChange(self, f"Set VLANs on interfaces", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Set VLANs on interfaces", self)
         except Exception as e:
             utils.printGeneral(f"Error setting VLANs on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
 
 class Firewall(Router):
     _device_type = "fw"
+    isL3Device = True
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
