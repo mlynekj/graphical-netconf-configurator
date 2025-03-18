@@ -60,10 +60,12 @@ def getVlansWithNetconf(device) -> dict:
                 'name': name.text if name is not None else '',
             }
 
+        return(vlans, rpc_reply)
+
     if device.device_parameters['device_params'] == 'junos':
         raise NotImplementedError("Junos VLANs not implemented")
 
-    return(vlans, rpc_reply)
+    
 
 def deleteInterfaceVlanWithNetconf(device, interfaces: dict):
     if device.device_parameters['device_params'] == 'iosxe':
@@ -82,6 +84,18 @@ def setInterfaceVlanWithNetconf(device, interfaces: dict):
     if device.device_parameters['device_params'] == 'iosxe':
         # FILTER
         filter = OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(interfaces, delete=False)
+
+        # RPC
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        return(rpc_reply, filter)
+
+    if device.device_parameters['device_params'] == 'junos':
+        raise NotImplementedError("Junos VLANs not implemented")
+
+def addVlanWithNetconf(device, vlan_id, vlan_name):
+    if device.device_parameters['device_params'] == 'iosxe':
+        # FILTER
+        filter = CiscoIOSXEVlan_EditConfig_AddVlan_Filter(vlan_id, vlan_name)
 
         # RPC
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
@@ -128,6 +142,19 @@ class OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(EditconfigFi
                 trunk_vlan_element.text = vlan.strip()
 
 
+class CiscoIOSXEVlan_EditConfig_AddVlan_Filter(EditconfigFilter):
+    def __init__(self, vlan_id, vlan_name):
+        self.filter_xml = ET.parse(VLAN_YANG_DIR + "Cisco-IOS-XE-vlan_editconfig_add-vlan.xml")
+        self.namespaces = {"native": "http://cisco.com/ns/yang/Cisco-IOS-XE-native",
+                           "vlan": "http://cisco.com/ns/yang/Cisco-IOS-XE-vlan"}
+        
+        self.filter_xml.find(".//native:vlan/vlan:configuration/vlan:vlan-id", self.namespaces).text = vlan_id
+        self.filter_xml.find(".//native:vlan/vlan:vlan-list/vlan:id", self.namespaces).text = vlan_id
+
+        if vlan_name:
+            self.filter_xml.find(".//native:vlan/vlan:vlan-list/vlan:name", self.namespaces).text = vlan_name
+
+
 # ---------- QT: ----------
 class EditVlansDialog(QDialog):
     def __init__(self, devices):
@@ -153,6 +180,7 @@ class EditVlansDialog(QDialog):
 
     def createDeviceTab(self, device):
         tab = QWidget()
+        tab.setObjectName(device.id)
         tab_layout = QVBoxLayout()
         
         # UPPER PART
@@ -162,11 +190,17 @@ class EditVlansDialog(QDialog):
         add_vlan_groupbox = QGroupBox("Add a VLAN")
         add_vlan_groupbox_layout = QVBoxLayout()
         add_vlan_label = QLabel("Add a new VLAN:")
-        add_vlan_input = QLineEdit()
+        add_vlan_id_label = QLabel("ID:")
+        add_vlan_input_id = QLineEdit()
+        add_vlan_name_label = QLabel("Name:")
+        add_vlan_input_name = QLineEdit()
         add_vlan_button = QPushButton("Add")
-        add_vlan_button.clicked.connect(lambda: self.addVlan(device, add_vlan_input.text()))
+        add_vlan_button.clicked.connect(lambda: self.addVlan(device, add_vlan_input_id.text(), add_vlan_input_name.text()))
         add_vlan_groupbox_layout.addWidget(add_vlan_label)
-        add_vlan_groupbox_layout.addWidget(add_vlan_input)
+        add_vlan_groupbox_layout.addWidget(add_vlan_id_label)
+        add_vlan_groupbox_layout.addWidget(add_vlan_input_id)
+        add_vlan_groupbox_layout.addWidget(add_vlan_name_label)
+        add_vlan_groupbox_layout.addWidget(add_vlan_input_name)
         add_vlan_groupbox_layout.addWidget(add_vlan_button)
         add_vlan_groupbox_layout.addStretch()
         add_vlan_groupbox.setLayout(add_vlan_groupbox_layout)
@@ -187,6 +221,7 @@ class EditVlansDialog(QDialog):
         
     def _createVlanListTable(self, device):
         vlan_list_table = QTableWidget()
+        vlan_list_table.setObjectName(f"vlan_list_table_{device.id}")
         vlan_list_table.setColumnCount(2)
         vlan_list_table.setRowCount(len(device.vlans))
         vlan_list_table.setHorizontalHeaderLabels(['ID', 'Name'])
@@ -203,11 +238,19 @@ class EditVlansDialog(QDialog):
             vlan_list_table.setItem(row, 1, vlan_name_item)
         return(vlan_list_table)
     
+    def _addVlanToTable(self, vlan_id, vlan_name):
+        current_tab = self.ui.devices_tab_widget.currentWidget()
+        vlan_list_table = current_tab.findChild(QTableWidget, f"vlan_list_table_{current_tab.objectName()}")
+        row = vlan_list_table.rowCount()
+        vlan_list_table.insertRow(row)
+        vlan_list_table.setItem(row, 0, QTableWidgetItem(vlan_id))
+        vlan_list_table.setItem(row, 1, QTableWidgetItem(vlan_name))
+    
     def _createVlanInterfacesTable(self, device):
-        
         vlan_interface_table = QTableWidget()
+        vlan_interface_table.setObjectName(f"vlan_interface_table_{device.id}")
         vlan_interface_table.setColumnCount(6)
-        vlan_interface_table.setRowCount(len(device.interfaces))
+        vlan_interface_table.setRowCount(len(self.edited_devices[device.id].items()))
         vlan_interface_table.setHorizontalHeaderLabels(['Interface', 
                                                         'Admin state',
                                                         'Operational state',
@@ -220,29 +263,32 @@ class EditVlansDialog(QDialog):
                 oper_state = interface_data.get('oper_status', "N/A")
                 description = interface_data.get('description', "N/A")
 
+                bg_color = utils.getBgColorFromFlag(interface_data['flag'])
+                tooltip = utils.getTooltipFromFlag(interface_data['flag'])
+
                 # Interface name
                 interface_item = QTableWidgetItem(interface_element)
                 interface_item.setFlags(interface_item.flags() ^ Qt.ItemIsEditable)  # Non-editable cells
-                #interface_item.setBackground(QBrush(QColor(bg_color)))
-                #interface_item.setToolTip(tooltip)
+                interface_item.setBackground(QBrush(QColor(bg_color)))
+                interface_item.setToolTip(tooltip)
                 vlan_interface_table.setItem(row, 0, interface_item)
                 # Administrative state
                 admin_state_item = QTableWidgetItem(admin_state)
                 admin_state_item.setFlags(admin_state_item.flags() ^ Qt.ItemIsEditable)
-                #admin_state_item.setBackground(QBrush(QColor(bg_color)))
-                #admin_state_item.setToolTip(tooltip)
+                admin_state_item.setBackground(QBrush(QColor(bg_color)))
+                admin_state_item.setToolTip(tooltip)
                 vlan_interface_table.setItem(row, 1, admin_state_item)
                 # Operational state
                 oper_state_item = QTableWidgetItem(oper_state)
                 oper_state_item.setFlags(oper_state_item.flags() ^ Qt.ItemIsEditable)
-                #oper_state_item.setBackground(QBrush(QColor(bg_color)))
-                #oper_state_item.setToolTip(tooltip)
+                oper_state_item.setBackground(QBrush(QColor(bg_color)))
+                oper_state_item.setToolTip(tooltip)
                 vlan_interface_table.setItem(row, 2, oper_state_item)
                 # Description
-                description_item = QTableWidgetItem(self.edited_devices[device.id][interface_element]["description"])
+                description_item = QTableWidgetItem(description)
                 description_item.setFlags(oper_state_item.flags() ^ Qt.ItemIsEditable)
-                #description_item.setBackground(QBrush(QColor(bg_color)))
-                #description_item.setToolTip(tooltip)
+                description_item.setBackground(QBrush(QColor(bg_color)))
+                description_item.setToolTip(tooltip)
                 vlan_interface_table.setItem(row, 3, description_item)
                 # Switchport mode
                 switchport_mode = interface_data["vlan_data"].get('switchport_mode', None)
@@ -253,14 +299,11 @@ class EditVlansDialog(QDialog):
                     switchport_mode_item.setCurrentText(" ")
                 else:
                     switchport_mode_item.setCurrentText(switchport_mode)
-                #switchport_mode_item.setBackground(QBrush(QColor(bg_color)))
-                #switchport_mode_item.setToolTip(tooltip)
                 vlan_interface_table.setCellWidget(row, 4, switchport_mode_item)
                 # VLANs
                 vlan = interface_data["vlan_data"].get('vlan', None)
                 vlan_item = QLineEdit()
                 vlan_item.editingFinished.connect(lambda row=row, vlan_item=vlan_item: self.vlanChanged(device, row, vlan_item))
-                
                 if switchport_mode == None:
                     vlan = ""
                     vlan_item.setEnabled(False)
@@ -271,8 +314,6 @@ class EditVlansDialog(QDialog):
                     vlan = ", ".join(vlan)
                     vlan_item.setEnabled(True)
                 vlan_item.setText(vlan)
-                #vlans_item.setBackground(QBrush(QColor(bg_color)))
-                #vlans_item.setToolTip(tooltip)
                 vlan_interface_table.setCellWidget(row, 5, vlan_item)
 
         return(vlan_interface_table)
@@ -308,11 +349,18 @@ class EditVlansDialog(QDialog):
         self.edited_devices[device.id][interface]['vlan_data']['vlan'] = new_vlans
         self.edited_devices[device.id][interface]['flag'] = "uncommited"
 
-    def addVlan(self, device, vlan_id):
-        pass
+    def addVlan(self, device, vlan_id, vlan_name):
+        #TODO: check for duplicate
+        device.addVlan(vlan_id, vlan_name)
+        self._addVlanToTable(vlan_id, vlan_name)
 
     def confirmEdit(self):
         for device in self.devices:
             uncommited_interfaces = {k: v for k, v in self.edited_devices[device.id].items() if v['flag'] == "uncommited"}
+            if not uncommited_interfaces:
+                continue
             device.deleteInterfaceVlan(uncommited_interfaces)
             device.setInterfaceVlan(uncommited_interfaces)
+
+            device.interfaces = copy.deepcopy(self.edited_devices[device.id])
+        self.accept()

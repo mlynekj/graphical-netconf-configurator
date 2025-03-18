@@ -167,9 +167,9 @@ def getTooltipFromFlag(flag):
     if flag == "commited":
         return ""
     elif flag == "uncommited":
-        return "This device has some IP addresses in the candidate datastore, which are not yet active. The changes will be put into effect after commit."
+        return "This configuration is not yet active. The changes will be put into effect after commit."
     elif flag == "deleted":
-        return "This device has some IP addresses set for deletion. The deletion will be put into effect after commit."
+        return "This configuration has been set for deletion. The deletion will be put into effect after commit."
     
 def populateTreeWidget(tree_widget, xml_root):
         """

@@ -1,0 +1,13 @@
+<config>
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+	<vlan>
+	  <configuration xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-vlan">
+		<vlan-id></vlan-id>
+	  </configuration>
+	  <vlan-list xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-vlan">
+		<id></id>
+		<name></name>
+	  </vlan-list>
+	</vlan>
+  </native>
+</config>

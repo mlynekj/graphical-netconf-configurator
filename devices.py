@@ -557,7 +557,6 @@ class Switch(Device):
 
         self.vlans = self.getVlans()
 
-
     def getVlans(self):
         try:
             vlan_data, rpc_reply = vlan.getVlansWithNetconf(self)
@@ -568,8 +567,17 @@ class Switch(Device):
             utils.printGeneral(traceback.format_exc())
             return None
 
-    def addVlan(self):
-        pass
+    def addVlan(self, vlan_id, vlan_name):
+        try:
+            rpc_reply, filter = vlan.addVlanWithNetconf(self, vlan_id, vlan_name)
+            utils.addPendingChange(self, f"Add VLAN", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Add VLAN", self)
+            self.vlans[vlan_id] = {"name": vlan_name}
+        except Exception as e:
+            utils.printGeneral(f"Error addin VLAN: {e}")
+            utils.printGeneral(traceback.format_exc())
+            return None
+
 
     def deleteInterfaceVlan(self, interfaces):
         try:

@@ -2,6 +2,17 @@
     "devices": [
         {
             "type": "IOSXESwitch",
+            "ip_address": "172.16.10.72:830",
+            "username": "jakub",
+            "password": "cisco",
+            "vendor": "iosxe",
+            "location": {
+                "x": -201.0,
+                "y": 2.0
+            }
+        },
+        {
+            "type": "IOSXESwitch",
             "ip_address": "172.16.10.71:830",
             "username": "jakub",
             "password": "cisco",
