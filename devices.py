@@ -571,7 +571,13 @@ class Switch(Device):
         pass
 
     def configureInterfaceVlan(self):
-        pass
+        try:
+            rpc_reply, filter = vlan.configureInterfaceVlanWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
+            utils.addPendingChange(self, f"Configure VLANs on interfaces", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Configure VLANs on interfaces", self)
+        except Exception as e:
+            utils.printGeneral(f"Error configuring VLANs on device {self.id}: {e}")
+            utils.printGeneral(traceback.format_exc())
 
 class Firewall(Router):
     _device_type = "fw"

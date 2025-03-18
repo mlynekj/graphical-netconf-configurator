@@ -71,6 +71,13 @@ def getInterfacesWithNetconf(device):
             description_element = interface_element.find('../config/description')
             description = interface_element.find('../config/description').text if description_element is not None else None
 
+            
+            interfaces[name] = {
+                'admin_status': admin_status,
+                'oper_status': oper_status,
+                'description': description,
+            }
+            
             subinterfaces = {}
             subinterface_indexes = interface_element.xpath('../subinterfaces/subinterface/index')
             for subinterface_index in subinterface_indexes:
@@ -82,18 +89,13 @@ def getInterfacesWithNetconf(device):
                     'ipv4_data': ipv4_data,
                     'ipv6_data': ipv6_data
                 }
+            interfaces[name]["subinterfaces"] = subinterfaces
 
-            interfaces[name] = {
-                'admin_status': admin_status,
-                'oper_status': oper_status,
-                'description': description,
-                'subinterfaces': subinterfaces
-            }
-
-            # If the device has VLAN capabilites, get VLAN data
+            # if the device has VLAN capabilites TODO: change to more robust - create a flag in the class? - do this for all the other features (isL2Device, isL3Device?)
             if hasattr(device, "addVlan") and hasattr(device, "configureInterfaceVlan"):
                 vlan_data = extractVlanDataFromInterface(interface_element)
                 interfaces[name]["vlan_data"] = vlan_data
+                interfaces[name]["flag"] = "commited"
 
     return(interfaces, rpc_reply)
 
@@ -123,6 +125,9 @@ def extractVlanDataFromInterface(interface_element):
             elif vlan_data["switchport_mode"] == "trunk":
                 vlans = vlan_element.findall('trunk-vlans')
                 vlan_data["vlan"] = [vlan.text for vlan in vlans] if vlans is not None else None
+    else:
+        vlan_data["switchport_mode"] = None
+        vlan_data["vlan"] = None
 
     return vlan_data
 

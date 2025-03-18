@@ -34,21 +34,20 @@ from PySide6.QtCore import Qt, QSize, Slot
 from PySide6.QtGui import QFont, QGuiApplication, QAction, QBrush, QColor
 
 import ipaddress
+import copy
 
 
 from ui.ui_editvlansdialog import Ui_edit_vlans_dialog
 
 # ---------- OPERATIONS: ----------
 def getVlansWithNetconf(device) -> dict:
-    device_type = device.device_parameters['device_params']
-
-    if device_type == 'iosxe':
+    if device.device_parameters['device_params'] == 'iosxe':
         # FILTER
         filter = CiscoIOSXEVlan_Get_GetVlanList_Filter()
 
         # RPC
         rpc_reply = device.mngr.get(str(filter))
-        rpc_reply_etree = utils.convertToEtree(rpc_reply, device_type)
+        rpc_reply_etree = utils.convertToEtree(rpc_reply, device.device_parameters['device_params'])
 
         # PARSE
         vlans = {}
@@ -61,11 +60,13 @@ def getVlansWithNetconf(device) -> dict:
                 'name': name.text if name is not None else '',
             }
 
-    if device_type == 'junos':
+    if device.device_parameters['device_params'] == 'junos':
         raise NotImplementedError("Junos VLANs not implemented")
 
     return(vlans, rpc_reply)
 
+def configureInterfaceVlanWithNetconf(device, interfaces: dict):
+    pass
 
 # ---------- FILTERS: ----------
 class CiscoIOSXEVlan_Get_GetVlanList_Filter(GetFilter):
@@ -79,6 +80,7 @@ class EditVlansDialog(QDialog):
         super().__init__()
 
         self.devices = devices
+        self.edited_devices = {}
 
         self.ui = Ui_edit_vlans_dialog()
         self.ui.setupUi(self)
@@ -88,8 +90,12 @@ class EditVlansDialog(QDialog):
         self.ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.close)
 
         for device in self.devices:
-
+            #self.edited_devices[device.id] = device.interfaces.copy()
+            self.edited_devices[device.id] = copy.deepcopy(device.interfaces)
             self.ui.devices_tab_widget.addTab(self.createDeviceTab(device), device.hostname)
+            
+            
+            print(self.edited_devices)
 
     def createDeviceTab(self, device):
         tab = QWidget()
@@ -155,7 +161,7 @@ class EditVlansDialog(QDialog):
                                                         'Switchport mode',
                                                         'VLAN/s'])
         vlan_interface_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        for row, (interface_element, interface_data) in enumerate(device.interfaces.items()):      
+        for row, (interface_element, interface_data) in enumerate(self.edited_devices[device.id].items()):      
                 admin_state = interface_data.get('admin_status', "N/A")
                 oper_state = interface_data.get('oper_status', "N/A")
                 description = interface_data.get('description', "N/A")
@@ -179,26 +185,30 @@ class EditVlansDialog(QDialog):
                 #oper_state_item.setToolTip(tooltip)
                 vlan_interface_table.setItem(row, 2, oper_state_item)
                 # Description
-                description_item = QTableWidgetItem(description)
+                description_item = QTableWidgetItem(self.edited_devices[device.id][interface_element]["description"])
                 description_item.setFlags(oper_state_item.flags() ^ Qt.ItemIsEditable)
                 #description_item.setBackground(QBrush(QColor(bg_color)))
                 #description_item.setToolTip(tooltip)
                 vlan_interface_table.setItem(row, 3, description_item)
                 # Switchport mode
-                switchport_mode = interface_data["vlan_data"].get('switchport_mode', " ")
+                switchport_mode = interface_data["vlan_data"].get('switchport_mode', None)
                 switchport_mode_item = QComboBox()
                 switchport_mode_item.activated.connect(lambda index, row=row, switchport_item=switchport_mode_item: self.switchportModeChanged(device, row, switchport_item))
                 switchport_mode_item.addItems(["access", "trunk", " "])
-                switchport_mode_item.setCurrentText(switchport_mode)
+                if switchport_mode == None:
+                    switchport_mode_item.setCurrentText(" ")
+                else:
+                    switchport_mode_item.setCurrentText(switchport_mode)
                 #switchport_mode_item.setBackground(QBrush(QColor(bg_color)))
                 #switchport_mode_item.setToolTip(tooltip)
                 vlan_interface_table.setCellWidget(row, 4, switchport_mode_item)
                 # VLANs
-                vlan = interface_data["vlan_data"].get('vlan', " ")
+                vlan = interface_data["vlan_data"].get('vlan', None)
                 vlan_item = QLineEdit()
                 vlan_item.editingFinished.connect(lambda row=row, vlan_item=vlan_item: self.vlanChanged(device, row, vlan_item))
                 
-                if switchport_mode == " ":
+                if switchport_mode == None:
+                    vlan = ""
                     vlan_item.setEnabled(False)
                 elif switchport_mode == "access":
                     vlan = vlan
@@ -222,15 +232,15 @@ class EditVlansDialog(QDialog):
         if old_mode == new_mode:
             return
         
-        if old_mode == "trunk":
-            pass
-            # pred pridanim novych vlan, vsechny vlany z rozhrani smazat
-        elif old_mode == "access":
-            pass
-            # pred pridanim novych vlan, vlan z rozhrani smazat (teoreticky nemusi byt rozdil mezi trunk a access mazanim vlan, ale nwm)
-        
-        self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setEnabled(True)
-        self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setText(" ") # when changing mode, clear the VLANs field)
+        if new_mode == "access" or new_mode == "trunk":
+            self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setEnabled(True)
+            self.edited_devices[device.id][interface]['vlan_data']['switchport_mode'] = new_mode
+        else:
+            self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setEnabled(False)
+            self.edited_devices[device.id][interface]['vlan_data']['switchport_mode'] = None
+        self.edited_devices[device.id][interface]['flag'] = "uncommited"
+        self.edited_devices[device.id][interface]['vlan_data']['vlan'] = "" # when changing mode, clear the VLANs field
+        self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setText(" ") # when changing mode, clear the VLANs field
 
     def vlanChanged(self, device, row, vlan_item):
         interface_item = self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).item(row, 0)
@@ -238,14 +248,16 @@ class EditVlansDialog(QDialog):
         old_vlans = device.interfaces[interface]['vlan_data'].get('vlan', None)
         new_vlans = vlan_item.text()
 
-        print(old_vlans, new_vlans)
-
         if old_vlans == new_vlans:
             return
-        
+
+        self.edited_devices[device.id][interface]['vlan_data']['vlan'] = new_vlans
+        self.edited_devices[device.id][interface]['flag'] = "uncommited"
 
     def addVlan(self, device, vlan_id):
         pass
 
     def confirmEdit(self):
-        pass
+        for device in self.devices:
+            uncommited_interfaces = {k: v for k, v in self.edited_devices[device.id].items() if v['flag'] == "uncommited"}
+            device.configureInterfaceVlan(uncommited_interfaces)
