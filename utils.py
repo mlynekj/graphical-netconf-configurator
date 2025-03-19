@@ -2,13 +2,15 @@
 # Standard library
 from lxml import etree as ET
 from datetime import datetime
+
+# Custom modules
 from signals import signal_manager
 
 # Qt
 from PySide6.QtWidgets import QTreeWidgetItem
 
 # ---------- HELPER FUNCTIONS: ----------
-def clearLayout(layout):
+def clearLayout(layout) -> None:
     """
     Recursively clears all widgets and layouts from the given layout.
     
@@ -16,6 +18,7 @@ def clearLayout(layout):
         layout (QLayout): The layout to be cleared. This can be any type of QLayout, 
                           such as QVBoxLayout, QHBoxLayout, QGridLayout, etc.
     """
+
     while layout.count():
         item = layout.takeAt(0)
         widget = item.widget()
@@ -26,7 +29,7 @@ def clearLayout(layout):
             if sub_layout is not None:
                 clearLayout(sub_layout)
 
-def removeXmlns(element):
+def removeXmlns(element) -> None:
     """
     Removes all namespace declarations from an XML element and its children.
 
@@ -40,7 +43,7 @@ def removeXmlns(element):
         for child in element:
             removeXmlns(child)
 
-def convertToEtree(rpc_reply, device_type, strip_namespaces=True):
+def convertToEtree(rpc_reply, device_type, strip_namespaces=True) -> ET.Element:
     """
     Converts the RPC reply to an ElementTree object.
 
@@ -78,7 +81,7 @@ def convertToEtree(rpc_reply, device_type, strip_namespaces=True):
 
     return(rpc_reply_etree) # returns the root node (https://lxml.de/apidoc/lxml.etree.html#lxml.etree.fromstring)
 
-def prettyXml(input):
+def prettyXml(input) -> str:
     """
     Converts an XML input into a pretty-printed XML string.
     
@@ -101,7 +104,7 @@ def prettyXml(input):
 
     return (xml_pretty)
 
-def printRpc(rpc_reply, action, device: object):
+def printRpc(rpc_reply, action, device: object) -> None:
     """
     Prints the RPC reply in a formatted manner along with a timestamp, action, and device information.
     
@@ -131,7 +134,7 @@ def printRpc(rpc_reply, action, device: object):
     )
     print(message)
 
-def printGeneral(message):
+def printGeneral(message) -> None:
     """
     Prints a message with a timestamp.
     
@@ -146,7 +149,7 @@ def printGeneral(message):
     )
     print(message)
 
-def addPendingChange(device, pending_change_name, rpc_reply=None, filter=None):
+def addPendingChange(device, pending_change_name, rpc_reply=None, filter=None) -> None:
     """
     This function marks the device as having pending changes and emits a signal
     to notify that a pending change has been added. The signal is then used to add the pending change to the PendingChangesWidget.
@@ -159,7 +162,7 @@ def addPendingChange(device, pending_change_name, rpc_reply=None, filter=None):
     signal_manager.pendingChangeAdded.emit(device.id, pending_change_name, prettyXml(rpc_reply), prettyXml(filter))
     device.has_pending_changes = True
 
-def getBgColorFromFlag(flag):
+def getBgColorFromFlag(flag) -> str:
     if flag == "commited":
         return "white"
     elif flag == "uncommited":
@@ -167,7 +170,7 @@ def getBgColorFromFlag(flag):
     elif flag == "deleted":
         return "red"
 
-def getTooltipFromFlag(flag):
+def getTooltipFromFlag(flag) -> str:
     if flag == "commited":
         return ""
     elif flag == "uncommited":
@@ -175,7 +178,7 @@ def getTooltipFromFlag(flag):
     elif flag == "deleted":
         return "This configuration has been set for deletion. The deletion will be put into effect after commit."
     
-def populateTreeWidget(tree_widget, xml_root):
+def populateTreeWidget(tree_widget, xml_root) -> None:
         """
         Populates the QTreeWidget with items from the given XML root.
         This method clears the current items in the tree widget and 
@@ -190,7 +193,7 @@ def populateTreeWidget(tree_widget, xml_root):
         else:
             tree_widget.setHeaderLabels(["No data found!"])
 
-def addTreeItems(parent, element):
+def addTreeItems(parent, element) -> None:
     """
     Recursively adds tree items to a QTreeWidget.
     Args:
@@ -206,7 +209,7 @@ def addTreeItems(parent, element):
     if element.text and element.text.strip():
         QTreeWidgetItem(item, [element.text.strip()])
 
-def getFirstIPAddressesFromSubinterfaces(subinterfaces):
+def getFirstIPAddressesFromSubinterfaces(subinterfaces) -> tuple:
         """
         Retrieves the first IPv4 and IPv6 addresses from a list of subinterfaces.
         Args:
