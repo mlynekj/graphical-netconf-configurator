@@ -297,12 +297,12 @@ def editDescriptionWithNetconf(device, interface_element, description) -> tuple:
 
 # ---------- FILTERS: ----------
 class OpenconfigInterfaces_Get_GetAllInterfaces_Filter(GetFilter):
-    def __init__(self):
+    def __init__(self) -> None:
         self.filter_xml = ET.parse(INTERFACES_YANG_DIR + "openconfig-interfaces_get_get-all-interfaces.xml")
 
 
 class OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(EditconfigFilter):
-    def __init__(self, interface, subinterface_index, ip, delete_ip=False):
+    def __init__(self, interface, subinterface_index, ip, delete_ip=False) -> None:
         self.interface = interface
         self.subinterface_index = subinterface_index
         self.ip = ip
@@ -336,7 +336,7 @@ class OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(EditconfigFilter):
         elif self.ip.version == 6:
             self.createIPV6Filter()
 
-    def createIPV4Filter(self):
+    def createIPV4Filter(self) -> None:
         ipvX_element = self.filter_xml.findall(".//oc-ip:ipvX", self.namespaces)
         for ipvX in ipvX_element: # Opening and closing tags
             ipvX.tag = ipvX.tag.replace("ipvX", "ipv4")
@@ -352,7 +352,7 @@ class OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(EditconfigFilter):
         prefix_length_element = address_element.find(".//oc-ip:prefix-length", self.namespaces)
         prefix_length_element.text = str(self.ip.network.prefixlen)
 
-    def createIPV6Filter(self):
+    def createIPV6Filter(self) -> None:
         ipvX_element = self.filter_xml.findall(".//oc-ip:ipvX", self.namespaces)
         for ipvX in ipvX_element: # Opening and closing tags
             ipvX.tag = ipvX.tag.replace("ipvX", "ipv6")
@@ -370,7 +370,7 @@ class OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(EditconfigFilter):
 
 
 class OpenconfigInterfaces_Editconfig_AddInterface_Filter(EditconfigFilter):
-    def __init__(self, interface_id, interface_type):
+    def __init__(self, interface_id, interface_type) -> None:
         self.interface_id = interface_id
         self.interface_type = interface_type
 
@@ -391,7 +391,7 @@ class OpenconfigInterfaces_Editconfig_AddInterface_Filter(EditconfigFilter):
 
 
 class OpenconfigInterfaces_Editconfig_EditDescription_Filter(EditconfigFilter):
-    def __init__(self, interface_element, description):
+    def __init__(self, interface_element, description) -> None:
         self.filter_xml = ET.parse(INTERFACES_YANG_DIR + "openconfig-interfaces_editconfig_edit_description.xml")
         self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces'}
 
@@ -421,7 +421,7 @@ class DeviceInterfacesDialog(QDialog):
             Refreshes the device's interface list by retrieving the latest data from the device.
     """
 
-    def __init__(self, device):
+    def __init__(self, device) -> QDialog:
         super().__init__()
 
         self.device = device
@@ -434,7 +434,7 @@ class DeviceInterfacesDialog(QDialog):
         self.ui.refresh_button.clicked.connect(self.refreshInterfaces)
         self.fillLayout()
 
-    def fillLayout(self):
+    def fillLayout(self) -> None:
         """Fills the layout of the dialog with the interfaces of the device."""
 
         # Retrieve the interfaces from the device
@@ -515,7 +515,7 @@ class DeviceInterfacesDialog(QDialog):
             self.ui.interfaces_table.setColumnCount(1)
             self.ui.interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
 
-    def showDialog(self):
+    def showDialog(self) -> None:
         """Opens a dialog for editing the selected interface."""
 
         button = self.sender()
@@ -526,13 +526,13 @@ class DeviceInterfacesDialog(QDialog):
         dialog = EditInterfaceDialog(self, self.device, interface_id)
         dialog.exec()
 
-    def refreshDialog(self):
+    def refreshDialog(self) -> None:
         """Clears and repopulates the interface table."""
 
         self.ui.interfaces_table.clear()
         self.fillLayout()
 
-    def showAddInterfaceDialog(self):
+    def showAddInterfaceDialog(self) -> None:
         """Opens a dialog for adding a new interface and refreshes the table afterward."""
 
         try:
@@ -540,7 +540,7 @@ class DeviceInterfacesDialog(QDialog):
         finally:
             self.refreshDialog()
 
-    def refreshInterfaces(self):
+    def refreshInterfaces(self) -> None:
         """
         Refreshes the device.interfaces list by retrieving new list from the device. Usefull for refreshing the dialog when waiting for the interface to come up.
         Cannot be launched when the device has pending changes, because the changes would be lost.
@@ -580,7 +580,7 @@ class EditInterfaceDialog(QDialog):
             Clears and repopulates the layout to reflect updated data.
         """
 
-    def __init__(self, instance, device, interface_id):
+    def __init__(self, instance, device, interface_id) -> QDialog:
         super().__init__()
 
         self.ui = Ui_edit_interface_dialog()
@@ -617,7 +617,7 @@ class EditInterfaceDialog(QDialog):
 
         self.fillLayout()
 
-    def fillLayout(self):
+    def fillLayout(self) -> None:
         """Populates the dialog layout with subinterface group boxes and tables."""
 
         # Get subinterfaces, create a layout for each subinterface containg: Header, Table
@@ -642,7 +642,7 @@ class EditInterfaceDialog(QDialog):
             subinterface_groupbox.setLayout(subinterface_groupbox_layout)
             self.ui.tables_layout.addWidget(subinterface_groupbox)
 
-    def createSubinterfaceTable(self, subinterface_index, subinterface_data):
+    def createSubinterfaceTable(self, subinterface_index, subinterface_data) -> None:
         """Creates a QTableWidget for displaying IP addresses of a subinterface."""
 
         # Create the table, set basic properties
@@ -715,19 +715,19 @@ class EditInterfaceDialog(QDialog):
             row += 1
         return subinterface_table
     
-    def deleteIP(self, subinterface_index, old_ip):
+    def deleteIP(self, subinterface_index, old_ip) -> None:
         """Deletes an IP address from a subinterface and refreshes the dialog."""
         
         self.device.deleteInterfaceIP(self.interface_id, subinterface_index, old_ip)
         self.refreshDialog()
 
-    def closeEvent(self, event):
+    def closeEvent(self, event) -> None:
         """ Refresh the parent dialog when this dialog is closed. """
         
         self.instance.refreshDialog()
         super().closeEvent(event)
 
-    def changeSecurityZone(self, security_zone):
+    def changeSecurityZone(self, security_zone) -> None:
         """Changes the security zone of the interface. Used for Juniper SRX."""
 
         if self.device.interfaces[self.interface_id].get("security_zone", None) is not None: # if the interface already has a security zone assigned, remove it first before assigning a new onw
@@ -739,7 +739,7 @@ class EditInterfaceDialog(QDialog):
         elif result == False:
             QMessageBox.warning(self, "Warning", f"Failed to change the security zone for interface {self.interface_id}.")  
 
-    def changeDescription(self, description):
+    def changeDescription(self, description) -> None:
         """Updates the description of the interface."""
 
         old_description = self.device.interfaces[self.interface_id].get("description", None)
@@ -759,13 +759,13 @@ class EditInterfaceDialog(QDialog):
         elif result == False:
             QMessageBox.warning(self, "Warning", f"Failed to change the description for interface {self.interface_id}.")
 
-    def showDialog(self, subinterface_index, ip = None):
+    def showDialog(self, subinterface_index, ip = None) -> None:
         """Opens a dialog for editing or adding a subinterface or IP address."""
 
         self.editSubinterfaceDialog = EditSubinterfaceDialog(self, self.device, self.interface_id, subinterface_index, ip)
         self.editSubinterfaceDialog.exec()
 
-    def refreshDialog(self):
+    def refreshDialog(self) -> None:
         """Clears and repopulates the layout to reflect updated data."""
 
         utils.clearLayout(self.ui.tables_layout)
@@ -783,7 +783,7 @@ class EditSubinterfaceDialog(QDialog):
             Validates the IP address, updates the device configuration, and refreshes the parent dialog.
     """
 
-    def __init__(self, editInterfaceDialog_instance, device, interface, subinterface_id, ip = None):
+    def __init__(self, editInterfaceDialog_instance, device, interface, subinterface_id, ip = None) -> QDialog:
         super().__init__()
 
         self.editInterfaceDialog_instance = editInterfaceDialog_instance
@@ -839,7 +839,7 @@ class EditSubinterfaceDialog(QDialog):
 
         self.setLayout(self.layout)
 
-    def confirmEdit(self):
+    def confirmEdit(self) -> None:
         """Handles the confirmation of the edit or creation of the subinterface."""
 
         # Creating "new_ip" object (IPv4Interface or IPv6Interface)
@@ -891,7 +891,7 @@ class AddInterfaceDialog(QDialog):
             Checks if the interface name adheres to the expected format for the selected type.
     """
     
-    def __init__(self, device):
+    def __init__(self, device) -> QDialog:
         super().__init__()
 
         self.device = device
@@ -911,9 +911,7 @@ class AddInterfaceDialog(QDialog):
 
     @Slot()
     def changePlaceholderInterfaceName(self):
-        """
-        Give a hint to the user about the interface name format based on the selected interface type.
-        """
+        """Give a hint to the user about the interface name format based on the selected interface type."""
 
         interface_type = self.ui.interface_type_combobox.currentText()
         if interface_type == "Loopback":
@@ -924,7 +922,9 @@ class AddInterfaceDialog(QDialog):
         else:
             self.ui.interface_name_input.setPlaceholderText("-")
 
-    def confirmAdd(self):
+    def confirmAdd(self) -> None:
+        """Handles the confirmation of the addition of a new interface."""
+
         interface_name = self.ui.interface_name_input.text()
         interface_type = self.ui.interface_type_combobox.currentText()
 
@@ -948,5 +948,7 @@ class AddInterfaceDialog(QDialog):
                 return
 
     def checkValidInterfaceName(self, name, checked_name):
+        """Checks if the interface name adheres to the expected format for the selected type."""
+        
         if name.startswith(checked_name):
             return True
