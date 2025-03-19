@@ -79,9 +79,12 @@ class IetfRouting_Get_GetRoutingState_Filter(GetFilter):
 # ---------- DEVICE CLASSES: ----------
 # GENERAL CLASSES
 class Device(QGraphicsPixmapItem):
-    _counter = 0 # Used to generate device IDs
     _registry = {} # Used to store device instances
     _device_type = "dv"
+
+    is_ospf_capable = False
+    is_ipsec_capable = False
+    is_vlan_capable = False
     
     def __init__(self, device_parameters, x=0, y=0):
         """
@@ -114,7 +117,6 @@ class Device(QGraphicsPixmapItem):
         self.has_updated_hostname = False
 
         # ID
-        type(self)._counter += 1
         self.id = self._generateID()
 
         # DEVICE INFORMATION
@@ -161,9 +163,6 @@ class Device(QGraphicsPixmapItem):
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
     
         return(netconf.getNetconfCapabilities(self))
-
-    def _generateID(self):
-        return(type(self)._device_type + str(type(self)._counter))
 
     def _deleteDevice(self):
         rpc_reply = netconf.demolishNetconfConnection(self) # Disconnect from NETCONF server
@@ -435,6 +434,22 @@ class Device(QGraphicsPixmapItem):
     
     # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod
+    def _generateID(cls):
+        base_class = cls._getBaseClass()
+        base_class._counter += 1
+        return(f"{base_class._device_type}{base_class._counter}")
+    
+    @classmethod
+    def _getBaseClass(cls):
+        """
+        Get the base class of the current class (e.g., Router, Switch, Firewall).
+        """
+        for base in cls.__bases__:
+            if issubclass(base, Device) and base is not Device:
+                return base
+        return cls
+   
+    @classmethod
     def getDeviceInstance(cls, device_id):
         return cls._registry.get(device_id)
     
@@ -450,7 +465,11 @@ class Device(QGraphicsPixmapItem):
     
 class Router(Device):
     _device_type = "rt"
-    isL3Device = True
+    _counter = 0
+
+    is_ospf_capable = True
+    is_ipsec_capable = False # Cisco routers are capable, Juniper routers are not
+    is_vlan_capable = False
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -529,7 +548,11 @@ class Router(Device):
 
 class Switch(Device):
     _device_type = "sw"
-    isL2Device = True
+    _counter = 0
+    
+    is_ospf_capable = False
+    is_ipsec_capable = False
+    is_vlan_capable = True
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -582,7 +605,9 @@ class Switch(Device):
 
 class Firewall(Router):
     _device_type = "fw"
-    isL3Device = True
+    _counter = 0
+
+    is_security_zone_capable = False
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
@@ -595,6 +620,8 @@ class Firewall(Router):
 
 # VENDOR-SPECIFIC CLASSES
 class IOSXERouter(Router):
+    is_ipsec_capable = True
+
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
 
@@ -611,6 +638,8 @@ class IOSXERouter(Router):
 
 
 class JUNOSRouter(Router):
+    is_ipsec_capable = False
+
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
 
@@ -622,6 +651,9 @@ class IOSXESwitch(Switch):
 
 
 class JUNOSFirewall(Firewall):
+    is_ipsec_capable = True
+    is_security_zone_capable = True
+
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
 
