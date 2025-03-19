@@ -51,7 +51,9 @@ from PySide6.QtCore import Qt, QRectF
 # QtCreator
 from ui.ui_pendingchangedetailsdialog import Ui_PendingChangeDetailsDialog
 
+
 sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
+
 
 # ---------- QT CLASSES----------
 class MainView(QGraphicsView):
@@ -62,7 +64,7 @@ class MainView(QGraphicsView):
         "normal": None
     }
 
-    def __init__(self):
+    def __init__(self) -> QGraphicsView:
         super().__init__()
 
         self.scene = QGraphicsScene()
@@ -74,7 +76,23 @@ class MainView(QGraphicsView):
         self._loadCursors()
 
     @contextmanager
-    def generateClonedScene(self, used_for = "OSPF"):
+    def generateClonedScene(self, used_for = "OSPF") -> QGraphicsScene: # type: ignore
+        """
+        Generates a cloned QGraphicsScene containing selected devices and their connections.
+        This method clones the selected items from the current scene into a new QGraphicsScene.
+        It supports cloning devices and their associated cables, ensuring that only connections
+        between the cloned devices are included. The cloned scene is designed to be used in
+        specific contexts, such as OSPF configuration.
+        Args:
+            used_for (str): Specifies the purpose of the cloned scene. Defaults to "OSPF".
+                            Currently, it determines the type of cloned devices to create.
+        Yields:
+            QGraphicsScene: A new scene containing the cloned devices and their connections.
+        Notes:
+            - The method uses a context manager to ensure that the cloned scene is properly
+                cleared and all items are removed when the context is exited.
+        """
+
         selected_items = self.scene.selectedItems()
         if not selected_items:
             yield(None)
@@ -85,7 +103,7 @@ class MainView(QGraphicsView):
         cloned_devices_ids = []
         device_id_map = {}
 
-        # Create cloned devices, based selection
+        # Create cloned devices, based on selection
         for item in selected_items:
             if isinstance(item, Device):
                 if used_for == "OSPF":
@@ -120,22 +138,50 @@ class MainView(QGraphicsView):
                 cloned_scene.removeItem(item)
             cloned_scene.clear()
 
-
-
     # ---------- MOUSE BEHAVIOUR AND APPEREANCE FUNCTIONS ----------         
-    def _loadCursors(self):
+    def _loadCursors(self) -> None:
+        """Loads custom cursors for different modes defined in the CURSOR_MODES dictionary."""
+
         self.cursors = {
             mode: QCursor(QPixmap(cursor_path)) if cursor_path else None
             for mode, cursor_path in self.CURSOR_MODES.items()
         }
 
-    def _changeCursor(self, mode):
+    def _changeCursor(self, mode) -> None:
+        """
+        Changes the cursor of the application based on the specified mode.
+        Args:
+            mode (str): The mode for which the cursor should be changed. 
+                        It should be a key in the `self.cursors` dictionary.
+        Behavior:
+            - If the specified mode exists in `self.cursors` and has a valid cursor, 
+              the cursor is set to the corresponding value.
+            - If the mode is not found or has no valid cursor, the cursor defaults 
+              to the standard arrow cursor (Qt.ArrowCursor).
+        """
+
         if mode in self.cursors and self.cursors[mode]:
             self.setCursor(self.cursors[mode])
         else:
             self.setCursor(Qt.ArrowCursor)
 
-    def changeMouseBehaviour(self, cursor=None, mouse_press_event=None, mouse_move_event=None, mouse_release_event=None, tracking: bool = None):
+    def changeMouseBehaviour(self, cursor=None, mouse_press_event=None, mouse_move_event=None, mouse_release_event=None, tracking: bool = None) -> None:
+        """
+        Modifies the behavior of the mouse within the scene by updating the cursor, 
+        mouse event handlers, and mouse tracking settings.
+        Args:
+            cursor (QCursor, optional): The cursor to be displayed. If provided, 
+                it updates the current cursor.
+            mouse_press_event (function, optional): A custom function to handle 
+                mouse press events. If provided, it replaces the default handler.
+            mouse_move_event (function, optional): A custom function to handle 
+                mouse move events. If provided, it replaces the default handler.
+            mouse_release_event (function, optional): A custom function to handle 
+                mouse release events. If provided, it replaces the default handler.
+            tracking (bool, optional): Enables or disables mouse tracking. If True, 
+                mouse tracking is enabled; otherwise, it is disabled.
+        """
+
         if cursor: 
             self._changeCursor(cursor)
         if mouse_press_event: 
@@ -147,21 +193,45 @@ class MainView(QGraphicsView):
         if tracking:
             self.setMouseTracking(tracking)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event) -> None:
+        """
+        Handles the mouse press event for the widget.
+        This method is triggered when a mouse button is pressed within the widget.
+        If the left mouse button is pressed, it removes any existing rubber band
+        selection and creates a new rubber band starting at the mouse event's position.
+        """
+
         if event.button() == Qt.LeftButton:
             self._removeRubberBand()
             self._createRubberBand(event)    
 
         super().mousePressEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event) -> None:
+        """
+        Handles the mouse release event.
+        This method is triggered when the mouse button is released. If a rubber band
+        selection is active, it processes the selection using the `_makeSelectionWithRubberBand`
+        method. It also resets the starting position of the mouse drag and ensures
+        the parent class's `mouseReleaseEvent` is called.
+        """
+
         if self.rubber_band:
             self._makeSelectionWithRubberBand(event)
 
         self.start_pos = None
         super().mouseReleaseEvent(event)
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event) -> None:
+        """
+        Handles the mouse move event within the application.
+        This method performs the following actions:
+        1. Updates the rubber band selection rectangle if it exists, the starting position is set,
+           no items are selected in the scene, and the cable mode button is not checked.
+        2. Updates the cable positions for all selected items in the scene that are instances of the `Device` class.
+        3. Calls the parent class's `mouseMoveEvent` to ensure default behavior is preserved.
+        """
+
         if self.rubber_band and self.start_pos:
             if not self.scene.selectedItems() and not self.window()._cableModeButtonIsChecked():
                 self._updateRubberBand(event)
@@ -173,23 +243,51 @@ class MainView(QGraphicsView):
         super().mouseMoveEvent(event)
         
     # ---------- RUBBER BAND FUNCTIONS ---------- 
-    def _createRubberBand(self, event):
+    def _createRubberBand(self, event) -> None:
+        """
+        Initializes and creates a rubber band selection rectangle on the scene.
+        This method is triggered by a mouse event and is used to create a 
+        rectangular selection area (rubber band) on the scene. It sets the 
+        starting position of the selection based on the mouse event, creates 
+        a QGraphicsRectItem to represent the rubber band, and adds it to the scene.
+        """
+        
         self.start_pos = self.mapToScene(event.position().toPoint())
         self.rubber_band = QGraphicsRectItem()
         self.rubber_band.setPen(QPen(Qt.DashLine))
         self.scene.addItem(self.rubber_band)
     
-    def _removeRubberBand(self):
+    def _removeRubberBand(self) -> None:
+        """
+        Removes the rubber band item from the scene if it exists.
+        This method checks if a rubber band item is currently present.
+        If it exists, the method removes it from the scene and sets
+        the `rubber_band` attribute to None.
+        """
+
         if self.rubber_band:
             self.scene.removeItem(self.rubber_band)
             self.rubber_band = None
 
-    def _updateRubberBand(self, event):
+    def _updateRubberBand(self, event) -> None:
+        """
+        Updates the rubber band rectangle based on the current mouse position.
+        This method is typically called during a mouse drag event to dynamically
+        adjust the size and position of the rubber band selection rectangle.
+        """
+
         current_pos = self.mapToScene(event.position().toPoint())
         rect = QRectF(self.start_pos, current_pos).normalized()
         self.rubber_band.setRect(rect)
 
-    def _makeSelectionWithRubberBand(self, event):
+    def _makeSelectionWithRubberBand(self, event) -> None:
+        """
+        Handles the selection of items within a rectangular area defined by a rubber band.
+        This method finalizes the selection process by determining the rectangular area
+        created by the rubber band, removing the rubber band from the scene, and selecting
+        all items within the rectangle.
+        """
+        
         rect = self.rubber_band.rect()
         self.scene.removeItem(self.rubber_band)
         self.rubber_band = None
@@ -201,8 +299,7 @@ class MainView(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
-
-    def __init__(self):
+    def __init__(self) -> QMainWindow:
         super().__init__()
 
         self.setWindowTitle("Netconf Configurator")
@@ -230,7 +327,8 @@ class MainWindow(QMainWindow):
         self.pendigChangesDockWidget = PendingChangesWidget()
         self.addDockWidget(Qt.RightDockWidgetArea, self.pendigChangesDockWidget)
 
-    def _createToolBar(self):
+    def _createToolBar(self) -> None:
+        """Creates a toolbar with buttons for adding devices, toggling cable edit mode, and saving/loading devices."""
         self.toolbar = QToolBar("Toolbar", self)
         self.toolbar.setVisible(True)
         self.toolbar.setMovable(False)
@@ -238,13 +336,13 @@ class MainWindow(QMainWindow):
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
         # "Add a device" button
-        plus_icon_img = QIcon(QPixmap("graphics/icons/plus.png")) #https://www.freepik.com/icon/add_1082378#fromView=family&page=1&position=1&uuid=d639dba2-0441-47bb-a400-3b47c2034665
+        plus_icon_img = QIcon(QPixmap("graphics/icons/plus.png")) # https://www.freepik.com/icon/add_1082378#fromView=family&page=1&position=1&uuid=d639dba2-0441-47bb-a400-3b47c2034665
         action_connectToDevice = QAction(plus_icon_img, "Connect to a device", self)
         action_connectToDevice.triggered.connect(self._showDeviceConnectionDialog)
         self.toolbar.addAction(action_connectToDevice)
 
         # "Cable edit mode" button
-        cable_mode_img = QIcon(QPixmap("graphics/icons/cable_mode.png")) #https://www.freepik.com/icon/ethernet_9693285
+        cable_mode_img = QIcon(QPixmap("graphics/icons/cable_mode.png")) # https://www.freepik.com/icon/ethernet_9693285
         action_cableEditMode = QAction(cable_mode_img, "Cable edit mode", self)
         action_cableEditMode.setCheckable(True)
         action_cableEditMode.triggered.connect(self._toggleCableMode)
@@ -264,23 +362,37 @@ class MainWindow(QMainWindow):
         action_loadDevices.triggered.connect(self._loadDevicesFromFile)
         self.toolbar.addAction(action_loadDevices)
 
-
         self.addToolBar(self.toolbar)                
   
     def _showDeviceConnectionDialog(self):
+        """Shows the dialog for adding a new device to the scene."""
         dialog = AddDeviceDialog(self.view)
         dialog.exec()
     
     def _cableModeButtonIsChecked(self):
+        """Returns True if the cable edit mode button is checked, False otherwise."""
         return self.toolbar.actions()[1].isChecked()
 
     def _toggleCableMode(self):
+        """Toggles the cable edit mode on and off."""
         if self._cableModeButtonIsChecked():
             self.cable_edit_mode = CableEditMode(self)
         else:
             self.cable_edit_mode.exitMode()
 
-    def _saveDevicesToFile(self):
+    def _saveDevicesToFile(self) -> None:
+        """
+        Saves the devices present in the scene to a JSON file named 'saved_devices.json'.
+        This method iterates through the devices in the scene, collects their parameters, 
+        and writes them to a JSON file. The passwords are stored in a plain-text format.
+        The saved data includes:
+        - Device type
+        - IP address and port
+        - Username and password
+        - Vendor information
+        - Device location (x, y coordinates)
+        """
+
         if not self.view.scene.items():
             QMessageBox.warning(self, "No devices", "There are no devices in the scene to save.", QMessageBox.Ok)
             return
@@ -307,7 +419,9 @@ class MainWindow(QMainWindow):
             
             json.dump(data, f, indent=4)
 
-    def _loadDevicesFromFile(self):
+    def _loadDevicesFromFile(self) -> None:
+        """Loads device configurations from a JSON file and creates device instances."""
+
         try:
             with open("saved_devices.json") as f:
                 data = json.load(f)
@@ -340,7 +454,12 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", f"An error occured while loading devices from file: {e}", QMessageBox.Ok)
             utils.printGeneral(traceback.format_exc())
 
-    def _createDeviceFromSave(self, device_parameters, device_type, x, y):
+    def _createDeviceFromSave(self, device_parameters, device_type, x, y) -> None:
+        """
+        Creates a device in the scene based on the provided parameters if a device with the same address
+        does not already exist.
+        """
+
         # Check if the device with the same address is not already in the scene
         for device in self.view.scene.items():
             if isinstance(device, Device):
@@ -356,9 +475,10 @@ class MainWindow(QMainWindow):
             addFirewall(device_parameters, self.view.scene, device_type)
 
 
-# Bottom dock widget
 class ConsoleWidget(QDockWidget):
-    def __init__(self):
+    """Widget in the bottom area of the main window that displays the console output."""
+
+    def __init__(self) -> QDockWidget:
         super().__init__("Console")
 
         self.setAllowedAreas(Qt.BottomDockWidgetArea)
@@ -375,9 +495,13 @@ class ConsoleWidget(QDockWidget):
         self.setWidget(self.consoleTextField)
 
 
-# Left dock widget
 class BatchConfigurationWidget(QDockWidget):
-    def __init__(self, main_view):
+    """
+    Widget in the left area of the main window that contains buttons for configuring devices in bulk.
+    Holds buttons for configuring OSPF, IPSEC, and VLANs on selected devices.
+    """
+
+    def __init__(self, main_view) -> QDockWidget:
         super().__init__("Batch configuration")
 
         self.main_view = main_view
@@ -412,18 +536,30 @@ class BatchConfigurationWidget(QDockWidget):
         button_holder.setLayout(layout)
         self.setWidget(button_holder)
 
-    def _showOSPFDialog(self):
-        # TODO: refactor to not use cloned devices - only clone the QPixmapItem with the X and Y coordinates, and then interact with the original devices
-        # TODO: after that, when starting OSPF dialog, check for OSPF capability on the device (similar to IPSEC)
-        
-        with self.main_view.generateClonedScene("OSPF") as cloned_scene:
-            if cloned_scene:
-                dialog = ospf.OSPFDialog(cloned_scene)
-                dialog.exec()
-            else:
-                QMessageBox.warning(self, "Warning", "Select devices to configure OSPF on!", QMessageBox.Ok)
+    def _showOSPFDialog(self) -> None:
+        """
+        Displays the OSPF configuration dialog.
+        This method generates a cloned scene for OSPF configuration and opens
+        the OSPF dialog if the cloned scene is successfully created.
+        """
 
-    def _showIPSECDialog(self):
+        selected_items = self.main_view.scene.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Warning", "Select devices to configure OSPF on!", QMessageBox.Ok)
+            return
+        
+        for device in selected_items:
+            if hasattr(device, "is_ospf_capable") and device.is_ospf_capable == False:
+                QMessageBox.critical(None, "Error", "One or both of the devices do not support OSPF configuration.")
+                return
+
+        with self.main_view.generateClonedScene("OSPF") as cloned_scene:
+            dialog = ospf.OSPFDialog(cloned_scene)
+            dialog.exec()
+
+    def _showIPSECDialog(self) -> None:
+        """Displays a dialog for configuring IPSEC on selected devices."""
+
         selected_items = self.main_view.scene.selectedItems()
         if not selected_items:
             QMessageBox.warning(self, "Warning", "Select devices to configure IPSEC on!", QMessageBox.Ok)
@@ -434,23 +570,24 @@ class BatchConfigurationWidget(QDockWidget):
             return
         
         for device in selected_items:
-            if not hasattr(device, "configureIPSec"):
+            if hasattr(device, "is_ipsec_capable") and device.is_ipsec_capable == False:
                 QMessageBox.critical(None, "Error", "One or both of the devices do not support IPsec configuration.")
                 return
             
         dialog = security.IPSECDialog(selected_items)
         dialog.exec()
             
-    def _showVLANDialog(self):
+    def _showVLANDialog(self) -> None:
+        """Displays a VLAN configuration dialog for selected devices."""
+
         selected_items = self.main_view.scene.selectedItems()
         if not selected_items:
             QMessageBox.warning(self, "Warning", "Select devices to configure VLANs on!", QMessageBox.Ok)
             return
-        
 
         vlan_supported_switches = []
         for device in selected_items:
-            if not hasattr(device, "addVlan") and not hasattr(device, "configureInterfaceVlan"):
+            if hasattr(device, "is_vlan_capable") and device.is_vlan_capable == False:
                 QMessageBox.critical(None, "Error", "One or more of the devices do not support VLAN configuration.")
                 return
             else:
@@ -460,9 +597,34 @@ class BatchConfigurationWidget(QDockWidget):
         dialog.exec()
 
 
-# Right dock widget
 class PendingChangesWidget(QDockWidget):
-    def __init__(self):
+    """
+    Widget in the right area of the main window that contains elements for displaying changes made to devices, which have not yet been committed.
+    It includes a table to display pending changes, buttons for committing, confirming, and discarding changes, and a timer for confirmed commits.
+    Methods:
+        addPendingChangeToTable(device_id, change_name, rpc_reply, filter):
+            Adds a pending change to the table with details such as device ID, change name, and additional data.
+        clearPendingChangesFromTable(device_id):
+            Removes all pending changes for a specific device from the table.
+        _showPendingChangeDetails(item):
+            Displays detailed information about a pending change when a table item is double-clicked.
+        _confirmedCommitPendingChanges():
+            Initiates a confirmed commit with a timeout, updating the UI and starting a countdown timer.
+        _confirmCommit():
+            Confirms the confirmed commit, finalizing the changes and resetting the UI.
+        _commitPendingChanges():
+            Commits all pending changes without a timeout or confirmation.
+        _discardAllPendingChanges():
+            Discards all pending changes on all devices and updates the UI.
+        _cancelConfirmedCommit():
+            Cancels a confirmed commit, reverting changes and resetting the UI.
+        _revertButtonsToDefaultState():
+            Resets the buttons and UI elements to their default state after a commit or cancellation.
+        _stopCountdown():
+            Stops the countdown timer for a confirmed commit.
+    """
+            
+    def __init__(self) -> QDockWidget:
         super().__init__("Pending changes")
 
         self.confirmed_commit_thread = None
@@ -520,7 +682,17 @@ class PendingChangesWidget(QDockWidget):
         signal_manager.deviceNoLongerHasPendingChanges.connect(self.clearPendingChangesFromTable)
         self.table_widget.itemDoubleClicked.connect(self._showPendingChangeDetails)
 
-    def addPendingChangeToTable(self, device_id, change_name, rpc_reply, filter):
+    def addPendingChangeToTable(self, device_id, change_name, rpc_reply, filter) -> None:
+        """
+        Adds a pending change to the table widget with details about the device and change.
+        The change can be double-clicked to show additional details.
+        Args:
+            device_id (str): The identifier of the device associated with the change.
+            change_name (str): The name or description of the change.
+            rpc_reply (Any): The RPC reply object containing details of the change.
+            filter (Any): The filter object associated with the change.
+        """
+
         row_position = self.table_widget.rowCount()
         self.table_widget.insertRow(row_position)
 
@@ -535,12 +707,13 @@ class PendingChangesWidget(QDockWidget):
         change_item.setToolTip("Double click for details")
         self.table_widget.setItem(row_position, 1, change_item)
 
-    def clearPendingChangesFromTable(self, device_id):
+    def clearPendingChangesFromTable(self, device_id) -> None:
+        """Clears all pending changes for a specific device from the table."""
         for row in range(self.table_widget.rowCount() - 1, -1, -1): # Iterate backwards to avoid skipping rows
             if self.table_widget.item(row, 0).text() == device_id:
                 self.table_widget.removeRow(row)
 
-    def _showPendingChangeDetails(self, item):
+    def _showPendingChangeDetails(self, item) -> None:
         """
         Handles showing the details of a pending change when the user double-clicks on a pending change in the table.
         It creates a PendingChangeDetails dialog and displays the details of the pending change.
@@ -555,7 +728,7 @@ class PendingChangesWidget(QDockWidget):
 
     # ---------- COMMIT FUNCTIONS ----------
     # (And functions related - cancel, discard, countdown timer, etc.)
-    def _confirmedCommitPendingChanges(self):
+    def _confirmedCommitPendingChanges(self) -> None:
         """
         (1/2) Handles the confirmed commit of pending changes on devices.
 
@@ -581,7 +754,7 @@ class PendingChangesWidget(QDockWidget):
                     device.commitChanges(confirmed=True, confirm_timeout=timeout_seconds)
                     commited_devices.append(device.id)
 
-            def _countdown():
+            def _countdown() -> None:
                 """
                 Simple countdown timer that updates the commit button text to show the remaining time. Launched in a separate thread to avoid blocking of the application.
                 """
@@ -626,7 +799,7 @@ class PendingChangesWidget(QDockWidget):
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
             utils.printGeneral(traceback.format_exc())
 
-    def _confirmCommit(self):
+    def _confirmCommit(self) -> None:
         """
         (2/2) Handles the CONFIRMATION of the confirmed commit of pending changes on devices.
         """
@@ -650,16 +823,10 @@ class PendingChangesWidget(QDockWidget):
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
             utils.printGeneral(traceback.format_exc())
 
-    def _commitPendingChanges(self):
+    def _commitPendingChanges(self) -> None:
         """
         Handles the commit of pending changes on devices. This commit is NOT confirmed and does not have a timeout.
-
-        This method is performing "commit" defined in NETCONF RFC6241. This method is also used to confirm the confirmed commit, when it was executed.
-        
-        Exceptions:
-            Displays a critical message box if committing changes fails on one or more devices.
-        Raises:
-            Exception: If committing changes fails on one or more devices.
+        This method is performing "commit" defined in NETCONF RFC6241.
         """
 
         commited_devices = []
@@ -683,16 +850,12 @@ class PendingChangesWidget(QDockWidget):
             QMessageBox.critical(self, "Commit failed", f"Failed to commit changes on one or more devices: {e}")
             utils.printGeneral(traceback.format_exc())
 
-    def _discardAllPendingChanges(self):
+    def _discardAllPendingChanges(self) -> None:
         """
         Discards all pending changes on all device instances.
         This method retrieves all device instances and checks if they have any pending changes.
         If a device has pending changes, it discards those changes, marks the device as having no pending changes,
         and clears the pending changes from the table for that device.
-
-        If an error occurs during the process, a critical message box is displayed with the error details.
-        Raises:
-            Exception: If discarding changes on one or more devices fails.
         """
 
         devices = Device.getAllDevicesInstances()
@@ -701,7 +864,6 @@ class PendingChangesWidget(QDockWidget):
             for device in devices:
                 if device.has_pending_changes:
                     device.discardChanges()
-                    device.has_pending_changes = False # TODO: probably not needed, check
                     self.clearPendingChangesFromTable(device.id)
                     discarded_devices.append(device.id)
 
@@ -714,7 +876,9 @@ class PendingChangesWidget(QDockWidget):
             QMessageBox.critical(self, "Discard failed", f"Failed to discard changes on one or more devices: {e}")
             utils.printGeneral(traceback.format_exc())
 
-    def _cancelConfirmedCommit(self):
+    def _cancelConfirmedCommit(self) -> None:
+        """Cancels the confirmed commit of pending changes on devices."""
+
         devices = Device.getAllDevicesInstances()
         try:
             for device in devices:
@@ -729,7 +893,17 @@ class PendingChangesWidget(QDockWidget):
             QMessageBox.critical(self, "Cancel failed", f"Failed to cancel commit on one or more devices: {e}")
             utils.printGeneral(traceback.format_exc())
 
-    def _revertButtonsToDefaultState(self):
+    def _revertButtonsToDefaultState(self) -> None:
+        """
+        Resets the state of UI buttons to their default configuration.
+        This method performs the following actions:
+        - Resets the "Commit" button text to "Commit", disconnects any existing signals,
+          and reconnects it to the `_commitPendingChanges` method.
+        - Enables the "Confirmed commit" button and the associated timer combobox.
+        - Resets the "Discard all" button text to "Discard all", disconnects any existing signals,
+          and reconnects it to the `_discardAllPendingChanges` method.
+        """
+
         # "Commit" button
         self.commit_button.setText("Commit")
         self.commit_button.clicked.disconnect()
@@ -742,10 +916,9 @@ class PendingChangesWidget(QDockWidget):
         self.discard_button.clicked.disconnect()
         self.discard_button.clicked.connect(self._discardAllPendingChanges)
 
-    def _stopCountdown(self):
-        """
-        Stops the countdown timer.
-        """
+    def _stopCountdown(self) -> None:
+        """Stops the countdown timer."""
+
         self.stop_countdown_event.set()
         
         if self.confirmed_commit_thread and self.confirmed_commit_thread.is_alive():
@@ -758,7 +931,7 @@ class PendingChangeDetailsDialog(QDialog):
     It shows the RPC filter that was used to make the change and the RPC reply received after the change was made.
     """
 
-    def __init__(self, device_id, change_name, rpc_reply, filter):
+    def __init__(self, device_id, change_name, rpc_reply, filter) -> QDialog:
         super().__init__()
 
         self.ui = Ui_PendingChangeDetailsDialog()
@@ -800,4 +973,3 @@ if __name__ == "__main__":
     window.resize(1024, 768)
 
     sys.exit(app.exec())
-    
