@@ -1,36 +1,30 @@
-# Other
+# ---------- IMPORTS: ----------
+# Standard Library
 from ncclient import manager, transport, operations
 from ncclient.operations import RaiseMode
 from lxml import etree as ET
-from PySide6.QtWidgets import QLabel, QMessageBox
-from pyangbind.lib.serialise import pybindIETFXMLEncoder
 
-# Custom
-import utils as utils
+# Custom modules
+import utils
+from yang.filters import DispatchFilter
+from definitions import SYSTEM_YANG_DIR
 
 # Qt
 from PySide6.QtWidgets import (
     QDialog, 
     QVBoxLayout,
-    QHBoxLayout, 
     QScrollArea, 
     QWidget, 
     QLabel, 
     QPushButton,
-    QComboBox,
-    QDialogButtonBox,
-    QLineEdit,
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
     QStyle,
-    QToolBar,
     QMessageBox)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QGuiApplication
 
-from yang.filters import DispatchFilter
-from definitions import SYSTEM_YANG_DIR
 
 # ---------- FILTERS: ----------
 class JunosRpc_Dispatch_RollbackZero_Filter(DispatchFilter):

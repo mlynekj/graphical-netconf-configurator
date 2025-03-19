@@ -1,22 +1,18 @@
-# Other
-from pyangbind.lib.serialise import pybindIETFXMLEncoder
-from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface
+# ---------- IMPORTS: ----------
+# Standard library 
 from lxml import etree as ET
+import copy
 
-from ncclient import operations
-
-# Custom
-import modules.netconf as netconf
-import utils as utils
-from definitions import *
+# Custom modules
+import utils
+from definitions import CONFIGURATION_TARGET_DATASTORE, VLAN_YANG_DIR
 from yang.filters import EditconfigFilter, GetFilter
 
 # Qt
 from PySide6.QtWidgets import (
     QDialog, 
     QVBoxLayout,
-    QHBoxLayout, 
-    QScrollArea, 
+    QHBoxLayout,
     QWidget, 
     QLabel, 
     QPushButton,
@@ -26,17 +22,12 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
-    QStyle,
-    QToolBar,
     QGroupBox,
     QMessageBox,)
-from PySide6.QtCore import Qt, QSize, Slot
-from PySide6.QtGui import QFont, QGuiApplication, QAction, QBrush, QColor
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QBrush, QColor
 
-import ipaddress
-import copy
-
-
+# QtCreator
 from ui.ui_editvlansdialog import Ui_edit_vlans_dialog
 
 # ---------- OPERATIONS: ----------

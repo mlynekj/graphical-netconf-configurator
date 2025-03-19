@@ -1,63 +1,46 @@
-# QT
-from PySide6.QtWidgets import (
-    QGraphicsPixmapItem, 
-    QGraphicsItem,
-    QGraphicsLineItem,
-    QLineEdit, 
-    QGraphicsRectItem, 
-    QGraphicsSceneMouseEvent,
-    QGraphicsProxyWidget,
-    QListWidget,
-    QListWidgetItem,
-    QMenu,
-    QWidget,
-    QGraphicsTextItem,
-    QToolTip,
-    QPushButton,
-    QVBoxLayout,
-    QDialogButtonBox,
-    QComboBox,
-    QDialog,
-    QVBoxLayout,
-    QMessageBox,
-    QTreeWidgetItem)
-from PySide6.QtGui import (
-    QImage, 
-    QPixmap,
-    QPen,
-    QColor,
-    QAction,
-    QFont,
-    QIcon,
-    QAction)
-from PySide6.QtCore import (
-    Qt,
-    QLineF,
-    QPointF,
-    QPoint,
-    QSize,
-    QTimer)
+# ---------- IMPORTS: ----------
+# Standard library
+import traceback
+from lxml import etree as ET
 
-# Custom
+# Custom modules
+import utils
 import modules.netconf as netconf
 import modules.interfaces as interfaces
 import modules.system as system
 import modules.ospf as ospf
 import modules.security as security
 import modules.vlan as vlan
-import utils as utils
 from signals import signal_manager
-from definitions import *
+from yang.filters import DispatchFilter, GetFilter
+from definitions import ROUTING_YANG_DIR
 
-# Other
-import ipaddress
-import traceback
+# Qt
+from PySide6.QtWidgets import (
+    QGraphicsPixmapItem, 
+    QGraphicsItem,
+    QLineEdit, 
+    QMenu,
+    QGraphicsTextItem,
+    QToolTip,
+    QVBoxLayout,
+    QDialogButtonBox,
+    QComboBox,
+    QDialog,
+    QVBoxLayout,
+    QMessageBox)
+from PySide6.QtGui import (
+    QImage, 
+    QPixmap,
+    QAction,
+    QFont,
+    QAction)
+from PySide6.QtCore import QTimer
 
+# QtCreator
 from ui.ui_routingtabledialog import Ui_RoutingTableDialog
-from yang.filters import *
 
-from lxml import etree as ET
-
+# ---------- HELPER FUNCTIONS: ----------
 def addRouter(device_parameters, scene, class_type):
     if class_type == "IOSXERouter":
         router = IOSXERouter(device_parameters)

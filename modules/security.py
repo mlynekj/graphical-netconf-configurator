@@ -1,60 +1,30 @@
-from ui.ui_ipsecdialog import Ui_IPSECDialog
+# ---------- IMPORTS: ----------
+# Standard library
+from lxml import etree as ET
+import ipaddress
 
+# Custom modules
 import utils
+from yang.filters import EditconfigFilter, DispatchFilter
+from definitions import SECURITY_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
 # QT
 from PySide6.QtWidgets import (
-    QGraphicsPixmapItem, 
-    QGraphicsItem,
-    QGraphicsLineItem,
     QLineEdit, 
     QGraphicsRectItem, 
-    QGraphicsSceneMouseEvent,
-    QGraphicsProxyWidget,
-    QListWidget,
-    QListWidgetItem,
-    QMenu,
-    QWidget,
     QGraphicsTextItem,
-    QToolTip,
-    QPushButton,
-    QVBoxLayout,
     QGridLayout,
     QDialogButtonBox,
-    QComboBox,
     QDialog,
-    QVBoxLayout,
     QLabel,
     QMessageBox,
-    QTreeWidgetItem)
-from PySide6.QtGui import (
-    QImage, 
-    QPixmap,
-    QPen,
-    QColor,
-    QAction,
-    QFont,
-    QIcon,
-    QAction,
-    QIntValidator)
-from PySide6.QtCore import (
-    Qt,
-    QLineF,
-    QPointF,
-    QPoint,
-    QSize,
-    QTimer)
+    QGraphicsScene)
+from PySide6.QtGui import QPixmap, QColor, QFont
+from PySide6.QtCore import Qt, QPointF
 
-from PySide6.QtWidgets import QDialog, QGraphicsScene, QGraphicsPixmapItem, QGraphicsLineItem, QGraphicsEllipseItem
-from PySide6.QtGui import QPixmap, QPen, QColor
+# QtCreator
+from ui.ui_ipsecdialog import Ui_IPSECDialog
 
-from lxml import etree as ET
-from definitions import SECURITY_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
-
-from yang.filters import EditconfigFilter, DispatchFilter
-
-
-import ipaddress
 
 # ---------- OPERATIONS: ----------
 def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_parameters):

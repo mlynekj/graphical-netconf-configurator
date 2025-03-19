@@ -1,9 +1,13 @@
+# ---------- IMPORTS: ----------
+# Standard library
 from lxml import etree as ET
 from datetime import datetime
 from signals import signal_manager
 
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QTreeWidgetItem
+# Qt
+from PySide6.QtWidgets import QTreeWidgetItem
 
+# ---------- HELPER FUNCTIONS: ----------
 def clearLayout(layout):
     """
     Recursively clears all widgets and layouts from the given layout.

@@ -1,39 +1,32 @@
-# QT
+# ---------- IMPORTS: ----------
+# Standard library
+import math
+
+# Custom modules
+import utils
+from devices import Device
+
+# Qt
 from PySide6.QtWidgets import (
     QGraphicsLineItem, 
     QGraphicsRectItem, 
     QGraphicsTextItem,
     QMenu,
-    QApplication,
     QToolTip)
 from PySide6.QtGui import (
-    QImage, 
-    QPixmap,
     QPen,
     QColor,
     QAction,
     QFont,
-    QIcon,
     QCursor,
     QTransform)
 from PySide6.QtCore import (
     Qt,
-    QLineF,
     QPointF,
-    QPoint,
-    QSize,
     QTimer,
-    QObject,
-    QEvent,
-    Slot)
+    QObject)
 
-# Other
-import math
-
-# Custom
-from devices import Device
-import utils
-
+# ---------- CABLE CLASSES: ----------
 class Cable(QGraphicsLineItem):
     def __init__(self, device1: object, device1_interface, device2: object, device2_interface):
         super().__init__()

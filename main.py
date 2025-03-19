@@ -1,11 +1,24 @@
-# Other
+# ---------- IMPORTS: ----------
+# Standard library
 import sys
+import json
+import time
+import traceback
 from io import StringIO
 from contextlib import contextmanager
-import json
+from threading import Thread, Event
 
-# QT
-from PySide6.QtCore import Qt, Signal, QObject, QRectF
+# Custom modules
+from devices import Device, AddDeviceDialog, addFirewall, addRouter, addSwitch
+from cable import Cable, CableEditMode
+from signals import signal_manager
+import utils
+import modules.ospf as ospf
+import modules.security as security
+import modules.vlan as vlan
+from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
+
+# Qt
 from PySide6.QtWidgets import (
     QApplication, 
     QMainWindow, 
@@ -14,7 +27,6 @@ from PySide6.QtWidgets import (
     QToolBar,
     QPlainTextEdit,
     QDockWidget,
-    QMenu,
     QGraphicsRectItem,
     QSizePolicy,
     QVBoxLayout,
@@ -29,36 +41,19 @@ from PySide6.QtWidgets import (
     QDialog,
     QComboBox)
 from PySide6.QtGui import ( 
-    QBrush, 
-    QColor, 
     QIcon, 
     QAction,
     QPixmap,
-    QTransform,
     QCursor,
     QPen)
+from PySide6.QtCore import Qt, QRectF
 
-# Custom
-from devices import Device, Router, Switch, Firewall, AddDeviceDialog, addFirewall, addRouter, addSwitch
-from cable import Cable, CableEditMode
-from signals import signal_manager
-import modules.netconf as netconf
-import utils as utils
-import modules.ospf as ospf
-import modules.security as security
-import modules.interfaces as interfaces
-import modules.vlan as vlan
-from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
-
-from threading import Timer, Thread, Event
-import time
-import traceback
-
-
+# QtCreator
 from ui.ui_pendingchangedetailsdialog import Ui_PendingChangeDetailsDialog
 
 sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
 
+# ---------- QT CLASSES----------
 class MainView(QGraphicsView):
     CURSOR_MODES = {
         "device1_selection_mode": "graphics/cursors/device1_selection_mode.png",

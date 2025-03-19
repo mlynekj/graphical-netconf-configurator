@@ -1,9 +1,11 @@
-# Others
+# ---------- IMPORTS: ----------
+# Standard library
 from lxml import etree as ET
 
-# Custom
+# Custom modules
 import utils as utils
-from definitions import *
+from yang.filters import GetFilter, EditconfigFilter
+from definitions import SYSTEM_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
 # Qt
 from PySide6.QtWidgets import (
@@ -15,9 +17,6 @@ from PySide6.QtWidgets import (
     QMessageBox)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QGuiApplication
-
-from yang.filters import GetFilter, EditconfigFilter
-
 
 
 # ---------- OPERATIONS: ----------

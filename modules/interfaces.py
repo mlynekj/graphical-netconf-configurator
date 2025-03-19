@@ -1,44 +1,38 @@
-# Other
-from pyangbind.lib.serialise import pybindIETFXMLEncoder
-from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface
+# ---------- IMPORTS: ----------
+# Standard library
+import ipaddress
 from lxml import etree as ET
-
 from ncclient import operations
 
-# Custom
-import modules.netconf as netconf
-import utils as utils
-from definitions import *
+# Custom modules
+import utils
+from yang.filters import GetFilter, EditconfigFilter
+from definitions import INTERFACES_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
 # Qt
 from PySide6.QtWidgets import (
     QDialog, 
     QVBoxLayout,
     QHBoxLayout, 
-    QScrollArea, 
-    QWidget, 
     QLabel, 
     QPushButton,
-    QComboBox,
     QDialogButtonBox,
     QLineEdit,
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
     QStyle,
-    QToolBar,
     QGroupBox,
     QMessageBox,)
 from PySide6.QtCore import Qt, QSize, Slot
-from PySide6.QtGui import QFont, QGuiApplication, QAction, QBrush, QColor
+from PySide6.QtGui import QGuiApplication, QBrush, QColor
 
-import ipaddress
-
+# QtCreator
 from ui.ui_interfacesdialog import Ui_Interfaces
 from ui.ui_addinterfacedialog import Ui_add_interface_dialog
 from ui.ui_editinterfacedialog import Ui_edit_interface_dialog
 
-from yang.filters import GetFilter, EditconfigFilter
+
 
 # ---------- OPERATIONS: ----------
 # -- Retrieval --
@@ -108,7 +102,7 @@ def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
         ipvX_address = ipvX_object.find('state/ip')
         ipvX_prefix_length = ipvX_object.find('state/prefix-length')
         if ipvX_address is not None and ipvX_prefix_length is not None: 
-            ip_interface = IPv4Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}") if version == "ipv4" else IPv6Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}")
+            ip_interface = ipaddress.IPv4Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}") if version == "ipv4" else ipaddress.IPv6Interface(f"{ipvX_address.text}/{ipvX_prefix_length.text}")
             ipvX_data.append({'value': ip_interface, 'flag': 'commited'})
     return(ipvX_data)
 

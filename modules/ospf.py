@@ -1,40 +1,28 @@
+# ---------- IMPORTS: ----------
+# Standard library
+import ipaddress
+from lxml import etree as ET
+
+# Custom modules
+from yang.filters import EditconfigFilter
+from definitions import CONFIGURATION_TARGET_DATASTORE, ROUTING_YANG_DIR
+
 # Qt
 from PySide6.QtWidgets import (
     QDialog, 
-    QVBoxLayout,
-    QHBoxLayout, 
-    QScrollArea, 
-    QWidget, 
-    QLabel, 
-    QPushButton,
-    QComboBox,
     QDialogButtonBox,
-    QLineEdit,
-    QTableWidget,
     QTableWidgetItem,
     QHeaderView,
-    QStyle,
-    QToolBar,
     QMessageBox,
-    QGraphicsView,
-    QGraphicsScene,
     QCheckBox,
     QAbstractItemView)
-from PySide6.QtCore import Qt, QSize, Slot
-from PySide6.QtGui import QFont, QGuiApplication, QAction
+from PySide6.QtCore import Qt, Slot
 
+# QtCreator
 from ui.ui_ospfdialog import Ui_OSPFDialog
 from ui.ui_addospfnetworkdialog import Ui_AddOSPFNetworkDialog
 
-from yang.filters import EditconfigFilter
 
-from definitions import *
-from lxml import etree as ET
-
-# Other
-import ipaddress
-import sys
-from PySide6.QtCore import QFile
 
 # ---------- OPERATIONS: ----------
 def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, reference_bandwidth):
