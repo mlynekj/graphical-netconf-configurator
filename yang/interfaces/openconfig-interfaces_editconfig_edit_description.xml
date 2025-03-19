@@ -1,0 +1,10 @@
+    <config>
+      <interfaces xmlns="http://openconfig.net/yang/interfaces">
+        <interface>
+          <name></name>
+          <config>
+            <description operation="replace"></description>
+          </config>
+        </interface>
+      </interfaces>
+    </config>

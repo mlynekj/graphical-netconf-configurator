@@ -158,7 +158,7 @@ class Device(QGraphicsPixmapItem):
         else:
             self.hostname = self._getHostname()
 
-        self.label.setPlainText(f"{str(self.hostname)}\n({self.id})")
+        self.label.setPlainText(f"{str(self.hostname)} (ID: {self.id})")
         self.label_border = self.label.boundingRect()
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
     
@@ -346,6 +346,7 @@ class Device(QGraphicsPixmapItem):
                     self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"].append({"value": new_ip, "flag": "uncommited"})
                 elif new_ip.version == 6:
                     self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"].append({"value": new_ip, "flag": "uncommited"})
+                self.interfaces[interface_id]["flag"] = "uncommited"
 
                 # Update the cable labels
                 if self.cables:
@@ -375,6 +376,22 @@ class Device(QGraphicsPixmapItem):
             QMessageBox.critical(None, "Error", f"Error adding interface: {e}")
             return False
     
+    def configureInterfaceDescription(self, interface_id, description):
+        try:
+            rpc_reply, filter = interfaces.editDescriptionWithNetconf(self, interface_id, description)
+            if rpc_reply:
+                utils.addPendingChange(self, f"Edit description on interface: {interface_id}", rpc_reply, filter)
+                utils.printRpc(rpc_reply, "Edit description on interface", self)
+                self.interfaces[interface_id]["description"] = description
+                self.interfaces[interface_id]["flag"] = "uncommited"
+
+                return True
+        except Exception as e:
+            utils.printGeneral(f"Error editing description: {e}")
+            utils.printGeneral(traceback.format_exc())
+            QMessageBox.critical(None, "Error", f"Error editing description: {e}")
+            return False
+
     # ---------- CANDIDATE DATASTORE MANIPULATION FUNCTIONS ----------
     def discardChanges(self):
         try:
