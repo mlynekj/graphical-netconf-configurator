@@ -35,10 +35,39 @@ from ui.ui_editinterfacedialog import Ui_edit_interface_dialog
 
 
 # ---------- OPERATIONS: ----------
-# -- Retrieval --
-def getInterfacesWithNetconf(device):
+def getInterfacesWithNetconf(device) -> tuple:
     """
-    TODO: documentation
+    Retrieve interface information from a network device using NETCONF.
+    This function fetches interface details, including administrative and operational
+    statuses, descriptions, subinterface data, and VLAN information (if applicable),
+    from a network device using the NETCONF protocol.
+    Args:
+        device (object): A device object that contains connection details and device-specific
+                         parameters. The object must have a `device_parameters` dictionary
+                         with a 'device_params' key and a `mngr` attribute for NETCONF operations.
+    Returns:
+        tuple: A tuple containing:
+            - interfaces (dict): A dictionary where each key is an interface name, and the value
+              is another dictionary with the following keys: (example in the /doc folder)
+                - 'admin_status' (str or None): The administrative status of the interface.
+                - 'oper_status' (str or None): The operational status of the interface.
+                - 'description' (str or None): The description of the interface.
+                - 'flag' (str): A flag indicating the state of the interface (e.g., "commited").
+                - 'subinterfaces' (dict): A dictionary of subinterfaces, where each key is a
+                  subinterface index, and the value is a dictionary containing:
+                    - 'ipv4_data' (dict): IPv4-related data for the subinterface.
+                    - 'ipv6_data' (dict): IPv6-related data for the subinterface.
+                - 'vlan_data' (dict, optional): VLAN-related data for the interface, if the
+                  device supports VLAN capabilities.
+            - rpc_reply (object): The raw RPC reply object returned by the NETCONF operation.
+    Notes:
+        - This function handles duplicate `<interfaces>` tags returned by certain devices
+          (e.g., Juniper vRouter 24.2R1.S2) by skipping duplicate entries.
+        - The function assumes the presence of helper functions `extractIPDataFromSubinterface`
+          and `extractVlanDataFromInterface` for extracting subinterface and VLAN data, respectively.
+        - The `device` object should have an `is_vlan_capable` attribute to indicate VLAN support.
+    Raises:
+        Any exceptions raised by the NETCONF manager or helper functions will propagate.
     """
 
     device_type = device.device_parameters['device_params']
@@ -64,12 +93,12 @@ def getInterfacesWithNetconf(device):
             oper_status = interface_element.find('../state/oper-status').text if oper_status_element is not None else None
             description_element = interface_element.find('../config/description')
             description = interface_element.find('../config/description').text if description_element is not None else None
-
-            
+ 
             interfaces[name] = {
                 'admin_status': admin_status,
                 'oper_status': oper_status,
                 'description': description,
+                'flag': "commited"
             }
             
             subinterfaces = {}
@@ -85,15 +114,29 @@ def getInterfacesWithNetconf(device):
                 }
             interfaces[name]["subinterfaces"] = subinterfaces
 
-            # if the device has VLAN capabilites TODO: change to more robust - create a flag in the class? - do this for all the other features (isL2Device, isL3Device?)
-            if hasattr(device, "isL2Device") and device.isL2Device:
+            # if the device has VLAN capabilites
+            if hasattr(device, "is_vlan_capable") and device.is_vlan_capable:
                 vlan_data = extractVlanDataFromInterface(interface_element)
                 interfaces[name]["vlan_data"] = vlan_data
-                interfaces[name]["flag"] = "commited"
 
     return(interfaces, rpc_reply)
 
-def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
+def extractIPDataFromSubinterface(subinterface_element, version="ipv4") -> list[dict]:
+    """
+    Extracts IP address data from a subinterface XML element.
+    Args:
+        subinterface_element (xml.etree.ElementTree.Element): 
+            The XML element representing the subinterface from which IP data will be extracted.
+        version (str, optional): 
+            The IP version to extract data for. Defaults to "ipv4". 
+            Acceptable values are "ipv4" or "ipv6".
+    Returns:
+        list[dict]: 
+            A list of dictionaries containing extracted IP data. Each dictionary has:
+            - 'value': An ipaddress.IPv4Interface or ipaddress.IPv6Interface object representing the IP address and prefix length.
+            - 'flag': A string indicating the status of the IP data, set to 'commited'. Meant to allow setting the flag to "uncommited", when manipulating with the data.
+    """
+
     ipvX_object_tag = (f".//{version}/addresses/address")
     ipvX_objects = subinterface_element.findall(ipvX_object_tag)
 
@@ -106,7 +149,24 @@ def extractIPDataFromSubinterface(subinterface_element, version="ipv4"):
             ipvX_data.append({'value': ip_interface, 'flag': 'commited'})
     return(ipvX_data)
 
-def extractVlanDataFromInterface(interface_element):
+def extractVlanDataFromInterface(interface_element) -> dict:
+    """
+    Extracts VLAN data from an interface element.
+    This function parses an XML element representing a network interface and extracts
+    VLAN configuration details, such as the switchport mode (access or trunk) and the
+    associated VLAN(s).
+    Args:
+        interface_element (xml.etree.ElementTree.Element): The XML element representing
+            the network interface.
+    Returns:
+        dict: A dictionary containing VLAN data with the following keys:
+            - "switchport_mode" (str or None): The switchport mode of the interface
+              ("access", "trunk", or None if not specified).
+            - "vlan" (str, list, or None): The VLAN(s) associated with the interface.
+              For "access" mode, this is a single VLAN ID as a string. For "trunk" mode,
+              this is a list of VLAN IDs as strings. If no VLAN is specified, this is None.
+    """
+
     vlan_data = {}
     vlan_element = interface_element.find('../ethernet/switched-vlan/config')
     if vlan_element is not None:
@@ -125,36 +185,45 @@ def extractVlanDataFromInterface(interface_element):
 
     return vlan_data
 
-# -- Manipulation with IPs --
-def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip):
+def deleteIpWithNetconf(device, interface_element, subinterface_index, old_ip) -> tuple:
     """
-    Delete an IP address from a specified interface.
+    Deletes an IP address from a specified interface on a network device using NETCONF.
     Args:
-        device: The network device object which contains ncclient manager.
-        interface_element (str): The name of the interface from which the IP address will be deleted.
-        subinterface_index (int): The index of the subinterface.
-        old_ip (str): The IP address to be deleted.
+        device: The network device object that provides the NETCONF manager.
+        interface_element: The interface element identifier where the IP address is to be deleted.
+        subinterface_index: The index of the subinterface from which the IP address is to be removed.
+        old_ip: The IP address to be deleted.
     Returns:
-        rpc_reply: The response from the device after attempting to delete the IP address.
+        tuple: A tuple containing the RPC reply and the filter used for the operation if successful.
+        None: If an exception occurs during the operation.
     """
-    # FILTER
-    filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, old_ip, delete_ip=True)
 
-    # RPC
-    rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-    return(rpc_reply, filter)
+    try:
+        # FILTER
+        filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, old_ip, delete_ip=True)
 
-def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
+        # RPC
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        return(rpc_reply, filter)
+    except operations.RPCError as e:
+        utils.printGeneral(f"Failed to delete IP on device {device.id}: {e}")
+        return (rpc_reply, filter)
+    except Exception as e:
+        utils.printGeneral(f"Failed to set IP on device {device.id}: {e}")
+        return None
+
+def setIpWithNetconf(device, interface_element, subinterface_index, new_ip) -> tuple:
     """
-    Set an IP address on a specified interface.
+    Sets a new IP address on a specified network interface using NETCONF.
     Args:
-        device: The network device object which contains ncclient manager.
-        interface_element (str): The name of the interface on which the IP address will be added.
-        subinterface_index (int): The index of the subinterface.
-        old_ip (str): The IP address to be added.
+        device: The network device object that provides the NETCONF manager.
+        interface_element: The identifier or configuration element of the interface to be updated.
+        subinterface_index: The index of the subinterface to be updated.
+        new_ip: The new IP address to be assigned to the interface.
     Returns:
-        rpc_reply: The response from the device after attempting to set the IP address.
-    """ 
+        tuple: A tuple containing the RPC reply and the filter used for the operation if successful.
+        None: If an exception occurs during the operation.
+    """
 
     try:
         # FILTER
@@ -163,15 +232,29 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip):
         # RPC
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         return(rpc_reply, filter)
-    except operations.errors.RPCError as e:
+    except operations.RPCError as e:
         utils.printGeneral(f"Failed to set IP on device {device.id}: {e}")
         return (rpc_reply, filter)
     except Exception as e:
         utils.printGeneral(f"Failed to set IP on device {device.id}: {e}")
         return None
 
-# -- Add new interfaces --
-def addInterfaceWithNetconf(device, interface_id, interface_type):
+def addInterfaceWithNetconf(device, interface_id, interface_type) -> tuple:
+    """
+    Adds a network interface to a device using NETCONF.
+    This function constructs a filter for adding an interface and sends an
+    edit-config RPC request to the device's NETCONF manager. 
+    Args:
+        device (object): The device object representing the target device.
+                         It must have a `mngr` attribute for NETCONF operations
+                         and an `id` attribute for identification.
+        interface_id (str): The identifier of the interface to be added.
+        interface_type (str): The type of the interface to be added.
+    Returns:
+        tuple: A tuple containing the RPC reply and the filter used for the operation if successful.
+        None: If an exception occurs during the operation.
+    """
+
     try:
         # FILTER
         filter = OpenconfigInterfaces_Editconfig_AddInterface_Filter(interface_id, interface_type)
@@ -179,13 +262,37 @@ def addInterfaceWithNetconf(device, interface_id, interface_type):
         # RPC
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         return(rpc_reply, filter)
-    except operations.errors.RPCError as e:
+    except operations.RPCError as e:
         utils.printGeneral(f"Failed to add interface on device {device.id}: {e}")
         return (rpc_reply)
     except Exception as e:
         utils.printGeneral(f"Failed to add interface on device {device.id}: {e}")
         return None
 
+def editDescriptionWithNetconf(device, interface_element, description) -> tuple:
+    """
+    Edits the description of a network interface on a device using NETCONF.
+    Args:
+        device: The network device object that supports NETCONF operations.
+        interface_element: The specific interface element to be updated.
+        description: The new description to set for the interface.
+    Returns:
+        tuple: A tuple containing the RPC reply and the filter used for the operation if successful.
+        None: If an exception occurs during the operation.
+    """
+
+    try:
+        # FILTER
+        filter = OpenconfigInterfaces_Editconfig_EditDescription_Filter(interface_element, description)
+        # RPC
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        return(rpc_reply, filter)
+    except operations.RPCError as e:
+        utils.printGeneral(f"Failed to to edit interface description on device {device.id}: {e}")
+        return (rpc_reply, filter)
+    except Exception as e:
+        utils.printGeneral(f"Failed to to edit interface description on device {device.id}: {e}")
+        return None
 
 
 # ---------- FILTERS: ----------
@@ -283,13 +390,41 @@ class OpenconfigInterfaces_Editconfig_AddInterface_Filter(EditconfigFilter):
             interface_type_element.text = "ianaift:softwareLoopback"
 
 
+class OpenconfigInterfaces_Editconfig_EditDescription_Filter(EditconfigFilter):
+    def __init__(self, interface_element, description):
+        self.filter_xml = ET.parse(INTERFACES_YANG_DIR + "openconfig-interfaces_editconfig_edit_description.xml")
+        self.namespaces = {'ns': 'http://openconfig.net/yang/interfaces'}
+
+        self.filter_xml.find(".//ns:name", self.namespaces).text = interface_element
+        self.filter_xml.find(".//ns:description", self.namespaces).text = description
+
+
 # ---------- QT: ----------
 class DeviceInterfacesDialog(QDialog):
+    """
+    DeviceInterfacesDialog is a dialog window for managing and displaying the interfaces of a network device.
+    This class provides a graphical interface for viewing, and editing the interfaces of a device. 
+    It displays the interfaces in a table format, showing details such as administrative state, operational state, 
+    IPv4 and IPv6 addresses, and descriptions. Users can also add new interfaces or edit existing ones.
+    Methods:
+        __init__(device):
+            Initializes the dialog with the given device and sets up the user interface.
+        fillLayout():
+            Populates the table with the device's interfaces and their details.
+        showDialog():
+            Opens a dialog for editing the selected interface.
+        refreshDialog():
+            Clears and repopulates the interface table.
+        showAddInterfaceDialog():
+            Opens a dialog for adding a new interface and refreshes the table afterward.
+        refreshInterfaces():
+            Refreshes the device's interface list by retrieving the latest data from the device.
+    """
+
     def __init__(self, device):
         super().__init__()
 
         self.device = device
-
         self.ui = Ui_Interfaces()
         self.ui.setupUi(self)
 
@@ -300,6 +435,8 @@ class DeviceInterfacesDialog(QDialog):
         self.fillLayout()
 
     def fillLayout(self):
+        """Fills the layout of the dialog with the interfaces of the device."""
+
         # Retrieve the interfaces from the device
         try:
             self.interfaces = self.device.interfaces
@@ -316,7 +453,7 @@ class DeviceInterfacesDialog(QDialog):
                                         "Operational state", 
                                         "IPv4", 
                                         "IPv6",
-                                        "Description"
+                                        "Description",
                                         ""])
             self.ui.interfaces_table.horizontalHeader().setStretchLastSection(True)
             self.ui.interfaces_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -330,13 +467,8 @@ class DeviceInterfacesDialog(QDialog):
                 # Flag: commited, uncommited, deleted
                 bg_color = "white"
                 tooltip = ""
-                if ipv4_data:
-                    bg_color = utils.getBgColorFromFlag(ipv4_data['flag'])
-                    tooltip = utils.getTooltipFromFlag(ipv4_data['flag'])
-                if ipv6_data:
-                    bg_color = utils.getBgColorFromFlag(ipv6_data['flag'])
-                    tooltip = utils.getTooltipFromFlag(ipv6_data['flag'])
-
+                bg_color = utils.getBgColorFromFlag(interface_data['flag'])
+                tooltip = utils.getTooltipFromFlag(interface_data['flag'])
 
                 # Interface name
                 interface_item = QTableWidgetItem(interface_element)
@@ -384,6 +516,8 @@ class DeviceInterfacesDialog(QDialog):
             self.ui.interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
 
     def showDialog(self):
+        """Opens a dialog for editing the selected interface."""
+
         button = self.sender()
 
         row_index = self.ui.interfaces_table.indexAt(button.pos()) # Get the index of the row, in which was the button clicked
@@ -393,10 +527,14 @@ class DeviceInterfacesDialog(QDialog):
         dialog.exec()
 
     def refreshDialog(self):
+        """Clears and repopulates the interface table."""
+
         self.ui.interfaces_table.clear()
         self.fillLayout()
 
     def showAddInterfaceDialog(self):
+        """Opens a dialog for adding a new interface and refreshes the table afterward."""
+
         try:
             AddInterfaceDialog(self.device).exec()
         finally:
@@ -404,7 +542,7 @@ class DeviceInterfacesDialog(QDialog):
 
     def refreshInterfaces(self):
         """
-        Refresh the device.interfaces list by retrieving new list from the device. Usefull for refreshing the dialog when waiting for the interface to come up.
+        Refreshes the device.interfaces list by retrieving new list from the device. Usefull for refreshing the dialog when waiting for the interface to come up.
         Cannot be launched when the device has pending changes, because the changes would be lost.
         """
 
@@ -418,6 +556,30 @@ class DeviceInterfacesDialog(QDialog):
 
 
 class EditInterfaceDialog(QDialog):
+    """
+    EditInterfaceDialog is dialog for editing network interface configurations. 
+    It provides functionality to manage subinterfaces, IP addresses, security zones, and descriptions.
+    Methods:
+        __init__(instance, device, interface_id):
+            Initializes the dialog with the given instance, device, and interface ID.
+        fillLayout():
+            Populates the dialog layout with subinterface group boxes and tables.
+        createSubinterfaceTable(subinterface_index, subinterface_data):
+            Creates a QTableWidget for displaying IP addresses of a subinterface.
+        deleteIP(subinterface_index, old_ip):
+            Deletes an IP address from a subinterface and refreshes the dialog.
+        closeEvent(event):
+            Refreshes the parent dialog when this dialog is closed.
+        changeSecurityZone(security_zone):
+            Changes the security zone of the interface.
+        changeDescription(description):
+            Updates the description of the interface.
+        showDialog(subinterface_index, ip=None):
+            Opens a dialog for editing or adding a subinterface or IP address.
+        refreshDialog():
+            Clears and repopulates the layout to reflect updated data.
+        """
+
     def __init__(self, instance, device, interface_id):
         super().__init__()
 
@@ -438,8 +600,8 @@ class EditInterfaceDialog(QDialog):
             )
         )
 
-        # If the device is of type Firewall, show UI elements for managing security zones
-        if device.__class__.__name__ == 'Firewall': # isInstance(item, Firewall), without the need to import class Firewall
+        # If the device has capabilites for configuring security zones, show UI elements for it
+        if hasattr(device, "is_security_zone_capable") and device.is_security_zone_capable:
             self.ui.security_zone_frame.setVisible(True)
             self.ui.security_zone_combobox.addItems(device.security_zones)
             self.ui.security_zone_combobox.addItems(" ")
@@ -448,13 +610,19 @@ class EditInterfaceDialog(QDialog):
         else:
             self.ui.security_zone_frame.setVisible(False)
 
+        # Connect buttons
+        self.ui.add_subinterface_button.clicked.connect(lambda _, index=None : self.showDialog(index))
+        self.ui.change_description_button.clicked.connect(lambda: self.changeDescription(self.ui.description_input.text()))
+        self.ui.close_button_box.button(QDialogButtonBox.Close).clicked.connect(self.close)
+
         self.fillLayout()
 
     def fillLayout(self):
-        self.ui.add_subinterface_button.clicked.connect(lambda _, index=None : self.showDialog(index))
+        """Populates the dialog layout with subinterface group boxes and tables."""
 
         # Get subinterfaces, create a layout for each subinterface containg: Header, Table
         self.subinterfaces = self.device.interfaces[self.interface_id]['subinterfaces']
+        self.ui.description_input.setText(self.device.interfaces[self.interface_id].get('description', ""))
         for subinterface_index, subinterface_data in self.subinterfaces.items():
             # Groupbox for each subinterface
             subinterface_groupbox = QGroupBox()
@@ -475,9 +643,7 @@ class EditInterfaceDialog(QDialog):
             self.ui.tables_layout.addWidget(subinterface_groupbox)
 
     def createSubinterfaceTable(self, subinterface_index, subinterface_data):
-        """
-        TODO:
-        """
+        """Creates a QTableWidget for displaying IP addresses of a subinterface."""
 
         # Create the table, set basic properties
         subinterface_table = QTableWidget()
@@ -489,10 +655,9 @@ class EditInterfaceDialog(QDialog):
 
         row = 0
         for ipv4_data in subinterface_data['ipv4_data']:
-            # Flag: commited, uncommited, deleted
             bg_color = "white"
             if ipv4_data:
-                bg_color = utils.getBgColorFromFlag(ipv4_data['flag'])
+                bg_color = utils.getBgColorFromFlag(ipv4_data['flag']) # Flag: commited, uncommited, deleted
 
             # IPv4 address
             ip_item = QTableWidgetItem(f"{ipv4_data['value'].ip}/{ipv4_data['value'].network.prefixlen}")
@@ -520,10 +685,9 @@ class EditInterfaceDialog(QDialog):
             row += 1
         
         for ipv6_data in subinterface_data['ipv6_data']:
-            # Flag: commited, uncommited, deleted
             bg_color = "white"
             if ipv6_data:
-                bg_color = utils.getBgColorFromFlag(ipv6_data['flag'])
+                bg_color = utils.getBgColorFromFlag(ipv6_data['flag']) # Flag: commited, uncommited, deleted
 
             # IPv6 address
             ip_item = QTableWidgetItem(f"{ipv6_data['value'].ip}/{ipv6_data['value'].network.prefixlen}")
@@ -552,35 +716,73 @@ class EditInterfaceDialog(QDialog):
         return subinterface_table
     
     def deleteIP(self, subinterface_index, old_ip):
+        """Deletes an IP address from a subinterface and refreshes the dialog."""
+        
         self.device.deleteInterfaceIP(self.interface_id, subinterface_index, old_ip)
         self.refreshDialog()
 
     def closeEvent(self, event):
         """ Refresh the parent dialog when this dialog is closed. """
+        
         self.instance.refreshDialog()
         super().closeEvent(event)
 
     def changeSecurityZone(self, security_zone):
-        if self.device.interfaces[self.interface_id].get("security_zone", None) is not None: # if the interface already has a security zone assigned
+        """Changes the security zone of the interface. Used for Juniper SRX."""
+
+        if self.device.interfaces[self.interface_id].get("security_zone", None) is not None: # if the interface already has a security zone assigned, remove it first before assigning a new onw
             result = self.device.configureInterfacesSecurityZone(self.interface_id, self.device.interfaces[self.interface_id]["security_zone"], remove_interface_from_zone=True) # remove the interface from the old zone
         result = self.device.configureInterfacesSecurityZone(self.interface_id, security_zone)
 
         if result == True:
             QMessageBox.information(self, "Information", f"Security zone for interface {self.interface_id} has been changed to {security_zone}.")
         elif result == False:
-            QMessageBox.warning(self, "Warning", f"Failed to change the security zone for interface {self.interface_id}.")
-        
+            QMessageBox.warning(self, "Warning", f"Failed to change the security zone for interface {self.interface_id}.")  
 
-    def showDialog(self, subinterface_index, ip = None):       
+    def changeDescription(self, description):
+        """Updates the description of the interface."""
+
+        old_description = self.device.interfaces[self.interface_id].get("description", None)
+
+        if description == "":
+            QMessageBox.warning(self, "Warning", "Description cannot be empty.")
+            return
+
+        if old_description is not None and old_description == description:
+            QMessageBox.information(self, "Information", "No changes were made.")
+            return
+        
+        result = self.device.configureInterfaceDescription(self.interface_id, description)
+        
+        if result == True:
+            QMessageBox.information(self, "Information", f"Description for interface {self.interface_id} has been changed to {description}.")
+        elif result == False:
+            QMessageBox.warning(self, "Warning", f"Failed to change the description for interface {self.interface_id}.")
+
+    def showDialog(self, subinterface_index, ip = None):
+        """Opens a dialog for editing or adding a subinterface or IP address."""
+
         self.editSubinterfaceDialog = EditSubinterfaceDialog(self, self.device, self.interface_id, subinterface_index, ip)
         self.editSubinterfaceDialog.exec()
 
     def refreshDialog(self):
+        """Clears and repopulates the layout to reflect updated data."""
+
         utils.clearLayout(self.ui.tables_layout)
         self.fillLayout()
 
 
 class EditSubinterfaceDialog(QDialog):
+    """
+    A dialog for editing or adding a subinterface to a network device.
+    This dialog allows the user to either edit an existing subinterface or create a new one.
+    It provides fields for specifying the subinterface ID and its associated IP address.
+    Methods:
+        confirmEdit():
+            Handles the confirmation of the edit or creation of the subinterface.
+            Validates the IP address, updates the device configuration, and refreshes the parent dialog.
+    """
+
     def __init__(self, editInterfaceDialog_instance, device, interface, subinterface_id, ip = None):
         super().__init__()
 
@@ -638,6 +840,8 @@ class EditSubinterfaceDialog(QDialog):
         self.setLayout(self.layout)
 
     def confirmEdit(self):
+        """Handles the confirmation of the edit or creation of the subinterface."""
+
         # Creating "new_ip" object (IPv4Interface or IPv6Interface)
         if self.old_ip:
             # If replacing old IP address, check the version of the old one and set the version of the new one accordingly
@@ -671,6 +875,22 @@ class EditSubinterfaceDialog(QDialog):
 
 
 class AddInterfaceDialog(QDialog):
+    """
+    AddInterfaceDialog is a dialog window for adding a new network interface to a device.
+    This class provides a user interface for selecting an interface type (currently, only loopback interfaces are supported),
+    specifying an interface name, and validating the input based on the device's parameters. 
+    It supports devices with "junos" and "iosxe" parameters and ensures
+    that the interface name adheres to the expected format for the selected type.
+    Methods:
+        changePlaceholderInterfaceName():
+            Gives a hint to the user about the interface name format based on the selected interface type.
+        confirmAdd():
+            Handles the confirmation of the addition of a new interface.
+            Validates the input, adds the interface to the device configuration, and closes the dialog.
+        checkValidInterfaceName(name, checked_name):
+            Checks if the interface name adheres to the expected format for the selected type.
+    """
+    
     def __init__(self, device):
         super().__init__()
 
@@ -730,4 +950,3 @@ class AddInterfaceDialog(QDialog):
     def checkValidInterfaceName(self, name, checked_name):
         if name.startswith(checked_name):
             return True
-        
