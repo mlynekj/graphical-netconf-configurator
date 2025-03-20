@@ -22,10 +22,8 @@ from PySide6.QtCore import Qt, Slot
 from ui.ui_ospfdialog import Ui_OSPFDialog
 from ui.ui_addospfnetworkdialog import Ui_AddOSPFNetworkDialog
 
-
-
 # ---------- OPERATIONS: ----------
-def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, reference_bandwidth):
+def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, reference_bandwidth) -> tuple:
     """
     Configures OSPF on a network device using NETCONF. Called from the device's configureOSPF method.
     Parameters:
@@ -35,9 +33,11 @@ def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, r
         dead_interval (int): The OSPF dead interval.
         reference_bandwidth (int): The OSPF reference bandwidth.
     Returns:
-        rpc_reply (object): The RPC reply from the NETCONF edit-config operation.
-        filter (str): The XML filter used in the NETCONF edit-config operation.
+        tuple:
+            rpc_reply (object): The RPC reply from the NETCONF edit-config operation.
+            filter (str): The XML filter used in the NETCONF edit-config operation.
     """
+
     if ospf_device.device_parameters["device_params"] == "junos":
         # Create the filter
         filter = OpenconfigNetworkInstance_Editconfig_ConfigureOspf_Filter(area, hello_interval, dead_interval, reference_bandwidth, ospf_device.router_id, ospf_device.passive_interfaces, ospf_device.ospf_networks)
@@ -55,10 +55,9 @@ def configureOSPFWithNetconf(ospf_device, area, hello_interval, dead_interval, r
         return(rpc_reply, filter)
 
 
-
 # ---------- FILTERS: ----------
 class OpenconfigNetworkInstance_Editconfig_ConfigureOspf_Filter(EditconfigFilter):
-    def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict):
+    def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict) -> None:
         self.router_id = router_id
         self.area = area
         self.hello_interval = hello_interval
@@ -87,7 +86,7 @@ class OpenconfigNetworkInstance_Editconfig_ConfigureOspf_Filter(EditconfigFilter
         for interface in self.interfaces:
             self._addInterface(interface)
 
-    def _addInterface(self, interface_id):
+    def _addInterface(self, interface_id) -> None:
         ospfv2_area_element = self.filter_xml.find(".//ns:ospfv2/ns:areas/ns:area", self.namespaces)
         interfaces_element = ospfv2_area_element.find("ns:interfaces", self.namespaces)
 
@@ -132,9 +131,8 @@ class OpenconfigNetworkInstance_Editconfig_ConfigureOspf_Filter(EditconfigFilter
                 dead_interval_element = ET.SubElement(timers_config_element, "dead-interval")
                 dead_interval_element.text = str(self.dead_interval)
 
-
 class CiscoIOSXEOspf_Editconfig_ConfigureOspf_Filter(EditconfigFilter):
-    def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict):
+    def __init__(self, area, hello_interval: int, dead_interval: int, reference_bandwidth: int, router_id, passive_interfaces: list, ospf_networks: dict) -> None:
         self.router_id = router_id
         self.area = area
         self.hello_interval = hello_interval
@@ -175,7 +173,9 @@ class CiscoIOSXEOspf_Editconfig_ConfigureOspf_Filter(EditconfigFilter):
             for interface in self.ospf_interfaces:
                 self._addTimers(interface)
 
-    def _addNetwork(self, network):
+    def _addNetwork(self, network) -> None:
+        """Adds an OSPF network to the configuration."""
+
         process_id_element = self.filter_xml.find(".//ospf:process-id", self.namespaces)
         network_element = ET.SubElement(process_id_element, "network")
         
@@ -189,12 +189,16 @@ class CiscoIOSXEOspf_Editconfig_ConfigureOspf_Filter(EditconfigFilter):
         network_area_element = ET.SubElement(network_element, "area")
         network_area_element.text = self.area
 
-    def _addPassiveInterface(self, interface):
+    def _addPassiveInterface(self, interface) -> None:
+        """Adds a passive interface to the configuration."""
+
         passive_interface_container_element = self.filter_xml.find(".//ospf:passive-interface", self.namespaces)
         passive_interface_element = ET.SubElement(passive_interface_container_element, "interface")
         passive_interface_element.text = interface
 
-    def _addTimers(self, interface):
+    def _addTimers(self, interface) -> None:
+        """Adds OSPF timers to the configuration."""
+        
         native_element = self.filter_xml.find(".//native:native", self.namespaces) #/native
         interface_container_element = ET.SubElement(native_element, "interface") #/native/interface
         
@@ -220,7 +224,6 @@ class CiscoIOSXEOspf_Editconfig_ConfigureOspf_Filter(EditconfigFilter):
             dead_interval_element.text = str(self.dead_interval)
 
 
-
 # ---------- QT: ----------
 class OSPFDialog(QDialog):
     """
@@ -234,7 +237,7 @@ class OSPFDialog(QDialog):
         ui (Ui_OSPFDialog): The user interface elements for the dialog.
     """
             
-    def __init__(self, scene=None):
+    def __init__(self, scene=None) -> None:
         super().__init__()
 
         self.selected_device = None
@@ -282,11 +285,12 @@ class OSPFDialog(QDialog):
         self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self._okButtonHandler)
 
     @Slot()
-    def _onSelectionChanged(self):
+    def _onSelectionChanged(self) -> None:
         """
         Slot function that gets called when a device is clicked on in the cloned scene.
         Sets the selected device to the selected item and refreshes the passive interfaces, OSPF networks tables and the router ID input.
         """
+
         selected_items = self.scene.selectedItems()
         for device in selected_items:
             if device.__class__.__name__ == 'OSPFDevice': # isInstance(item, OSPFDevice), without the need to import OSPFDevice (circular import)
@@ -295,7 +299,7 @@ class OSPFDialog(QDialog):
                 self._refreshOSPFNetworksTable()
                 self._refreshRouterIDInput()
 
-    def _refreshPassiveInterfacesTable(self):
+    def _refreshPassiveInterfacesTable(self) -> None:
         """
         Loads and refreshes the passive interfaces table in the UI.
         Information about the passive interfaces is taken from the selected device's list - "passive_interfaces".
@@ -325,17 +329,15 @@ class OSPFDialog(QDialog):
             self.ui.passive_interfaces_table.setColumnCount(1)
             self.ui.passive_interfaces_table.setItem(0, 0, QTableWidgetItem("No interfaces found!"))
         
-    def _onPassiveInterfaceCheckboxChange(self, row):
-        """
-        Checks for the state of the checkbox in the passive interfaces table (for each interface) and updates the selected device's "passive_interfaces" list.
-        """
+    def _onPassiveInterfaceCheckboxChange(self, row) -> None:
+        """Checks for the state of the checkbox in the passive interfaces table (for each interface) and updates the selected device's "passive_interfaces" list."""
 
         if self.ui.passive_interfaces_table.cellWidget(row, 1).isChecked():
             self.selected_device.passive_interfaces.append(self.ui.passive_interfaces_table.item(row, 0).text())
         else:
             self.selected_device.passive_interfaces.remove(self.ui.passive_interfaces_table.item(row, 0).text())
 
-    def _refreshOSPFNetworksTable(self):
+    def _refreshOSPFNetworksTable(self) -> None:
         """
         Loads and refreshes the OSPF networks in the UI.
         Information about the OSPF networks is taken from the selected device's list - "ospf_networks".
@@ -347,10 +349,8 @@ class OSPFDialog(QDialog):
             for network in interface_networks:
                 self._insertNetworkIntoTable(network, interface_name)
     
-    def _insertNetworkIntoTable(self, network, interface_name):
-        """
-        Helper function to insert a network into the OSPF networks table. Should be called only from refreshOSPFNetworksTable().
-        """
+    def _insertNetworkIntoTable(self, network, interface_name) -> None:
+        """Helper function to insert a network into the OSPF networks table. Should be called only from refreshOSPFNetworksTable()."""
         
         rowPosition = self.ui.networks_table.rowCount()
         self.ui.networks_table.insertRow(rowPosition)
@@ -366,10 +366,8 @@ class OSPFDialog(QDialog):
             self.ui.routerid_input.clear()
 
     @Slot()
-    def _onRouterIDInputChanged(self):
-        """
-        A slot function that gets called when the router ID input is changed (editingFinished signal). It updated the router_id parameter of the selected device.
-        """
+    def _onRouterIDInputChanged(self) -> None:
+        """A slot function that gets called when the router ID input is changed (editingFinished signal). It updated the router_id parameter of the selected device."""
 
         if self.selected_device:
             self.ui.routerid_input.setDisabled(False)
@@ -378,7 +376,7 @@ class OSPFDialog(QDialog):
             self.ui.routerid_input.setDisabled(True)
             self.ui.routerid_input.clear()
 
-    def _deleteNetworkButtonHandler(self):
+    def _deleteNetworkButtonHandler(self) -> None:
         """
         Handles the event when the "Delete Network" button is clicked.
         This method retrieves the selected rows from the networks table, extracts the network 
@@ -396,13 +394,12 @@ class OSPFDialog(QDialog):
         else:
             QMessageBox.warning(self, "Warning", "Select networks to delete.", QMessageBox.Ok)
 
-    def _deleteNetwork(self, network, interface_name):
-        """
-        Helper function to delete a network from the OSPF configuration. Should be called only from _deleteNetworkButtonHandler().
-        """
+    def _deleteNetwork(self, network, interface_name) -> None:
+        """Helper function to delete a network from the OSPF configuration. Should be called only from _deleteNetworkButtonHandler()."""
+        
         self.selected_device.removeOSPFNetwork(network, interface_name)
 
-    def _addNetworkButtonHandler(self):
+    def _addNetworkButtonHandler(self) -> None:
         """
         Handles the event when the "Add Network" button is clicked.
         This method checks if a device is selected. If a device is selected, it opens
@@ -418,10 +415,8 @@ class OSPFDialog(QDialog):
         else:
             QMessageBox.warning(self, "Warning", "Select a device.", QMessageBox.Ok)
 
-    def _okButtonHandler(self):
-        """
-        Reads the input fields, validates them and initiates an OSPF configuration of OSPF on all devices in the scene.
-        """
+    def _okButtonHandler(self) -> None:
+        """Reads the input fields, validates them and initiates an OSPF configuration of OSPF on all devices in the scene."""
 
         area = self.ui.area_number_input.text()
         hello_interval = self.ui.hello_input.text()
@@ -446,7 +441,7 @@ class AddOSPFNetworkDialog(QDialog):
         ui (Ui_AddOSPFNetworkDialog): The UI components of the dialog.  
     """
 
-    def __init__(self, device):
+    def __init__(self, device) -> None:
         super().__init__()
 
         self.device = device
@@ -457,7 +452,7 @@ class AddOSPFNetworkDialog(QDialog):
         self.ui.interfaces_combo_box.addItems(self.device.interfaces.keys())
         self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self._addNetwork)
 
-    def _addNetwork(self):
+    def _addNetwork(self) -> None:
         """
         Adds an OSPF network to the configuration.
         This method retrieves the network address and interface name from the UI,

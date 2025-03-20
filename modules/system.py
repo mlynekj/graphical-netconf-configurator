@@ -20,8 +20,15 @@ from PySide6.QtGui import QGuiApplication
 
 
 # ---------- OPERATIONS: ----------
-def getHostnameWithNetconf(device):
-    """ Retrieves the device hostname of the specified device. """
+def getHostnameWithNetconf(device) -> tuple:
+    """
+    Retrieves the device hostname of the specified device.
+    Returns:
+        tuple:
+            - hostname (str): The hostname of the device.
+            - rpc_reply (str): The raw NETCONF RPC reply.
+    """
+
     device_type = device.device_parameters['device_params']
 
     # FILTER
@@ -41,8 +48,17 @@ def getHostnameWithNetconf(device):
     else:
         return("N/A", rpc_reply)
 
-def setHostnameWithNetconf(device, new_hostname):
-    """ Sets the device hostname of the specified device to the specified value. """
+def setHostnameWithNetconf(device, new_hostname) -> tuple:
+    """
+    Sets the device hostname of the specified device to the specified value.
+    Args:
+        new_hostname (str): The new hostname to set.
+    Returns:
+        tuple:
+            - rpc_reply (str): The raw NETCONF RPC reply.
+            - filter_xml (str): The raw NETCONF filter XML.
+    """
+
     device_type = device.device_parameters['device_params']
 
     # CONFIG FILTER
@@ -54,7 +70,6 @@ def setHostnameWithNetconf(device, new_hostname):
     # RPC
     rpc_reply = device.mngr.edit_config(target=CONFIGURATION_TARGET_DATASTORE, config=str(filter_xml))
     return(rpc_reply, filter_xml)
-
 
 
 # ---------- FILTERS: ----------
@@ -86,10 +101,26 @@ class OpenconfigSystem_Editconfig_EditHostname_Filter(EditconfigFilter):
         hostname_element.text = new_hostname
 
 
-
 # ---------- QT: ----------
 class HostnameDialog(QDialog):
-    def __init__(self, device):
+    """
+    A dialog window for editing the hostname of a device.
+    This dialog allows the user to view the current hostname of a device,
+    input a new hostname, and confirm or cancel the change.
+    Attributes:
+        device (object): The device object whose hostname is being edited.
+        old_hostname (str): The current hostname of the device.
+        new_hostname (str): The new hostname entered by the user.
+        layout (QVBoxLayout): The layout manager for the dialog.
+        hostname_input (QLineEdit): The input field for entering the new hostname.
+        buttons (QDialogButtonBox): The dialog buttons for confirming or canceling the action.
+    Methods:
+        _confirmRename():
+            Handles the logic for confirming the hostname change.
+            Updates the device's hostname if a valid new hostname is provided.
+    """
+
+    def __init__(self, device) -> None:
         super().__init__()
 
         self.device = device
@@ -120,7 +151,9 @@ class HostnameDialog(QDialog):
 
         self.setLayout(self.layout)
 
-    def _confirmRename(self):
+    def _confirmRename(self) -> None:
+        """Handles the logic for confirming the hostname change."""
+        
         self.new_hostname = self.hostname_input.text()
 
         if not self.new_hostname or (self.new_hostname == self.old_hostname):

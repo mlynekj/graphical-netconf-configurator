@@ -25,16 +25,38 @@ from PySide6.QtCore import Qt, QPointF
 # QtCreator
 from ui.ui_ipsecdialog import Ui_IPSECDialog
 
-
 # ---------- OPERATIONS: ----------
-def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_parameters):
+def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_parameters) -> tuple:
+    """
+    Configures IPSec on a network device using NETCONF.
+    It generates the appropriate configuration filter based on
+    the device type, and applies the configuration using NETCONF.
+    Args:
+        device: An object representing the network device, which includes
+                device parameters and a NETCONF manager instance.
+        dev_parameters (dict): A dictionary containing device-specific parameters,
+                               such as interface names and other configuration details.
+        ike_parameters (dict): A dictionary containing IKE (Internet Key Exchange)
+                               configuration parameters.
+        ipsec_parameters (dict): A dictionary containing IPSec configuration parameters.
+    Returns:
+        tuple: A tuple containing:
+            - rpc_reply: The NETCONF RPC reply object after applying the configuration.
+            - filter: The configuration filter used for the NETCONF operation.
+    Notes:
+        - For Junos devices, a reminder is displayed to verify that the interfaces
+          are assigned to the correct security zones (e.g., "trust" and "untrust").
+          This couldn't be automated, because it could break other configurations.
+    """
+
     if device.device_parameters["device_params"] == "junos":
         # Create the filter
         filter = JunosConf_Editconfig_ConfigureIPSec_Filter(dev_parameters, ike_parameters, ipsec_parameters)   
         print(filter)
+
         # RPC                
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
-        
+
         # Show reminder to check the security zones
         message = (
             "Make sure that the interfaces are assigned to the correct security zones.\n"
@@ -53,24 +75,36 @@ def configureIPSecWithNetconf(device, dev_parameters, ike_parameters, ipsec_para
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         return(rpc_reply, filter)
 
-def getSecurityZonesWithNetconf(device):
-     rpc_payload = JunosRpcZones_Dispatch_GetZones_Filter()
-     rpc_reply = device.mngr.dispatch(rpc_payload.__ele__())
-     return (rpc_payload, rpc_reply)
+def getSecurityZonesWithNetconf(device) -> tuple:
+    """
+    Retrieves security zones from a network device using NETCONF. Currently, used only for Junos (SRX).
+    Args:
+        device: The network device object that provides a NETCONF manager 
+                for executing RPC calls.
+    Returns:
+        tuple: A tuple containing:
+            - rpc_payload: The RPC payload object used for the request.
+            - rpc_reply: The RPC reply object containing the response from the device.
+    """
+    
+    rpc_payload = JunosRpcZones_Dispatch_GetZones_Filter()
+    rpc_reply = device.mngr.dispatch(rpc_payload.__ele__())
+    return (rpc_payload, rpc_reply)
 
 def configureSecurityZoneToInterfaceWithNetconf(device, interface, zone, remove_interface_from_zone=False):
     filter = JunosConfSecurity_EditConfig_ConfigureInterfacesZone_Filter(interface, zone, remove_interface_from_zone)
     rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
     return (rpc_reply, filter)
 
+
 # ---------- FILTERS: ----------
 class JunosRpcZones_Dispatch_GetZones_Filter(DispatchFilter):
-    def __init__(self):
+    def __init__(self) -> None:
         self.filter_xml = ET.parse(SECURITY_YANG_DIR + "junos-rpc-zones_dispatch_get-zones.xml")
 
 
 class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
-    def __init__(self, dev_parameters: dict, ike_parameters: dict, ipsec_parameters: dict):  
+    def __init__(self, dev_parameters: dict, ike_parameters: dict, ipsec_parameters: dict) -> None:  
         # Load the XML filter template
         self.filter_xml = ET.parse(SECURITY_YANG_DIR + "Cisco-IOS-XE-native_edit-config_configure-ipsec.xml")
         self.namespaces = {'native': 'http://cisco.com/ns/yang/Cisco-IOS-XE-native',
@@ -84,7 +118,7 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         self._createCryptoMapFilter(dev_parameters)
         self._applyCryptoMapToInteface(dev_parameters)
 
-    def _createAccessListFilter(self, dev_parameters):
+    def _createAccessListFilter(self, dev_parameters) -> None:
         # Store the values for later use
         self.access_list_values = {
             "name": dev_parameters["cisco_specific"]["acl_number"],
@@ -102,7 +136,7 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         extended_acl_element.find(".//acl:ace-rule/acl:dest-ipv4-address", self.namespaces).text = str(self.access_list_values["destination_network"].network_address)
         extended_acl_element.find(".//acl:ace-rule/acl:dest-mask", self.namespaces).text = str(self.access_list_values["destination_network"].hostmask)
 
-    def _createTransformSetFilter(self, ipsec_parameters):
+    def _createTransformSetFilter(self, ipsec_parameters) -> None:
         # Preprocessing
         esp_hmac = f"esp-{ipsec_parameters["authentication"]}" # Set the IPSec authentication element (ESP-HMAC)
         if ipsec_parameters["encryption"] == "3des": # Set the IPSec encryption element (ESP-AES + length in bits, or ESP-3DES)
@@ -132,7 +166,7 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
             key_bit_element = ET.SubElement(transform_set_element, "key-bit")
             key_bit_element.text = self.transform_set_values["key_bit"]
 
-    def _createIsakmpFilter(self, ike_parameters, dev_parameters):
+    def _createIsakmpFilter(self, ike_parameters, dev_parameters) -> None:
         # Preprocessing
         key = ike_parameters["psk"] #Pre-shared key element
         address = dev_parameters["remote_peer_ip"] #Remote peer element
@@ -171,7 +205,7 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
             key_bit_element = ET.SubElement(encryption_type_element, "key")
             key_bit_element.text = isakmp_values["key_bit"]
     
-    def _createCryptoMapFilter(self, dev_parameters):
+    def _createCryptoMapFilter(self, dev_parameters) -> None:
         # Preprocessing
         crypto_map_sequence = dev_parameters["cisco_specific"]["crypto_map_sequence"] # Crypto map sequence number element
 
@@ -190,7 +224,7 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:set/crypto:peer/crypto:address", self.namespaces).text = str(self.crypto_map_values["peer_address"])
         crypto_map_element.find(".//crypto:map-seq/crypto:map/crypto:set/crypto:transform-set", self.namespaces).text = str(self.transform_set_values["tag"])
         
-    def _applyCryptoMapToInteface(self, dev_parameters):
+    def _applyCryptoMapToInteface(self, dev_parameters) -> None:
         # Split the interface name (e.g. GigabitEthernet1) into type and number (GigabitEthernet, 1)
         interface = dev_parameters["WAN_interface"]
         interface_type = ''.join(filter(str.isalpha, interface))
@@ -209,7 +243,7 @@ class CiscoIOSXENative_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
 
 
 class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
-    def __init__(self, dev_parameters: dict, ike_parameters: dict, ipsec_parameters: dict):
+    def __init__(self, dev_parameters: dict, ike_parameters: dict, ipsec_parameters: dict) -> None:
         self.filter_xml = ET.parse(SECURITY_YANG_DIR + "junos-conf_edit-config_configure-ipsec.xml")
         self.namespaces = {"conf": "http://yang.juniper.net/junos"}
 
@@ -218,7 +252,7 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         self._createAddressBooksFilter(dev_parameters)
         self._createPoliciesFilter(dev_parameters)
 
-    def _createIkeFilter(self, ike_parameters, dev_parameters):
+    def _createIkeFilter(self, ike_parameters, dev_parameters) -> None:
         # Preprocessing
         proposal_name = f"pro_{ike_parameters["dh"]}_{ike_parameters["authentication"]}_{ike_parameters["encryption"]}_{ike_parameters["lifetime"]}"
         policy_name = f"pol_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
@@ -265,7 +299,7 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         ike_element.find(".//conf:gateway/conf:address", self.namespaces).text = str(self.ike_values["remote_peer_ip"])
         ike_element.find(".//conf:gateway/conf:external-interface", self.namespaces).text = str(self.ike_values["external_interface"])
 
-    def _createIPSecFilter(self, ipsec_parameters, dev_parameters):
+    def _createIPSecFilter(self, ipsec_parameters, dev_parameters) -> None:
         # Preprocessing
         proposal_name = f"pro_{ipsec_parameters["authentication"]}_{ipsec_parameters["encryption"]}_{ipsec_parameters["lifetime"]}"
         policy_name = f"pol_{dev_parameters["remote_peer_ip"]}".replace(".", "_")
@@ -301,7 +335,7 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         ipsec_element.find(".//conf:vpn/conf:ike/conf:gateway", self.namespaces).text = str(self.ike_values["gateway_name"])
         ipsec_element.find(".//conf:vpn/conf:ike/conf:ipsec-policy", self.namespaces).text = str(self.ipsec_values["policy_name"])
 
-    def _createAddressBooksFilter(self, dev_parameters):
+    def _createAddressBooksFilter(self, dev_parameters) -> None:
         # Preprocessing
         trusted_address_name = f"{dev_parameters["local_private_network"]}_local_private_network".replace("/", "_").replace(".", "_")
         untrusted_address_name = f"{dev_parameters["remote_peer_ip"]}s_remote_private_network".replace("/", "_").replace(".", "_")
@@ -322,7 +356,7 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         untrusted_address_book_element.find(".//conf:address/conf:name", self.namespaces).text = str(self.address_books_values["untrusted_address_name"])
         untrusted_address_book_element.find(".//conf:address/conf:ip-prefix", self.namespaces).text = str(dev_parameters["remote_private_network"])
 
-    def _createPoliciesFilter(self, dev_parameters):
+    def _createPoliciesFilter(self, dev_parameters) -> None:
         # Preprocessing
         policy_trust_to_untrust_name = f"{dev_parameters["local_peer_ip"]}_to_{dev_parameters["remote_peer_ip"]}_out".replace(".", "_")
         policy_untrust_to_trust_name = f"{dev_parameters["remote_peer_ip"]}_to_{dev_parameters["local_peer_ip"]}_in".replace(".", "_")
@@ -349,13 +383,13 @@ class JunosConf_Editconfig_ConfigureIPSec_Filter(EditconfigFilter):
         policy_untrust_to_trust_element.find(".//conf:then/conf:permit/conf:tunnel/conf:ipsec-vpn", self.namespaces).text = str(self.ipsec_values["vpn_name"])
 
 class JunosConfSecurity_EditConfig_ConfigureInterfacesZone_Filter(EditconfigFilter):
-    def __init__(self, interface, zone, remove_interface_from_zone=False):
+    def __init__(self, interface, zone, remove_interface_from_zone=False) -> None:
         self.filter_xml = ET.parse(SECURITY_YANG_DIR + "junos-conf-security_edit-config_configure-interfaces-zone.xml")
         self.namespaces = {"conf": "http://yang.juniper.net/junos"}
 
         self._createFilter(interface, zone, remove_interface_from_zone)
 
-    def _createFilter(self, interface, zone, remove_interface_from_zone):
+    def _createFilter(self, interface, zone, remove_interface_from_zone) -> None:
         security_zone_element = self.filter_xml.find(".//conf:security-zone", self.namespaces)
         security_zone_element.find(".//conf:name", self.namespaces).text = str(zone)
         security_zone_element.find(".//conf:interfaces/conf:name", self.namespaces).text = str(interface)
@@ -363,36 +397,80 @@ class JunosConfSecurity_EditConfig_ConfigureInterfacesZone_Filter(EditconfigFilt
             interface_element = security_zone_element.find(".//conf:interfaces", self.namespaces)
             interface_element.set("operation", "delete")
 
+
 # ---------- QT: ----------
 class IPSECDialog(QDialog):
-    def __init__(self, devices):
+    """
+    IPSECDialog is a dialog for configuring IPSEC settings between two network devices.
+    This class provides a graphical interface for selecting interfaces, configuring IKE and IPSEC parameters, 
+    and setting advanced options specific to Cisco IOS-XE or Junos devices. It validates user input and 
+    initiates the IPSEC configuration process on the selected devices.
+    Attributes:
+        ui (Ui_IPSECDialog): The user interface object for the dialog.
+        ipsec_scene (QGraphicsScene): The graphics scene used to display the IPSEC scheme.
+        dev1 (Device): The first network device to configure.
+        dev2 (Device): The second network device to configure.
+        ipsec_scheme_background (QPixmap): The background image for the IPSEC scheme.
+    Methods:
+        __init__(devices):
+            Initializes the dialog with the given devices and sets up the UI components.
+        _fillAdvancedTab():
+            Populates the "Advanced" tab with device-specific settings based on the device type.
+        _fillIPSECScene():
+            Populates the IPSEC graphics scene with device-specific information and labels.
+        _dev1_LAN_interface_selected(selected_intf):
+            Handles the selection of a LAN interface for the first device and updates related fields.
+        _dev2_LAN_interface_selected(selected_intf):
+            Handles the selection of a LAN interface for the second device and updates related fields.
+        _dev1_WAN_interface_selected(selected_intf):
+            Handles the selection of a WAN interface for the first device and updates related fields.
+        _dev2_WAN_interface_selected(selected_intf):
+            Handles the selection of a WAN interface for the second device and updates related fields.
+        _alignToCenter(element_to_center, starting_pos):
+            Aligns a graphical element to the center of a specified position.
+        _alignToRight(element_to_align, starting_pos):
+            Aligns a graphical element to the right of a specified position.
+        _okButtonHandler():
+            Validates user input, reads configuration parameters, and initiates the IPSEC configuration 
+            process on both devices.
+    """
+            
+    def __init__(self, devices) -> None:
         super().__init__()
 
-        self.ui = Ui_IPSECDialog()
-        self.ui.setupUi(self)
-
-        self.ipsec_scene = QGraphicsScene()
         self.dev1 = devices[0]
         self.dev2 = devices[1]
 
+        # Set up the UI
+        self.ui = Ui_IPSECDialog()
+        self.ui.setupUi(self)
+        self.ipsec_scene = QGraphicsScene()
         self.ipsec_scheme_background = QPixmap("graphics/ipsec_scheme.png")
         self.ipsec_scene.addPixmap(self.ipsec_scheme_background)
-
         self._fillIPSECScene()
         self._fillAdvancedTab()
         self.ui.graphicsView.setScene(self.ipsec_scene)
 
+        # Connect buttons
         self.ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self._okButtonHandler)
         self.ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.reject)
 
+        # Add parameters to the comboboxes
+        # IKE/ISAKMP
         self.ui.ike_auth_combobox.addItems(["md5", "sha1", "sha256", "sha384"]) # Supported both by Cisco and Juniper
         self.ui.ike_enc_combobox.addItems(["aes-128", "aes-192", "aes-256", "3des"]) # Supported both by Cisco and Juniper (Juniper: aes-128-cbc, aes-192-cbc, aes-256-cbc, 3des-cbc)
         self.ui.ike_dh_combobox.addItems(["group1", "group2", "group5", "group14", "group19", "group20", "group24"]) # Supported both by Cisco and Juniper (Juniper: group1, group2, group5, group14, group19, group20, group24)
-
+        # IPSEC
         self.ui.ipsec_auth_combobox.addItems(["sha-hmac", "sha256-hmac"]) # Supported both by Cisco and Juniper (Juniper: hmac-sha1-96, hmac-sha256-128)
         self.ui.ipsec_enc_combobox.addItems(["aes-128", "aes-192", "aes-256", "3des"])
 
-    def _fillAdvancedTab(self):
+    def _fillAdvancedTab(self) -> None:
+        """
+        Populates the advanced settings tab in the user interface based on the 
+        device parameters for two devices (dev1 and dev2).
+        Needed for Cisco, to specify numbers of ACL, ISAKMP policy, and crypto map sequence.
+        """
+
         if self.dev1.device_parameters["device_params"] == "junos":
             self.ui.dev1_advanced_groupbox.setTitle(f"{self.dev1.hostname} (Junos)")
             self.dev1_junos_layout = QGridLayout(self.ui.dev1_advanced_groupbox)
@@ -449,10 +527,22 @@ class IPSECDialog(QDialog):
             self.dev2_layout.addWidget(self.dev2_crypto_map_sequence_label, 2, 0)
             self.dev2_layout.addWidget(self.dev2_crypto_map_sequence_input, 2, 1)
 
-            
-        
+    def _fillIPSECScene(self) -> None:
+        """
+        Initializes and populates the IPSEC scene with graphical elements and UI components 
+        for two devices (DEVICE1 and DEVICE2). This includes setting up labels, group boxes, 
+        combo boxes, and read-only line edits for displaying and selecting device interfaces 
+        and network information.
+        Notes:
+            - The combo boxes for LAN and WAN interfaces are populated with the keys of the 
+              `interfaces` dictionary for each device.
+            - The LAN and WAN interface combo boxes trigger respective selection handlers 
+              when their values change.
+            - Read-only line edits are used for displaying LAN network and WAN IP address.
+              In the future, this could be editable.
+            - Graphical elements are added to the `ipsec_scene` for visualization.
+        """
 
-    def _fillIPSECScene(self):
         # DEVICE1
         # Hostname
         self.dev1_label_holder = QGraphicsRectItem()
@@ -535,7 +625,9 @@ class IPSECDialog(QDialog):
         self.dev2_wan_ip_label.setFont(QFont("Arial", 10))
         self.ipsec_scene.addItem(self.dev2_wan_ip_label)
 
-    def _dev1_LAN_interface_selected(self, selected_intf):
+    def _dev1_LAN_interface_selected(self, selected_intf) -> None:
+        """Handles the selection of a LAN interface for the first device and updates related fields."""
+
         interface_data = self.dev1.interfaces[selected_intf]
         self.dev1_lan_interface_label.setPlainText(selected_intf)
         self._alignToCenter(self.dev1_lan_interface_label, QPointF(80, 120))
@@ -550,7 +642,9 @@ class IPSECDialog(QDialog):
             self.ui.dev1_LAN_network_lineedit.clear()
             self.dev1_lan_network_label.setPlainText("")
 
-    def _dev2_LAN_interface_selected(self, selected_intf):
+    def _dev2_LAN_interface_selected(self, selected_intf) -> None:
+        """Handles the selection of a LAN interface for the second device and updates related fields."""
+
         interface_data = self.dev2.interfaces[selected_intf]
         self.dev2_lan_interface_label.setPlainText(selected_intf)
         self._alignToCenter(self.dev2_lan_interface_label, QPointF(500, 120))
@@ -565,7 +659,9 @@ class IPSECDialog(QDialog):
             self.ui.dev2_LAN_network_lineedit.clear()
             self.dev2_lan_network_label.setPlainText("")
 
-    def _dev1_WAN_interface_selected(self, selected_intf):
+    def _dev1_WAN_interface_selected(self, selected_intf) -> None:
+        """Handles the selection of a WAN interface for the first device and updates related fields."""
+
         interface_data = self.dev1.interfaces[selected_intf]
         self.dev1_wan_interface_label.setPlainText(selected_intf)
         ipv4_data, ipv6_data = utils.getFirstIPAddressesFromSubinterfaces(interface_data['subinterfaces'])
@@ -579,7 +675,9 @@ class IPSECDialog(QDialog):
             self.ui.dev1_WAN_ip_lineedit.clear()
             self.ui.dev1_WAN_ip_lineedit.setText("")
 
-    def _dev2_WAN_interface_selected(self, selected_intf):
+    def _dev2_WAN_interface_selected(self, selected_intf) -> None:
+        """Handles the selection of a WAN interface for the second device and updates related fields."""
+
         interface_data = self.dev2.interfaces[selected_intf]
         self.dev2_wan_interface_label.setPlainText(selected_intf)
         self._alignToRight(self.dev2_wan_interface_label, QPointF(470, 80))
@@ -595,20 +693,22 @@ class IPSECDialog(QDialog):
             self.ui.dev2_WAN_ip_lineedit.clear()
             self.ui.dev2_WAN_ip_lineedit.setText("")
 
-    def _alignToCenter(self, element_to_center, starting_pos):
+    def _alignToCenter(self, element_to_center, starting_pos) -> None:
+        """Aligns a graphical element to the center of a specified position."""
+
         elements_bounding_rect = element_to_center.boundingRect().width()
         element_to_center.setPos(starting_pos.x() - elements_bounding_rect / 2, starting_pos.y())
 
-    def _alignToRight(self, element_to_align, starting_pos):
+    def _alignToRight(self, element_to_align, starting_pos) -> None:
+        """Aligns a graphical element to the right of a specified position."""
+
         elements_bounding_rect = element_to_align.boundingRect().width()
         element_to_align.setPos(starting_pos.x() - elements_bounding_rect, starting_pos.y())
 
-    def _okButtonHandler(self):
-        """
-        Reads the input fields, validates them and initiates an IPSEC configuration on both devices.
-        """
+    def _okButtonHandler(self) -> None:
+        """Reads the input fields, validates them and initiates an IPSEC configuration on both devices."""
 
-
+        # CREATE DICTIONARIES WITH THE VALUES FOR BOTH DEVICES, AND IKE/IPSEC PARAMETERS (WHICH ARE SAME FOR BOTH DEVICES)
         dev1_parameters = {
             "LAN_interface": self.ui.dev1_LAN_interface_combobox.currentText() if self.ui.dev1_LAN_interface_combobox.currentText() else None,
             "WAN_interface": self.ui.dev1_WAN_interface_combobox.currentText() if self.ui.dev1_WAN_interface_combobox.currentText() else None,
@@ -641,6 +741,7 @@ class IPSECDialog(QDialog):
             "lifetime": self.ui.ipsec_lifetime_input.text() if self.ui.ipsec_lifetime_input.text() else None
         }
 
+        # Handle the "Advanced" tab for Cisco IOS-XE device1
         if self.dev1.device_parameters["device_params"] == "iosxe":
             dev1_parameters["cisco_specific"] = {
                 "acl_number": int(self.dev1_acl_number_input.text()) if self.dev1_acl_number_input.text() else None,
@@ -656,6 +757,7 @@ class IPSECDialog(QDialog):
         elif self.dev1.device_parameters["device_params"] == "junos":
             pass
 
+        # Handle the "Advanced" tab for Cisco IOS-XE device2
         if self.dev2.device_parameters["device_params"] == "iosxe":
             dev2_parameters["cisco_specific"] = {
                 "acl_number": int(self.dev2_acl_number_input.text()) if self.dev2_acl_number_input.text() else None,

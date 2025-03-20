@@ -25,15 +25,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QGuiApplication
 
-
-# ---------- FILTERS: ----------
-class JunosRpc_Dispatch_RollbackZero_Filter(DispatchFilter):
-    def __init__(self):
-        self.filter_xml = ET.parse(SYSTEM_YANG_DIR + "junos-rpc_dispatch_rollback_pending_changes.xml")
-
-
-
-def establishNetconfConnection(device_parameters):
+# ---------- OPERATIONS: ----------
+def establishNetconfConnection(device_parameters) -> manager:
     """
     Establishes a NETCONF connection to a network device.
     Args:
@@ -72,7 +65,7 @@ def establishNetconfConnection(device_parameters):
         QMessageBox.critical(None, "General Error", f"General error: {e}")
         raise ConnectionError(f"General error: {e}")
  
-def demolishNetconfConnection(device):
+def demolishNetconfConnection(device) -> ET.Element:
     """ Tears down the spcified ncclient connection, by deleting the mng object. """
     try:
         rpc_reply = device.mngr.close_session()
@@ -84,7 +77,7 @@ def demolishNetconfConnection(device):
         utils.printGeneral(f"Failed to close NETCONF connection: {e}")
         return None
 
-def commitNetconfChanges(device, confirmed: bool=False, confirm_timeout=None):
+def commitNetconfChanges(device, confirmed: bool=False, confirm_timeout=None) -> ET.Element:
     """ Performs the "commit" operation using the specified ncclient connection. """
     try:
         rpc_reply = device.mngr.commit(confirmed, timeout=str(confirm_timeout))
@@ -96,7 +89,7 @@ def commitNetconfChanges(device, confirmed: bool=False, confirm_timeout=None):
         utils.printGeneral(f"Failed to commit changes: {e}")
         return None
 
-def discardNetconfChanges(device):
+def discardNetconfChanges(device) -> ET.Element:
     """ Performs the "discard-changes" operation using the specified ncclient connection. """
     try:
         rpc_reply = device.mngr.discard_changes()
@@ -108,7 +101,7 @@ def discardNetconfChanges(device):
         utils.printGeneral(f"Failed to discard changes: {e}")
         return None
     
-def cancelNetconfCommit(device):
+def cancelNetconfCommit(device) -> ET.Element:
     """ Performs the "cancel-commit" operation using the specified ncclient connection. """
     try:
         rpc_reply = device.mngr.cancel_commit()
@@ -120,7 +113,7 @@ def cancelNetconfCommit(device):
         utils.printGeneral(f"Failed to cancel commit: {e}")
         return None
 
-def rollbackNetconfChanges(device):
+def rollbackNetconfChanges(device) -> ET.Element:
     """ Performs the "rollback" operation using the specified ncclient connection. """
     try:
         rpc_payload = JunosRpc_Dispatch_RollbackZero_Filter()
@@ -138,11 +131,33 @@ def getNetconfCapabilities(device) -> list:
     capabilities = device.mngr.server_capabilities
     return(capabilities)
 
+# ---------- FILTERS: ----------
+class JunosRpc_Dispatch_RollbackZero_Filter(DispatchFilter):
+    def __init__(self) -> None:
+        self.filter_xml = ET.parse(SYSTEM_YANG_DIR + "junos-rpc_dispatch_rollback_pending_changes.xml")
 
 
 # ---------- QT: ----------
 class NetconfCapabilitiesDialog(QDialog):
-    def __init__(self, device):
+    """
+    NetconfCapabilitiesDialog is a QDialog subclass that displays the NETCONF capabilities of a given device.
+    Attributes:
+        layout (QVBoxLayout): The main layout of the dialog.
+        scroll_area (QScrollArea): A scrollable area to hold the capabilities table.
+        table_widget (QWidget): A container widget for the capabilities table.
+        table_layout (QVBoxLayout): The layout for the table widget.
+        capabilities_table (QTableWidget): A table displaying the NETCONF capabilities.
+        capabilities (list): A list of NETCONF capabilities retrieved from the device.
+        error_label (QLabel, optional): A label to display an error message if capabilities cannot be retrieved.
+        close_button (QPushButton): A button to close the dialog.
+    Methods:
+        __init__(device):
+            Initializes the dialog, retrieves the NETCONF capabilities from the device, and populates the table.
+            Args:
+                device: An object representing the device, which must have a `netconf_capabilities` attribute.
+    """
+
+    def __init__(self, device) -> "NetconfCapabilitiesDialog":
         super().__init__()
 
         self.setWindowTitle("Device Capabilities")
