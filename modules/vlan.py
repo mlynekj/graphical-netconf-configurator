@@ -499,6 +499,10 @@ class EditVlansDialog(QDialog):
             vlan_name (str): The name of the new VLAN.
         """
 
+        if not vlan_id:
+            QMessageBox.warning(self, "Error", "VLAN ID cannot be empty.")
+            return
+
         if vlan_id in device.vlans:
             QMessageBox.warning(self, "Error", f"VLAN {vlan_id} already exists.")
             return
@@ -516,6 +520,13 @@ class EditVlansDialog(QDialog):
             uncommited_interfaces = {k: v for k, v in self.edited_devices[device.id].items() if v['flag'] == "uncommited"}
             if not uncommited_interfaces:
                 continue
+            for interface, data in uncommited_interfaces.items():
+                if data['vlan_data']['switchport_mode'] == "" or data['vlan_data']['switchport_mode'] == None:
+                    QMessageBox.warning(self, "Error", f"Device {device.hostname} - Interface {interface} has an empty switchport mode.")
+                    return
+                if data['vlan_data']['vlan'] == "" or data['vlan_data']['vlan'] == None:
+                    QMessageBox.warning(self, "Error", f"Device {device.hostname} - Interface {interface} has an empty VLAN number/s.")
+                    return
 
             device.deleteInterfaceVlan(uncommited_interfaces)
             device.setInterfaceVlan(uncommited_interfaces)

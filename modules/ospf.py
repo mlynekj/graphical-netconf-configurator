@@ -283,6 +283,7 @@ class OSPFDialog(QDialog):
 
         # Connect the buttons
         self.ui.ok_cancel_buttons.button(QDialogButtonBox.Ok).clicked.connect(self._okButtonHandler)
+        self.ui.ok_cancel_buttons.button(QDialogButtonBox.Cancel).clicked.connect(self.reject)
 
     @Slot()
     def _onSelectionChanged(self) -> None:

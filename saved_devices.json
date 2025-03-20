@@ -1,25 +1,14 @@
 {
     "devices": [
         {
-            "type": "IOSXESwitch",
-            "ip_address": "172.16.10.71:830",
-            "username": "jakub",
-            "password": "cisco",
-            "vendor": "iosxe",
-            "location": {
-                "x": -184.0,
-                "y": 112.0
-            }
-        },
-        {
-            "type": "JUNOSRouter",
-            "ip_address": "172.16.10.84:830",
+            "type": "JUNOSFirewall",
+            "ip_address": "172.16.10.85:830",
             "username": "root",
             "password": "Juniper123",
             "vendor": "junos",
             "location": {
-                "x": -202.0,
-                "y": -237.0
+                "x": -59.0,
+                "y": -113.0
             }
         },
         {
@@ -29,19 +18,19 @@
             "password": "cisco",
             "vendor": "iosxe",
             "location": {
-                "x": -195.0,
-                "y": -128.0
+                "x": -131.0,
+                "y": -22.0
             }
         },
         {
-            "type": "JUNOSFirewall",
-            "ip_address": "172.16.10.85:830",
-            "username": "root",
-            "password": "Juniper123",
-            "vendor": "junos",
+            "type": "IOSXESwitch",
+            "ip_address": "172.16.10.71:830",
+            "username": "jakub",
+            "password": "cisco",
+            "vendor": "iosxe",
             "location": {
-                "x": -185.0,
-                "y": -15.0
+                "x": 0.0,
+                "y": 0.0
             }
         }
     ]

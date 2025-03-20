@@ -13,7 +13,7 @@ import modules.security as security
 import modules.vlan as vlan
 from signals import signal_manager
 from yang.filters import DispatchFilter, GetFilter
-from definitions import ROUTING_YANG_DIR
+from definitions import ROUTING_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
 # Qt
 from PySide6.QtWidgets import (
@@ -153,7 +153,18 @@ class Device(QGraphicsPixmapItem):
         self.device_parameters = device_parameters
 
         # NETCONF CONNECTION
-        self.mngr = netconf.establishNetconfConnection(self.device_parameters)
+        try:
+            self.mngr = netconf.establishNetconfConnection(self.device_parameters)
+            if CONFIGURATION_TARGET_DATASTORE == "running":
+                assert(":writable-running" in self.mngr.server_capabilities)
+            elif CONFIGURATION_TARGET_DATASTORE == "candidate":                
+                assert(":candidate" in self.mngr.server_capabilities)
+            self.mngr.lock(target=CONFIGURATION_TARGET_DATASTORE) # lock the datastore
+        except Exception as e:
+            utils.printGeneral(f"Error establishing NETCONF connection: {e}")
+            utils.printGeneral(traceback.format_exc())
+            QMessageBox.critical(None, "Error", f"Error establishing NETCONF connection: {e}")
+            raise ConnectionError(f"Error establishing NETCONF connection: {e}")
 
         # ICON + CANVAS PLACEMENT
         device_icon_img = QImage("graphics/devices/general.png")
@@ -402,11 +413,13 @@ class Device(QGraphicsPixmapItem):
                     all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv4_data"]
                     matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
                     matching_entry["flag"] = "deleted"
+                    self.interfaces[interface_id]["flag"] = "deleted"
                 elif old_ip.version == 6:
                     # find the entry to be deleted in the self.interfaces dictionary
                     all_entries = self.interfaces[interface_id]["subinterfaces"][subinterface_index]["ipv6_data"]
                     matching_entry = next((entry for entry in all_entries if entry["value"] == old_ip), None)
                     matching_entry["flag"] = "deleted"
+                    self.interfaces[interface_id]["flag"] = "deleted"
 
                 # update the cable labels
                 if self.cables:
