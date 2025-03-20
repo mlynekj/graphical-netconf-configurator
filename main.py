@@ -302,7 +302,9 @@ class MainWindow(QMainWindow):
     def __init__(self) -> QMainWindow:
         super().__init__()
 
-        self.setWindowTitle("Netconf Configurator")
+        self.setWindowTitle("GNC - Graphical NETCONF configurator")
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
         self.view = MainView()
         self.setCentralWidget(self.view)
 
