@@ -42,6 +42,8 @@ from ui.ui_routingtabledialog import Ui_RoutingTableDialog
 
 # ---------- HELPER FUNCTIONS: ----------
 def addRouter(device_parameters, scene, class_type):
+    """Creates a router object and adds it to the scene."""
+
     if class_type == "IOSXERouter":
         router = IOSXERouter(device_parameters)
     elif class_type == "JUNOSRouter":
@@ -51,6 +53,8 @@ def addRouter(device_parameters, scene, class_type):
     return(router)
 
 def addFirewall(device_parameters, scene, class_type):
+    """Creates a firewall object and adds it to the scene."""
+
     if class_type == "JUNOSFirewall":
         firewall = JUNOSFirewall(device_parameters)
 
@@ -58,6 +62,8 @@ def addFirewall(device_parameters, scene, class_type):
     return(firewall)
 
 def addSwitch(device_parameters, scene, class_type):
+    """Creates a switch object and adds it to the scene."""
+
     if class_type == "IOSXESwitch":
         switch = IOSXESwitch(device_parameters)
 
@@ -75,21 +81,71 @@ class IetfRouting_Get_GetRoutingState_Filter(GetFilter):
         self.filter_xml = ET.parse(ROUTING_YANG_DIR + "ietf-routing_get_get-routing-state.xml")
 
 
-
 # ---------- DEVICE CLASSES: ----------
 # GENERAL CLASSES
 class Device(QGraphicsPixmapItem):
+    """
+    Device Class
+    This class represents a network device on a graphical canvas. It provides functionality for managing the device's 
+    NETCONF connection, interfaces, hostname, and graphical representation. The class also supports interaction 
+    through context menus, tooltips, and mouse events.
+    Attributes:
+        _registry (dict): A registry to store device instances.
+        _device_type (str): The type of the device, used for ID generation.
+        is_ospf_capable (bool): Indicates if the device supports OSPF.
+        is_ipsec_capable (bool): Indicates if the device supports IPsec.
+        is_vlan_capable (bool): Indicates if the device supports VLANs.
+        device_parameters (dict): Parameters for the device, including connection details (IP, username, password, ...).
+        mngr: The NETCONF connection manager for the device (ncclient).
+        cables (list): A list of cables connected to the device on the canvas.
+        cable_connected_interfaces (list): A list of interfaces connected to cables on the canvas.
+        has_pending_changes (bool): Indicates if there are uncommitted changes on the device. Used when "commiting" the changes.
+        has_updated_hostname (bool): Indicates if the hostname has been updated. Used to determine, whether it needs to be updated on the canvas.
+        id (str): The unique identifier of the device.
+        netconf_capabilities: The NETCONF capabilities of the device.
+        interfaces (dict): A dictionary containing the device's interfaces.
+        hostname (str): The hostname of the device.
+        label (QGraphicsTextItem): The graphical label displaying the hostname and ID.
+        tooltip_text (str): The text displayed in the tooltip.
+        tooltip_timer (QTimer): A timer for showing the tooltip after a delay.
+    Methods:
+        __init__(device_parameters, x=0, y=0): Initializes the device with given parameters and position.
+        _getNetconfCapabilites(): Retrieves the NETCONF capabilities of the device.
+        refreshHostnameLabel(new_hostname=None): Updates the hostname label on the canvas.
+        _deleteDevice(): Deletes the device from the canvas and disconnects it.
+        updateCablePositions(): Updates the positions of connected cables.
+        updateCableLabelsText(): Updates the labels of connected cables.
+        hoverEnterEvent(event): Handles mouse hover enter events.
+        hoverLeaveEvent(event): Handles mouse hover leave events.
+        _getContextMenuItems(): Retrieves the context menu items for the device.
+        contextMenuEvent(event): Handles the context menu event for the device.
+        _showNetconfCapabilitiesDialog(): Displays the NETCONF capabilities dialog.
+        _showDeviceInterfacesDialog(): Displays the device interfaces dialog.
+        _showHostnameDialog(): Displays the hostname configuration dialog.
+        _getHostname(): Retrieves the hostname of the device using NETCONF.
+        setHostname(new_hostname): Sets the hostname of the device using NETCONF.
+        getInterfaces(): Retrieves the interfaces of the device using NETCONF.
+        deleteInterfaceIP(interface_id, subinterface_index, old_ip): Deletes an IP address from an interface.
+        setInterfaceIP(interface_id, subinterface_index, new_ip): Sets an IP address on an interface.
+        addInterface(interface_id, interface_type): Adds a new interface to the device.
+        configureInterfaceDescription(interface_id, description): Configures the description of an interface.
+        discardChanges(): Discards all pending changes on the device.
+        commitChanges(confirmed=False, confirm_timeout=None): Commits all pending changes on the device.
+        cancelCommit(): Cancels a confirmed commit operation.
+        _generateID(): Generates a unique ID for the device.
+        _getBaseClass(): Retrieves the base class of the current device class. Used for ID generation.
+        getDeviceInstance(device_id): Retrieves a device instance by its ID.
+        getAllDevicesInstancesKeys(): Retrieves all device instance keys.
+        getAllDevicesInstances(): Retrieves all device instances.
+    """
+    
     _registry = {} # Used to store device instances
     _device_type = "dv"
-
     is_ospf_capable = False
     is_ipsec_capable = False
     is_vlan_capable = False
     
-    def __init__(self, device_parameters, x=0, y=0):
-        """
-        TODO: document format of device_parameters + other stuff
-        """
+    def __init__(self, device_parameters, x=0, y=0) -> "Device":
         super().__init__()
 
         self.setAcceptHoverEvents(True) # Enable mouse hover over events
@@ -97,7 +153,7 @@ class Device(QGraphicsPixmapItem):
         self.device_parameters = device_parameters
 
         # NETCONF CONNECTION
-        self.mngr = netconf.establishNetconfConnection(self.device_parameters) # TODO: Handle timeout, when the device disconnects after some time
+        self.mngr = netconf.establishNetconfConnection(self.device_parameters)
 
         # ICON + CANVAS PLACEMENT
         device_icon_img = QImage("graphics/devices/general.png")
@@ -142,10 +198,10 @@ class Device(QGraphicsPixmapItem):
         # REGISTRY
         type(self)._registry[self.id] = self
 
-    def _getNetconfCapabilites(self):
+    def _getNetconfCapabilites(self) -> list:
         return(netconf.getNetconfCapabilities(self))
 
-    def refreshHostnameLabel(self, new_hostname=None):
+    def refreshHostnameLabel(self, new_hostname=None) -> None:
         """
         Refreshes the hostname label of the device.
 
@@ -161,10 +217,10 @@ class Device(QGraphicsPixmapItem):
         self.label.setPlainText(f"{str(self.hostname)} (ID: {self.id})")
         self.label_border = self.label.boundingRect()
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
-    
-        return(netconf.getNetconfCapabilities(self))
 
-    def _deleteDevice(self):
+    def _deleteDevice(self) -> None:
+        """Deletes the device from the canvas and disconnects it."""
+
         rpc_reply = netconf.demolishNetconfConnection(self) # Disconnect from NETCONF server
 
         self.scene().removeItem(self)
@@ -177,29 +233,38 @@ class Device(QGraphicsPixmapItem):
         utils.printGeneral(f"Connection to device: {self.device_parameters['address']} has been closed.")
 
     def updateCablePositions(self):
+        """Updates the positions of all connected cables."""
+
         for cable in self.cables:
             cable.updatePosition()    
 
     def updateCableLabelsText(self):
+        """Updates the labels of all connected cables."""
+
         for cable in self.cables:
             cable.updateLabelsText()
 
     # ---------- MOUSE EVENTS FUNCTIONS ---------- 
-    def hoverEnterEvent(self, event):
+    def hoverEnterEvent(self, event) -> None:
+        """Handles the mouse hover enter event."""
+
         # Tooltip
         self.tooltip_timer.start(1000)
         self.hover_pos = event.screenPos()
         super().hoverEnterEvent(event)
 
-    def hoverLeaveEvent(self, event):
+    def hoverLeaveEvent(self, event) -> None:
+        """Handles the mouse hover leave event."""
+
         # Tooltip
         self.tooltip_timer.stop()
         QToolTip.hideText()
         super().hoverLeaveEvent(event)
 
-    def _getContextMenuItems(self):
+    def _getContextMenuItems(self) -> list:
+        """Returns the context menu items for the device."""
+        
         items = []
-
         # Disconnect from device
         disconnect_action = QAction("Disconnect")
         disconnect_action.triggered.connect(self._deleteDevice)
@@ -230,9 +295,9 @@ class Device(QGraphicsPixmapItem):
         discard_changes_action.setToolTip("Discards all changes uploaded to the candidate datastore of the device.")
         items.append(discard_changes_action)
 
-        return items
+        return(items)
 
-    def contextMenuEvent(self, event):
+    def contextMenuEvent(self, event) -> None:
         """
         Context menu event for the device.
         This method handles showing of the context menu.
@@ -248,20 +313,27 @@ class Device(QGraphicsPixmapItem):
         self.menu.exec(event.screenPos())
 
     # ---------- DIALOG SHOW FUNCTIONS ---------- 
-    def _showNetconfCapabilitiesDialog(self):
+    def _showNetconfCapabilitiesDialog(self) -> None:
+        """Displays the NETCONF capabilities dialog."""
+
         dialog = netconf.NetconfCapabilitiesDialog(self)
         dialog.exec()
 
-    def _showDeviceInterfacesDialog(self):
+    def _showDeviceInterfacesDialog(self) -> None:
+        """Displays the device interfaces dialog."""
+
         dialog = interfaces.DeviceInterfacesDialog(self)
         dialog.exec()
 
-    def _showHostnameDialog(self):
+    def _showHostnameDialog(self) -> None:
+        """Displays the hostname configuration dialog."""
+
         dialog = system.HostnameDialog(self)
         dialog.exec()
     
     # ---------- HOSTNAME MANIPULATION FUNCTIONS ---------- 
-    def _getHostname(self):
+    def _getHostname(self) -> str:
+        """Retrieves the hostname of the device using NETCONF."""
         try:
             hostname, rpc_reply = system.getHostnameWithNetconf(self)
             utils.printRpc(rpc_reply, "Get Hostname", self)
@@ -271,7 +343,13 @@ class Device(QGraphicsPixmapItem):
             utils.printGeneral(traceback.format_exc())
             return None
     
-    def setHostname(self, new_hostname):
+    def setHostname(self, new_hostname) -> bool:
+        """
+        Sets the hostname of the device using NETCONF.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+
         try:
             rpc_reply, filter = system.setHostnameWithNetconf(self, new_hostname)
             utils.addPendingChange(self, f"Set hostname: {new_hostname}", rpc_reply, filter)
@@ -288,7 +366,13 @@ class Device(QGraphicsPixmapItem):
             return False
 
     # ---------- INTERFACE MANIPULATION FUNCTIONS ---------- 
-    def getInterfaces(self):
+    def getInterfaces(self) -> dict:
+        """
+        Retrieves the interfaces of the device using NETCONF.
+        Returns:
+            dict: The interfaces data.
+        """
+
         try:
             interfaces_data, rpc_reply = interfaces.getInterfacesWithNetconf(self)
             utils.printRpc(rpc_reply, "Get Interfaces", self)
@@ -298,7 +382,14 @@ class Device(QGraphicsPixmapItem):
             utils.printGeneral(traceback.format_exc())
             return None
     
-    def deleteInterfaceIP(self, interface_id, subinterface_index, old_ip):
+    def deleteInterfaceIP(self, interface_id, subinterface_index, old_ip) -> bool:
+        """
+        Deletes an IP address from an interface using NETCONF.
+        Updates the self.interfaces dictionary and the cable labels.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+
         try:
             rpc_reply, filter = interfaces.deleteIpWithNetconf(self, interface_id, subinterface_index, old_ip)
             if rpc_reply:
@@ -328,7 +419,14 @@ class Device(QGraphicsPixmapItem):
             QMessageBox.critical(None, "Error", f"Error deleting IP: {e}")
             return False
 
-    def setInterfaceIP(self, interface_id, subinterface_index, new_ip):
+    def setInterfaceIP(self, interface_id, subinterface_index, new_ip) -> bool:
+        """
+        Sets an IP address on an interface using NETCONF.
+        Updates the self.interfaces dictionary and the cable labels.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+
         try:
             rpc_reply, filter = interfaces.setIpWithNetconf(self, interface_id, subinterface_index, new_ip)
             if rpc_reply:
@@ -359,7 +457,14 @@ class Device(QGraphicsPixmapItem):
             QMessageBox.critical(None, "Error", f"Error setting IP: {e}")
             return False
 
-    def addInterface(self, interface_id, interface_type):
+    def addInterface(self, interface_id, interface_type) -> bool:
+        """
+        Adds a new interface to the device using NETCONF.
+        Updates the self.interfaces dictionary.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+        
         try:
             rpc_reply, filter = interfaces.addInterfaceWithNetconf(self, interface_id, interface_type)
             if rpc_reply:
@@ -376,7 +481,14 @@ class Device(QGraphicsPixmapItem):
             QMessageBox.critical(None, "Error", f"Error adding interface: {e}")
             return False
     
-    def configureInterfaceDescription(self, interface_id, description):
+    def configureInterfaceDescription(self, interface_id, description) -> bool:
+        """
+        Configures the description of an interface using NETCONF.
+        Updates the self.interfaces dictionary.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+        
         try:
             rpc_reply, filter = interfaces.editDescriptionWithNetconf(self, interface_id, description)
             if rpc_reply:
@@ -393,7 +505,15 @@ class Device(QGraphicsPixmapItem):
             return False
 
     # ---------- CANDIDATE DATASTORE MANIPULATION FUNCTIONS ----------
-    def discardChanges(self):
+    def discardChanges(self) -> bool:
+        """
+        Discards all pending changes on the device.
+        Emits a signal to notify the main window that the device no longer has pending changes, clears flags, and updates cable labels.
+        Also refreshes the self.interfaces dictionary.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+        
         try:
             rpc_reply = netconf.discardNetconfChanges(self)
             if rpc_reply:
@@ -409,7 +529,12 @@ class Device(QGraphicsPixmapItem):
             QMessageBox.critical(None, "Error", f"Error discarding changes: {e}")
             return False
 
-    def commitChanges(self, confirmed=False, confirm_timeout=None):
+    def commitChanges(self, confirmed=False, confirm_timeout=None) -> bool:
+        """
+        Commits all pending changes on the device.
+        Emits a signal to notify the main window that the device no longer has pending changes, clears flags, and updates cable labels.
+        """
+        
         try:
             rpc_reply = netconf.commitNetconfChanges(self, confirmed, confirm_timeout)
             if rpc_reply:
@@ -427,11 +552,19 @@ class Device(QGraphicsPixmapItem):
             QMessageBox.critical(None, "Error", f"Error committing changes: {e}")
             return False
         
-    def cancelCommit(self):
-        try: # TODO: sjednotit s procesem ziskavani security zones na firewallu ????? - pozustatek po kopirovani, zkontrolovat
+    def cancelCommit(self) -> bool:
+        """
+        Cancels a confirmed commit operation. Handles the operation based on the device's operating system:
+            - Cisco devices support the standard <cancel-commit> operation.
+            - Juniper devices do not support the <cancel-commit> operation, so we have to use the <rollback> operation instead, followed by a <commit>.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+        
+        try:
             if self.device_parameters["device_params"] == "iosxe": # Cisco SUPPORTS the standard <cancel-commit> operation
                 rpc_reply = netconf.cancelNetconfCommit(self) 
-            elif self.device_parameters["device_params"] == "junos": # Juniper DOES NOT support the <cancel-commit> operation, so we have to use the <rollback> operation instead
+            elif self.device_parameters["device_params"] == "junos": # Juniper DOES NOT support the <cancel-commit> operation
                 rpc_reply = netconf.rollbackNetconfChanges(self) 
                 self.commitChanges()
 
@@ -451,51 +584,89 @@ class Device(QGraphicsPixmapItem):
     
     # ---------- REGISTRY FUNCTIONS ---------- 
     @classmethod
-    def _generateID(cls):
+    def _generateID(cls) -> str:
+        """
+        Generates a unique ID for the device. The ID is generated based on the device type and a counter, meaning that each device type has its own counter.
+        Devices inherited from the same base class share the same counter (Router -> IOSXERouter, JUNOSRouter; Switch -> IOSXESwitch; ...).
+        Returns:
+            str: The generated ID.
+        """
+        
         base_class = cls._getBaseClass()
         base_class._counter += 1
         return(f"{base_class._device_type}{base_class._counter}")
     
     @classmethod
-    def _getBaseClass(cls):
-        """
-        Get the base class of the current class (e.g., Router, Switch, Firewall).
-        """
+    def _getBaseClass(cls) -> type:
+        """Get the base class of the current class (e.g., Router, Switch, Firewall)."""
+
         for base in cls.__bases__:
             if issubclass(base, Device) and base is not Device:
                 return base
         return cls
    
     @classmethod
-    def getDeviceInstance(cls, device_id):
+    def getDeviceInstance(cls, device_id) -> "Device":
+        """
+        Retrieves a device instance by its ID.
+        Returns:
+            Device: The device instance
+        """
+
         return cls._registry.get(device_id)
     
     @classmethod
-    def getAllDevicesInstancesKeys(cls):
+    def getAllDevicesInstancesKeys(cls) -> list:
+        """Retrieves all device instance keys."""
+
         return list(cls._registry.keys())
     
     @classmethod
-    def getAllDevicesInstances(cls):
-        return list(cls._registry.values())
+    def getAllDevicesInstances(cls) -> list:
+        """Retrieves all device instances."""
 
+        return list(cls._registry.values())
 
     
 class Router(Device):
+    """
+    Router Class
+    The `Router` class represents a network router device and extends the `Device` class. 
+    It includes specific attributes and methods for router functionality, such as OSPF 
+    capabilities and routing table management.
+    Attributes:
+        _device_type (str): The type of the device, set to "rt" for routers.
+        _counter (int): A counter for tracking instances of the class.
+        is_ospf_capable (bool): Indicates whether the router supports OSPF.
+        is_ipsec_capable (bool): Indicates whether the router supports IPsec.
+        is_vlan_capable (bool): Indicates whether the router supports VLANs.
+    Methods:
+        __init__(device_parameters, x=0, y=0):
+            Initializes a `Router` instance with the given parameters and sets up the router icon.
+        _getContextMenuItems():
+            Retrieves router-specific context menu items, including an option to show the routing table.
+        cloneToOSPFDevice():
+            Clones the router to an `OSPFDevice` object for use in OSPF configuration dialogs.
+        getRoutingTable():
+            Retrieves the routing table from the device based on its operating system.
+        showRoutingTable():
+            Displays the routing table in a dialog window by retrieving it and converting it to an XML tree.
+    """
+
     _device_type = "rt"
     _counter = 0
-
     is_ospf_capable = True
     is_ipsec_capable = False # Cisco routers are capable, Juniper routers are not
     is_vlan_capable = False
 
-    def __init__(self, device_parameters, x=0, y=0):
+    def __init__(self, device_parameters, x=0, y=0) -> "Router":
         super().__init__(device_parameters, x, y)
 
         # ICON
         router_icon_img = QImage("graphics/devices/router.png")
         self.setPixmap(QPixmap.fromImage(router_icon_img))
 
-    def _getContextMenuItems(self):
+    def _getContextMenuItems(self) -> list:
         """
         Router-specific context menu items.
         """
@@ -510,7 +681,7 @@ class Router(Device):
 
         return items
 
-    def cloneToOSPFDevice(self):
+    def cloneToOSPFDevice(self) -> "OSPFDevice":
         """
         Clones the device to an OSPFDevice object, which is used in the OSPF configuration dialog.
         The cloned device is used to display the device in the OSPF configuration dialog, without affecting the original device.
@@ -519,13 +690,14 @@ class Router(Device):
         return OSPFDevice(self)
     
     # ---------- ROUTING TABLE FUNCTIONS ---------- 
-    def getRoutingTable(self):
+    def getRoutingTable(self) -> ET.Element:
         """
         Retrieves the routing table from the device based on its operating system.
         Returns:
             rpc_reply: The routing table information.
         """
-        try: # TODO: sjednotit s procesem ziskavani security zones na firewallu
+
+        try:
             if self.device_parameters["device_params"] == "iosxe":
                 rpc_filter = IetfRouting_Get_GetRoutingState_Filter()
                 rpc_reply = self.mngr.get(str(rpc_filter))
@@ -539,7 +711,7 @@ class Router(Device):
             utils.printGeneral(f"Error getting routing table: {e}")
             utils.printGeneral(traceback.format_exc())
 
-    def showRoutingTable(self):
+    def showRoutingTable(self) -> None:
         """
         Displays the routing table in a dialog window.
         This method retrieves the routing table using the `getRoutingTable` method,
@@ -562,16 +734,38 @@ class Router(Device):
         routingTableDialog.exec()
 
 
-
 class Switch(Device):
+    """
+    The `Switch` class represents a network switch device and extends the `Device` class. 
+    It includes specific attributes and methods for switch functionality, such as VLAN
+    capabilities.
+    Attributes:
+        _device_type (str): The type of the device, set to "sw" for switch.
+        _counter (int): A counter for tracking instances or other purposes.
+        is_ospf_capable (bool): Indicates if the switch supports OSPF (default: False).
+        is_ipsec_capable (bool): Indicates if the switch supports IPsec (default: False).
+        is_vlan_capable (bool): Indicates if the switch supports VLANs (default: True).
+        vlans (dict): A dictionary containing VLAN information retrieved from the device.
+    Methods:
+        __init__(device_parameters, x=0, y=0):
+            Initializes the Switch instance with device parameters and optional coordinates.
+        getVlans():
+            Retrieves VLAN information from the switch using NETCONF.
+        addVlan(vlan_id, vlan_name):
+            Adds a VLAN to the switch with the specified VLAN ID and name.
+        deleteInterfaceVlan(interfaces):
+            Deletes VLAN configurations on the specified interfaces.
+        setInterfaceVlan(interfaces):
+            Configures VLANs on the specified interfaces.
+    """
+
     _device_type = "sw"
     _counter = 0
-    
     is_ospf_capable = False
     is_ipsec_capable = False
     is_vlan_capable = True
 
-    def __init__(self, device_parameters, x=0, y=0):
+    def __init__(self, device_parameters, x=0, y=0) -> "Switch":
         super().__init__(device_parameters, x, y)
 
         # ICON
@@ -580,7 +774,13 @@ class Switch(Device):
 
         self.vlans = self.getVlans()
 
-    def getVlans(self):
+    def getVlans(self) -> dict:
+        """
+        Retrieves VLAN information from the switch using NETCONF.
+        Returns:
+            dict: The VLAN information
+        """
+
         try:
             vlan_data, rpc_reply = vlan.getVlansWithNetconf(self)
             utils.printRpc(rpc_reply, "Get VLANs", self)
@@ -590,43 +790,76 @@ class Switch(Device):
             utils.printGeneral(traceback.format_exc())
             return None
 
-    def addVlan(self, vlan_id, vlan_name):
+    def addVlan(self, vlan_id, vlan_name) -> bool:
+        """
+        Adds a VLAN to the switch with the specified VLAN ID and name.
+        Updates the self.vlans dictionary.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
         try:
             rpc_reply, filter = vlan.addVlanWithNetconf(self, vlan_id, vlan_name)
             utils.addPendingChange(self, f"Add VLAN", rpc_reply, filter)
             utils.printRpc(rpc_reply, "Add VLAN", self)
             self.vlans[vlan_id] = {"name": vlan_name}
+            return True
         except Exception as e:
             utils.printGeneral(f"Error addin VLAN: {e}")
             utils.printGeneral(traceback.format_exc())
-            return None
+            return False
 
+    def deleteInterfaceVlan(self, interfaces) -> bool:
+        """
+        Deletes VLAN configurations on the specified interfaces.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
 
-    def deleteInterfaceVlan(self, interfaces):
         try:
             rpc_reply, filter = vlan.deleteInterfaceVlanWithNetconf(self, interfaces)
             utils.addPendingChange(self, f"Delete VLANs on interfaces", rpc_reply, filter)
             utils.printRpc(rpc_reply, "Delete VLANs on interfaces", self)
+            return True
         except Exception as e:
             utils.printGeneral(f"Error deleting VLANs on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
+            return False
 
-    def setInterfaceVlan(self, interfaces):
+    def setInterfaceVlan(self, interfaces) -> bool:
+        """
+        Configures VLANs on the specified interfaces.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+
         try:
             rpc_reply, filter = vlan.setInterfaceVlanWithNetconf(self, interfaces)
             utils.addPendingChange(self, f"Set VLANs on interfaces", rpc_reply, filter)
             utils.printRpc(rpc_reply, "Set VLANs on interfaces", self)
+            return True
         except Exception as e:
             utils.printGeneral(f"Error setting VLANs on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
+            return False
+
 
 class Firewall(Router):
+    """
+    Represents a Firewall device, inheriting from the Router class.
+    Attributes:
+        _device_type (str): The type identifier for the device, set to "fw".
+        _counter (int): A class-level counter for tracking instances (default is 0).
+        is_security_zone_capable (bool): Indicates whether the firewall supports security zones (default is False).
+    Methods:
+        __init__(device_parameters, x=0, y=0):
+            Initializes a Firewall instance with the given parameters and sets its icon.
+    """
+    
     _device_type = "fw"
     _counter = 0
-
     is_security_zone_capable = False
 
-    def __init__(self, device_parameters, x=0, y=0):
+    def __init__(self, device_parameters, x=0, y=0) -> "Firewall":
         super().__init__(device_parameters, x, y)
 
         # ICON
@@ -634,52 +867,144 @@ class Firewall(Router):
         self.setPixmap(QPixmap.fromImage(firewall_icon_img))
 
 
-
 # VENDOR-SPECIFIC CLASSES
 class IOSXERouter(Router):
+    """
+    IOSXERouter is a subclass of the Router class, representing a Cisco IOS-XE router
+    with additional capabilities, such as IPSec configuration.
+    Attributes:
+        is_ipsec_capable (bool): Indicates whether the router supports IPSec configuration.
+    Methods:
+        __init__(device_parameters, x=0, y=0):
+            Initializes an instance of IOSXERouter with the given device parameters
+            and optional x, y coordinates.
+        configureIPSec(dev_parameters, ike_parameters, ipsec_parameters):
+            Configures an IPSec tunnel on the router using the provided device, IKE,
+            and IPSec parameters. Handles exceptions and logs errors if the configuration fails.
+    """
+    
     is_ipsec_capable = True
 
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
 
-    # ---------- IPSEC FUNCTIONS ---------- 
-    def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
+    def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters) -> bool:
+        """
+        Configures an IPSec tunnel on the router using the provided device, IKE, and IPSec parameters.
+        Called from the IPSec configuration dialog when the user clicks the "Configure" button.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+
         try:
             rpc_reply, filter = security.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
             utils.addPendingChange(self, f"Configure IPSec tunnel", rpc_reply, filter)
             utils.printRpc(rpc_reply, "Configure IPSec", self)
+            return True
         except Exception as e:
             utils.printGeneral(f"Error configuring IPSec on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
-
+            return False
 
 
 class JUNOSRouter(Router):
+    """
+    Represents a JUNOS-based router device. Inherits from the Router class. Junos routers dont support IPSec.
+    Attributes:
+        is_ipsec_capable (bool): Indicates whether the router supports IPsec. Defaults to False.
+    Methods:
+        __init__(device_parameters, x=0, y=0):
+            Initializes a JUNOSRouter instance with the given device parameters and optional coordinates.
+    """
+
     is_ipsec_capable = False
 
-    def __init__(self, device_parameters, x=0, y=0):
+    def __init__(self, device_parameters, x=0, y=0) -> "JUNOSRouter":
         super().__init__(device_parameters, x, y)
 
 
-
 class IOSXESwitch(Switch):
+    """
+    IOSXESwitch is a subclass of the Switch class, representing a network switch
+    running the Cisco IOS-XE operating system.
+    Methods:
+        __init__(device_parameters, x=0, y=0):
+            Initializes an instance of the IOSXESwitch class with the given
+            device parameters and optional position coordinates.
+    """
+
     def __init__(self, device_parameters, x=0, y=0):
         super().__init__(device_parameters, x, y)
 
 
 class JUNOSFirewall(Firewall):
+    """
+    JUNOSFirewall is a subclass of the Firewall class that provides additional functionality 
+    specific to JUNOS devices, including support for security zones and IPSec configuration.
+    Attributes:
+        is_ipsec_capable (bool): Indicates whether the device supports IPSec configuration.
+        is_security_zone_capable (bool): Indicates whether the device supports security zones.
+    Methods:
+        __init__(device_parameters, x=0, y=0):
+            Initializes the JUNOSFirewall instance with device parameters and optional coordinates.
+        getInterfaces():
+            Retrieves the interfaces of the device and enriches the data with security zone information.
+        _addSecurityZonesDataToInterfacesDict(interfaces_dict: dict):
+            Internal method to add security zone data to the provided interfaces dictionary.
+        configureInterfacesSecurityZone(interface_id, security_zone, remove_interface_from_zone=False):
+            Configures or removes a security zone on a specified interface.
+        configureIPSec(dev_parameters, ike_parameters, ipsec_parameters):
+            Configures an IPSec tunnel on the device using the provided parameters.
+    """
+
     is_ipsec_capable = True
     is_security_zone_capable = True
 
-    def __init__(self, device_parameters, x=0, y=0):
+    def __init__(self, device_parameters, x=0, y=0) -> "JUNOSFirewall":
         super().__init__(device_parameters, x, y)
 
-    def getInterfaces(self):
+    def getInterfaces(self) -> dict:
+        """
+        Retrieves the interfaces of the device and enriches them with security zone data.
+        This method first calls the parent class's `getInterfaces` method to obtain
+        the base interface information. It then adds additional security zone data
+        to the interfaces dictionary. The security zone information is not present
+        in the OpenConfig interfaces YANG model, so it has to be added externally.
+        Returns:
+            dict: A dictionary containing the interfaces with added security zone data.
+        """
+
         interfaces = super().getInterfaces()
         interfaces_with_security_zone_data = self._addSecurityZonesDataToInterfacesDict(interfaces)
         return interfaces_with_security_zone_data
 
-    def _addSecurityZonesDataToInterfacesDict(self, interfaces_dict: dict):
+    def _addSecurityZonesDataToInterfacesDict(self, interfaces_dict: dict) -> dict:
+        """
+        Adds security zone data to the provided interfaces dictionary.
+        This method retrieves security zone information from the device using NETCONF,
+        processes the data, and updates the given interfaces dictionary with the
+        corresponding security zone for each interface.
+        Args:
+            interfaces_dict (dict): A dictionary containing interface data. The keys
+                are interface names, and the values are dictionaries with interface
+                attributes.
+        Returns:
+            dict: The updated interfaces dictionary with security zone information added.
+        Raises:
+            Exception: If an error occurs during the retrieval or processing of security
+                zone data, an error message is logged, and the traceback is printed.
+        Notes:
+            - The method uses the `getSecurityZonesWithNetconf` function to retrieve
+              security zone information from the device.
+            - The `utils.convertToEtree` function is used to parse the NETCONF reply
+              into an XML tree for easier data extraction.
+            - Security zone names and their associated interfaces are extracted from
+              the XML tree and added to the `interfaces_dict`.
+            - Subinterface numbers are stripped from interface names before adding
+              the security zone information, since the security zone is applied to
+              the master interface, not the subinterface.
+        """
+
         try:
             rpc_payload, rpc_reply = security.getSecurityZonesWithNetconf(self)
             utils.printRpc(rpc_reply, "Get Security Zones", self)
@@ -704,7 +1029,16 @@ class JUNOSFirewall(Firewall):
             utils.printGeneral(traceback.format_exc())
             return
         
-    def configureInterfacesSecurityZone(self, interface_id, security_zone, remove_interface_from_zone=False):
+    def configureInterfacesSecurityZone(self, interface_id, security_zone, remove_interface_from_zone=False) -> bool:
+        """
+        Configures or removes a security zone on a specified interface.
+        This method calls the `security.configureSecurityZoneToInterfaceWithNetconf` function
+        to configure or remove a security zone on the specified interface. The method then
+        updates the `self.interfaces` dictionary with the new security zone information.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+
         try:
             if security_zone == " ":
                 QMessageBox.critical(None, "Error", "Please select a security zone.")
@@ -728,21 +1062,46 @@ class JUNOSFirewall(Firewall):
             return False
         
     # ---------- IPSEC FUNCTIONS ---------- 
-    def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters):
+    def configureIPSec(self, dev_parameters, ike_parameters, ipsec_parameters) -> bool:
+        """
+        Configures an IPSec tunnel on the device using the provided parameters.
+        Called from the IPSec configuration dialog when the user clicks the "Configure" button.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+
         try:
             rpc_reply, filter = security.configureIPSecWithNetconf(self, dev_parameters, ike_parameters, ipsec_parameters)
             utils.addPendingChange(self, f"Configure IPSec tunnel", rpc_reply, filter)
             utils.printRpc(rpc_reply, "Configure IPSec", self)
+            return True
         except Exception as e:
             utils.printGeneral(f"Error configuring IPSec on device {self.id}: {e}")
             utils.printGeneral(traceback.format_exc())
-
+            return False
 
 
 # ---------- CLONED DEVICE CLASSES: ----------
-# TODO: refactor the OSPF to NOT USE cloned devices   
+# This classes are meant to be used in batch configuration dialogs, where the user can configure multiple devices at once.
+# The original devices are cloned to the new scene. After the configuration is done, the cloned devices are deleted. The original devices are not affected.
+# The ClonedDevice class is a base class for all cloned devices. From this class, specific classes are meant to be inherited.
+# - Currently, only OSPFDevice class is implemented, which is used in OSPF configuration dialog.  
 class ClonedDevice(QGraphicsPixmapItem):
-    def __init__(self, original_device):
+    """
+    A class representing a cloned device in a graphical network configuration tool. 
+    This class is used to create a visual and functional duplicate of an original device.
+    Attributes:
+        original_device (QGraphicsPixmapItem): The original device being cloned.
+        device_parameters (dict): Parameters of the original device.
+        label (QGraphicsTextItem): A text label displaying the hostname of the device.
+        original_cables (list): A copy of the cables connected to the original device.
+        cables (list): A list of cables connected to the cloned device.
+        cable_connected_interfaces (list): A list of interfaces connected to cables.
+        interfaces (list): A list of interfaces of the original device.
+        id (int): The unique identifier of the device.
+    """
+
+    def __init__(self, original_device) -> "ClonedDevice":
         super().__init__()
 
         self.original_device = original_device
@@ -774,12 +1133,33 @@ class ClonedDevice(QGraphicsPixmapItem):
         self.id = original_device.id
 
 
-
 class OSPFDevice(ClonedDevice):
     """
-    A class to represent a device, that was cloned from Router class. It is used in OSPF configuration dialog, where it serves as a QGraphicItem in the cloned scene.
+    OSPFDevice is a subclass of ClonedDevice that represents a device supposed to be configured with OSPF protocol. 
+    This class provides methods to manage OSPF-specific configurations, such as adding and removing OSPF networks, retrieving OSPF 
+    networks for interfaces, and configuring OSPF parameters.
+    Attributes:
+        passive_interfaces (list): A list of interfaces configured as passive for OSPF.
+        ospf_networks (dict): A dictionary mapping interface names to their respective OSPF networks.
+        router_id (str or None): The OSPF router ID for the device.
+    Methods:
+        getOSPFNetworks():
+            Retrieves a dictionary of OSPF networks for each interface that has a connected cable.
+                dict: A dictionary where keys are interface names and values are lists of OSPF networks.
+        addOSPFNetwork(network, interface_name):
+            Adds an OSPF network to a specific interface.
+                network: The network to add.
+                interface_name (str): The name of the interface.
+        removeOSPFNetwork(network, interface_name):
+            Removes an OSPF network from a specific interface.
+                network: The network to remove.
+                interface_name (str): The name of the interface.
+        configureOSPF(area, hello_interval, dead_interval, reference_bandwidth):
+            Configures OSPF on the device with the specified parameters.
+            Calls the `configureOSPFWithNetconf` function from the `ospf` module.
     """
-    def __init__(self, original_device):
+    
+    def __init__(self, original_device) -> "OSPFDevice":
         super().__init__(original_device)
 
         # OSPF SPECIFIC
@@ -787,7 +1167,7 @@ class OSPFDevice(ClonedDevice):
         self.ospf_networks = {} # filling the dictionary must be done externally (from OSPFDialog) after the whole scene is created, because it needs to know about connected cables in the scene
         self.router_id = None
 
-    def getOSPFNetworks(self):
+    def getOSPFNetworks(self) -> dict:
         """
         Returns a dictionary of OSPF networks for each interface.
         Example of return value: doc/ospf_networks.md
@@ -812,17 +1192,31 @@ class OSPFDevice(ClonedDevice):
                 device_ospf_networks[interface_name] = interface_ospf_networks        
         return device_ospf_networks
     
-    def addOSPFNetwork(self, network, interface_name):
+    def addOSPFNetwork(self, network, interface_name) -> None:
+        """
+        Adds an OSPF network to a specific interface.
+        Args:
+            network: The network to add.
+            interface_name (str): The name of the interface.
+        """
+
         if interface_name not in self.ospf_networks:
             self.ospf_networks[interface_name] = []
         self.ospf_networks[interface_name].append(network)
 
-    def removeOSPFNetwork(self, network, interface_name):
+    def removeOSPFNetwork(self, network, interface_name) -> None:
+        """
+        Removes an OSPF network from a specific interface.
+        Args:
+            network: The network to remove.
+            interface_name (str): The name of the interface
+        """
         self.ospf_networks[interface_name].remove(network)
 
-    def configureOSPF(self, area, hello_interval, dead_interval, reference_bandwidth):
+    def configureOSPF(self, area, hello_interval, dead_interval, reference_bandwidth) -> bool:
         """
-        Configures OSPF on the device with the specified parameters. Calls the configureOSPFWithNetconf function from the ospf module. Called from the OSPFDialog, when the user clicks the "OK" button.
+        Configures OSPF on the device with the specified parameters. Calls the configureOSPFWithNetconf function from the ospf module. 
+        Called from the OSPFDialog, when the user clicks the "OK" button.
         Parameters:
             rpc_reply: The RPC reply from the NETCONF server.
             filter: The filter used in the NETCONF RPC.
@@ -832,22 +1226,43 @@ class OSPFDevice(ClonedDevice):
             dead_interval (int): The dead interval in seconds.
             reference_bandwidth (int): The reference bandwidth in Mbps.
         Returns:
-            None
+            bool: True if the operation was successful, False otherwise.
         """
         
         try:
             rpc_reply, filter = ospf.configureOSPFWithNetconf(self, area, hello_interval, dead_interval, reference_bandwidth)
             utils.addPendingChange(self.original_device, f"Configure OSPF area: {area}", rpc_reply, filter)
             utils.printRpc(rpc_reply, "Configure OSPF", self)
+            return True
         except Exception as e:
             utils.printGeneral(f"Error configuring OSPF on device {self.original_device.id}: {e}")
             utils.printGeneral(traceback.format_exc())
-
+            return False
 
 
 # ---------- QT: ----------
 class AddDeviceDialog(QDialog):
-    def __init__(self, view):
+    """
+    A dialog window for adding a network device to the scene. This dialog allows the user to input
+    device details such as IP address, port, username, password, and device type.
+    Attributes:
+        view (QGraphicsView): The view containing the scene where devices are added.
+        device_parameters (dict): A dictionary to store the parameters of the device being added.
+        addressTextInput (QLineEdit): Input field for the device's IP address and port.
+        usernameTextInput (QLineEdit): Input field for the device's username.
+        passwordTextInput (QLineEdit): Input field for the device's password.
+        deviceTypeComboInput (QComboBox): Dropdown menu for selecting the device type.
+        buttons (QDialogButtonBox): OK and Cancel buttons for confirming or rejecting the dialog.
+        layout (QVBoxLayout): The layout for arranging the dialog's widgets.
+    Methods:
+        __init__(view):
+            Initializes the dialog, sets up the input fields, buttons, and layout.
+        _confirmConnection():
+            Validates the input fields, checks for duplicate devices in the scene, and adds the
+            device to the scene based on the selected type.
+    """
+
+    def __init__(self, view) -> "AddDeviceDialog":
         super().__init__()
 
         self.view = view
@@ -882,13 +1297,12 @@ class AddDeviceDialog(QDialog):
         # Layout
         self.setLayout(self.layout)
 
-        #DEBUG: Testing connection for debugging
-        if __debug__:
-            self.addressTextInput.setText("172.16.10.81")
-            self.usernameTextInput.setText("jakub")
-            self.passwordTextInput.setText("cisco")
+    def _confirmConnection(self) -> None:
+        """
+        Handles the OK button click event. Validates the input fields, checks for duplicate devices in the scene,
+        and adds the device to the scene based on the selected type.
+        """
 
-    def _confirmConnection(self):
         try:
             # Address + Port
             address_field = self.addressTextInput.text().split(":")
@@ -931,7 +1345,6 @@ class AddDeviceDialog(QDialog):
             addFirewall(self.device_parameters, self.view.scene, "JUNOSFirewall")
 
         self.accept()
-    
     
 
 class RoutingTableDialog(QDialog):
@@ -979,4 +1392,3 @@ class RoutingTableDialog(QDialog):
             routing_table_etree = utils.convertToEtree(routing_table, "junos")
 
         utils.populateTreeWidget(self.ui.routing_table_tree, routing_table_etree)
-        

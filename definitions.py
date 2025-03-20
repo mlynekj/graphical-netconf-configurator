@@ -1,3 +1,4 @@
+# imports
 import os
 
 # PATHS
@@ -20,4 +21,3 @@ STDERR_TO_CONSOLE = False
 
 # DARK MODE
 DARK_MODE = False
-# TODO: check on linux

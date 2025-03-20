@@ -133,7 +133,7 @@ def rollbackNetconfChanges(device):
         utils.printGeneral(f"Failed to rollback changes: {e}")
         return None
 
-def getNetconfCapabilities(device):
+def getNetconfCapabilities(device) -> list:
     """ Retrieves the capabilities of the specified ncclient connection. """
     capabilities = device.mngr.server_capabilities
     return(capabilities)
