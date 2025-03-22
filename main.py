@@ -322,8 +322,8 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.consoleDockWidget)
 
         # Protocols configuration dock
-        self.protocolsWidget = BatchConfigurationWidget(self.view)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.protocolsWidget)
+        self.batchConfigurationWidget = BatchConfigurationWidget(self.view)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.batchConfigurationWidget)
 
         # Pending changes dock
         self.pendigChangesDockWidget = PendingChangesWidget()
@@ -366,16 +366,16 @@ class MainWindow(QMainWindow):
 
         self.addToolBar(self.toolbar)                
   
-    def _showDeviceConnectionDialog(self):
+    def _showDeviceConnectionDialog(self) -> None:
         """Shows the dialog for adding a new device to the scene."""
         dialog = AddDeviceDialog(self.view)
         dialog.exec()
     
-    def _cableModeButtonIsChecked(self):
+    def _cableModeButtonIsChecked(self) -> bool:
         """Returns True if the cable edit mode button is checked, False otherwise."""
         return self.toolbar.actions()[1].isChecked()
 
-    def _toggleCableMode(self):
+    def _toggleCableMode(self) -> None:
         """Toggles the cable edit mode on and off."""
         if self._cableModeButtonIsChecked():
             self.cable_edit_mode = CableEditMode(self)

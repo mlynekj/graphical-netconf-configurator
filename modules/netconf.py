@@ -42,10 +42,10 @@ def establishNetconfConnection(device_parameters) -> manager:
     
     try:
         mngr = manager.connect(
-            host=device_parameters["address"],
-            username=device_parameters["username"],
-            password=device_parameters["password"],
-            port=device_parameters["port"],
+            host=str(device_parameters["address"]),
+            username=str(device_parameters["username"]),
+            password=str(device_parameters["password"]),
+            port=str(device_parameters["port"]),
             device_params={"name": device_parameters["device_params"]},
             hostkey_verify=False
         )

@@ -1,6 +1,7 @@
 # ---------- IMPORTS: ----------
 # Standard library
 import traceback
+import ipaddress
 from lxml import etree as ET
 
 # Custom modules
@@ -34,7 +35,8 @@ from PySide6.QtGui import (
     QPixmap,
     QAction,
     QFont,
-    QAction)
+    QAction,
+    QIcon)
 from PySide6.QtCore import QTimer
 
 # QtCreator
@@ -1278,6 +1280,9 @@ class AddDeviceDialog(QDialog):
     def __init__(self, view) -> "AddDeviceDialog":
         super().__init__()
 
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
+
         self.view = view
         self.device_parameters = {}
         self.setWindowTitle("Add a device")
@@ -1320,10 +1325,13 @@ class AddDeviceDialog(QDialog):
             # Address + Port
             address_field = self.addressTextInput.text().split(":")
             if len(address_field) == 2:
-                self.device_parameters["address"] = address_field[0]
-                self.device_parameters["port"] = address_field[1]
+                self.device_parameters["address"] = ipaddress.ip_address(address_field[0])
+                if address_field[1].isdigit() and int(address_field[1]) in range(1, 65536):
+                    self.device_parameters["port"] = address_field[1]
+                else:
+                    raise ValueError("Invalid port number")
             elif len(address_field) == 1:
-                self.device_parameters["address"] = self.addressTextInput.text()
+                self.device_parameters["address"] = ipaddress.ip_address(self.addressTextInput.text())
                 self.device_parameters["port"] = 830
             else:
                 raise ValueError("Invalid IP address format")
@@ -1335,29 +1343,29 @@ class AddDeviceDialog(QDialog):
                 self.device_parameters["device_params"] = "iosxe"
             elif "Juniper JunOS" in self.deviceTypeComboInput.currentText():
                 self.device_parameters["device_params"] = "junos"
+
+            # Check if the device with the same address is not already in the scene
+            for device in self.view.scene.items():
+                if isinstance(device, Device):
+                    if device.device_parameters["address"] == self.device_parameters["address"]:
+                        QMessageBox.warning(self, "Device already exists", "The device with the same address is already in the scene.")
+                        raise ValueError("Device already exists")
+
+            # Add the device with the correct type               
+            if self.deviceTypeComboInput.currentText() == "Router - Cisco IOS XE":
+                addRouter(self.device_parameters, self.view.scene, "IOSXERouter")
+            elif self.deviceTypeComboInput.currentText() == "Router - Juniper JunOS":
+                addRouter(self.device_parameters, self.view.scene, "JUNOSRouter")
+            elif self.deviceTypeComboInput.currentText() == "Switch - Cisco IOS XE":
+                addSwitch(self.device_parameters, self.view.scene, "IOSXESwitch")
+            elif self.deviceTypeComboInput.currentText() == "Firewall - Juniper JunOS (SRX)":
+                addFirewall(self.device_parameters, self.view.scene, "JUNOSFirewall")
+
+            self.accept()
             
         except ValueError as e:
             QMessageBox.critical(None, "Invalid input", f"Invalid input: {e}")
             utils.printGeneral(traceback.format_exc())
-
-        # Check if the device with the same address is not already in the scene
-        for device in self.view.scene.items():
-            if isinstance(device, Device):
-                if device.device_parameters["address"] == self.device_parameters["address"]:
-                    QMessageBox.warning(self, "Device already exists", "The device with the same address is already in the scene.")
-                    return
-
-        # Add the device with the correct type               
-        if self.deviceTypeComboInput.currentText() == "Router - Cisco IOS XE":
-            addRouter(self.device_parameters, self.view.scene, "IOSXERouter")
-        elif self.deviceTypeComboInput.currentText() == "Router - Juniper JunOS":
-            addRouter(self.device_parameters, self.view.scene, "JUNOSRouter")
-        elif self.deviceTypeComboInput.currentText() == "Switch - Cisco IOS XE":
-            addSwitch(self.device_parameters, self.view.scene, "IOSXESwitch")
-        elif self.deviceTypeComboInput.currentText() == "Firewall - Juniper JunOS (SRX)":
-            addFirewall(self.device_parameters, self.view.scene, "JUNOSFirewall")
-
-        self.accept()
     
 
 class RoutingTableDialog(QDialog):
