@@ -43,7 +43,7 @@ from PySide6.QtCore import QTimer
 from ui.ui_routingtabledialog import Ui_RoutingTableDialog
 
 # ---------- HELPER FUNCTIONS: ----------
-def addRouter(device_parameters, scene, class_type):
+def addRouter(device_parameters, scene, class_type) -> "Router":
     """Creates a router object and adds it to the scene."""
 
     if class_type == "IOSXERouter":
@@ -54,7 +54,7 @@ def addRouter(device_parameters, scene, class_type):
     scene.addItem(router)
     return(router)
 
-def addFirewall(device_parameters, scene, class_type):
+def addFirewall(device_parameters, scene, class_type) -> "Firewall":
     """Creates a firewall object and adds it to the scene."""
 
     if class_type == "JUNOSFirewall":
@@ -63,7 +63,7 @@ def addFirewall(device_parameters, scene, class_type):
     scene.addItem(firewall)
     return(firewall)
 
-def addSwitch(device_parameters, scene, class_type):
+def addSwitch(device_parameters, scene, class_type) -> "Switch":
     """Creates a switch object and adds it to the scene."""
 
     if class_type == "IOSXESwitch":
@@ -74,12 +74,12 @@ def addSwitch(device_parameters, scene, class_type):
 
 # ---------- FILTERS: ----------
 class JunosRpcRoute_Dispatch_GetRoutingInformation_Filter(DispatchFilter):
-    def __init__(self):
+    def __init__(self) -> None:
         self.filter_xml = ET.parse(ROUTING_YANG_DIR + "junos-rpc-route_dispatch_get-routing-information.xml")
     
     
 class IetfRouting_Get_GetRoutingState_Filter(GetFilter):
-    def __init__(self):
+    def __init__(self) -> None:
         self.filter_xml = ET.parse(ROUTING_YANG_DIR + "ietf-routing_get_get-routing-state.xml")
 
 
@@ -112,9 +112,9 @@ class Device(QGraphicsPixmapItem):
         tooltip_timer (QTimer): A timer for showing the tooltip after a delay.
     Methods:
         __init__(device_parameters, x=0, y=0): Initializes the device with given parameters and position.
-        _getNetconfCapabilites(): Retrieves the NETCONF capabilities of the device.
+        getNetconfCapabilities(): Retrieves the NETCONF capabilities of the device.
         refreshHostnameLabel(new_hostname=None): Updates the hostname label on the canvas.
-        _deleteDevice(): Deletes the device from the canvas and disconnects it.
+        deleteDevice(): Deletes the device from the canvas and disconnects it.
         updateCablePositions(): Updates the positions of connected cables.
         updateCableLabelsText(): Updates the labels of connected cables.
         hoverEnterEvent(event): Handles mouse hover enter events.
@@ -124,7 +124,7 @@ class Device(QGraphicsPixmapItem):
         _showNetconfCapabilitiesDialog(): Displays the NETCONF capabilities dialog.
         _showDeviceInterfacesDialog(): Displays the device interfaces dialog.
         _showHostnameDialog(): Displays the hostname configuration dialog.
-        _getHostname(): Retrieves the hostname of the device using NETCONF.
+        getHostname(): Retrieves the hostname of the device using NETCONF.
         setHostname(new_hostname): Sets the hostname of the device using NETCONF.
         getInterfaces(): Retrieves the interfaces of the device using NETCONF.
         deleteInterfaceIP(interface_id, subinterface_index, old_ip): Deletes an IP address from an interface.
@@ -189,9 +189,9 @@ class Device(QGraphicsPixmapItem):
         self.id = self._generateID()
 
         # DEVICE INFORMATION
-        self.netconf_capabilities = self._getNetconfCapabilites()
+        self.netconf_capabilities = self.getNetconfCapabilities()
         self.interfaces = self.getInterfaces() # Documented in doc/interfaces_dictionary.md
-        self.hostname = self._getHostname()
+        self.hostname = self.getHostname()
 
         # LABEL (Hostname)
         self.label = QGraphicsTextItem(self)
@@ -211,7 +211,7 @@ class Device(QGraphicsPixmapItem):
         # REGISTRY
         type(self)._registry[self.id] = self
 
-    def _getNetconfCapabilites(self) -> list:
+    def getNetconfCapabilities(self) -> list:
         return(netconf.getNetconfCapabilities(self))
 
     def refreshHostnameLabel(self, new_hostname=None) -> None:
@@ -225,13 +225,13 @@ class Device(QGraphicsPixmapItem):
         if new_hostname is not None:
             self.hostname = new_hostname
         else:
-            self.hostname = self._getHostname()
+            self.hostname = self.getHostname()
 
         self.label.setPlainText(f"{str(self.hostname)} (ID: {self.id})")
         self.label_border = self.label.boundingRect()
         self.label.setPos((self.pixmap().width() - self.label_border.width()) / 2, self.pixmap().height())
 
-    def _deleteDevice(self) -> None:
+    def deleteDevice(self) -> None:
         """Deletes the device from the canvas and disconnects it."""
 
         rpc_reply = netconf.demolishNetconfConnection(self) # Disconnect from NETCONF server
@@ -280,7 +280,7 @@ class Device(QGraphicsPixmapItem):
         items = []
         # Disconnect from device
         disconnect_action = QAction("Disconnect")
-        disconnect_action.triggered.connect(self._deleteDevice)
+        disconnect_action.triggered.connect(self.deleteDevice)
         disconnect_action.setToolTip("Disconnects from the device and removes it from the canvas.")
         items.append(disconnect_action)
 
@@ -345,7 +345,7 @@ class Device(QGraphicsPixmapItem):
         dialog.exec()
     
     # ---------- HOSTNAME MANIPULATION FUNCTIONS ---------- 
-    def _getHostname(self) -> str:
+    def getHostname(self) -> str:
         """Retrieves the hostname of the device using NETCONF."""
         try:
             hostname, rpc_reply = system.getHostnameWithNetconf(self)
@@ -664,7 +664,7 @@ class Router(Device):
             Clones the router to an `OSPFDevice` object for use in OSPF configuration dialogs.
         getRoutingTable():
             Retrieves the routing table from the device based on its operating system.
-        showRoutingTable():
+        _showRoutingTable():
             Displays the routing table in a dialog window by retrieving it and converting it to an XML tree.
     """
 
@@ -690,7 +690,7 @@ class Router(Device):
 
         # Show routing table
         show_routing_table_action = QAction("Show routing table")
-        show_routing_table_action.triggered.connect(self.showRoutingTable)
+        show_routing_table_action.triggered.connect(self._showRoutingTable)
         show_routing_table_action.setToolTip("Shows the routing table of the device.")
         items.append(show_routing_table_action)
 
@@ -726,7 +726,7 @@ class Router(Device):
             utils.printGeneral(f"Error getting routing table: {e}")
             utils.printGeneral(traceback.format_exc())
 
-    def showRoutingTable(self) -> None:
+    def _showRoutingTable(self) -> None:
         """
         Displays the routing table in a dialog window.
         This method retrieves the routing table using the `getRoutingTable` method,
@@ -964,7 +964,7 @@ class JUNOSFirewall(Firewall):
             Initializes the JUNOSFirewall instance with device parameters and optional coordinates.
         getInterfaces():
             Retrieves the interfaces of the device and enriches the data with security zone information.
-        _addSecurityZonesDataToInterfacesDict(interfaces_dict: dict):
+        addSecurityZoneDataToInterfacesDict(interfaces_dict: dict):
             Internal method to add security zone data to the provided interfaces dictionary.
         configureInterfacesSecurityZone(interface_id, security_zone, remove_interface_from_zone=False):
             Configures or removes a security zone on a specified interface.
@@ -990,10 +990,10 @@ class JUNOSFirewall(Firewall):
         """
 
         interfaces = super().getInterfaces()
-        interfaces_with_security_zone_data = self._addSecurityZonesDataToInterfacesDict(interfaces)
+        interfaces_with_security_zone_data = self.addSecurityZoneDataToInterfacesDict(interfaces)
         return interfaces_with_security_zone_data
 
-    def _addSecurityZonesDataToInterfacesDict(self, interfaces_dict: dict) -> dict:
+    def addSecurityZoneDataToInterfacesDict(self, interfaces_dict: dict) -> dict:
         """
         Adds security zone data to the provided interfaces dictionary.
         This method retrieves security zone information from the device using NETCONF,
