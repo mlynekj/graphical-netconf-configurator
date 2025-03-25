@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QAbstractItemView)
 from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QIcon, QPixmap
 
 # QtCreator
 from ui.ui_ospfdialog import Ui_OSPFDialog
@@ -240,6 +241,9 @@ class OSPFDialog(QDialog):
     def __init__(self, scene=None) -> None:
         super().__init__()
 
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
+
         self.selected_device = None
         self.scene = scene
         self.ui = Ui_OSPFDialog()
@@ -444,6 +448,9 @@ class AddOSPFNetworkDialog(QDialog):
 
     def __init__(self, device) -> None:
         super().__init__()
+
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
 
         self.device = device
         self.ui = Ui_AddOSPFNetworkDialog()

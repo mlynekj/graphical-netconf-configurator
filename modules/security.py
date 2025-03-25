@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QGraphicsScene)
-from PySide6.QtGui import QPixmap, QColor, QFont
+from PySide6.QtGui import QPixmap, QColor, QFont, QIcon
 from PySide6.QtCore import Qt, QPointF
 
 # QtCreator
@@ -444,6 +444,8 @@ class IPSECDialog(QDialog):
         # Set up the UI
         self.ui = Ui_IPSECDialog()
         self.ui.setupUi(self)
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
         self.ipsec_scene = QGraphicsScene()
         self.ipsec_scheme_background = QPixmap("graphics/ipsec_scheme.png")
         self.ipsec_scene.addPixmap(self.ipsec_scheme_background)

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QStyle,
     QMessageBox)
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
 
 
 # ---------- OPERATIONS: ----------
@@ -126,6 +126,8 @@ class HostnameDialog(QDialog):
         self.device = device
         self.old_hostname = self.device.hostname
 
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
         self.setWindowTitle(f"Edit hostname: {self.old_hostname}")
         self.setGeometry(
             QStyle.alignedRect(

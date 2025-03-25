@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QMessageBox,)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QBrush, QColor
+from PySide6.QtGui import QBrush, QColor, QIcon, QPixmap
 
 # QtCreator
 from ui.ui_editvlansdialog import Ui_edit_vlans_dialog
@@ -258,6 +258,9 @@ class EditVlansDialog(QDialog):
 
         self.devices = devices
         self.edited_devices = {}
+
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
 
         self.ui = Ui_edit_vlans_dialog()
         self.ui.setupUi(self)

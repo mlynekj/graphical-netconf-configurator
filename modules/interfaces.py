@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QMessageBox,)
 from PySide6.QtCore import Qt, QSize, Slot
-from PySide6.QtGui import QGuiApplication, QBrush, QColor
+from PySide6.QtGui import QGuiApplication, QBrush, QColor, QIcon, QPixmap
 
 # QtCreator
 from ui.ui_interfacesdialog import Ui_Interfaces
@@ -428,6 +428,8 @@ class DeviceInterfacesDialog(QDialog):
         self.ui = Ui_Interfaces()
         self.ui.setupUi(self)
 
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
         self.setWindowTitle("Device Interfaces")
         self.ui.close_button_box.button(QDialogButtonBox.Close).clicked.connect(self.close)
         self.ui.add_interface_button.clicked.connect(self.showAddInterfaceDialog)
@@ -586,6 +588,8 @@ class EditInterfaceDialog(QDialog):
         self.ui = Ui_edit_interface_dialog()
         self.ui.setupUi(self)
         self.setWindowTitle(f"Edit interface: {interface_id}")
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
 
         self.instance = instance
         self.device = device
@@ -792,6 +796,9 @@ class EditSubinterfaceDialog(QDialog):
         self.subinterface_id = subinterface_id
         self.old_ip = ip if ip is not None else None
 
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
+
         self.layout = QVBoxLayout()
         
         if self.subinterface_id:
@@ -899,6 +906,8 @@ class AddInterfaceDialog(QDialog):
         self.ui = Ui_add_interface_dialog()
         self.ui.setupUi(self)
 
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
         self.setWindowTitle("Add new interface")
         self.ui.ok_cancel_button_box.button(QDialogButtonBox.Ok).clicked.connect(self.confirmAdd)
         self.ui.ok_cancel_button_box.button(QDialogButtonBox.Cancel).clicked.connect(self.close)

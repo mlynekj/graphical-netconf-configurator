@@ -938,7 +938,11 @@ class PendingChangeDetailsDialog(QDialog):
 
         self.ui = Ui_PendingChangeDetailsDialog()
         self.ui.setupUi(self)
-    
+
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
+        self.setWindowTitle(f"{device_id} - {change_name}")
+
         self.device_id = device_id
         self.change = change_name
         self.rpc_reply = rpc_reply
