@@ -131,6 +131,9 @@ class Device(QGraphicsPixmapItem):
         setInterfaceIP(interface_id, subinterface_index, new_ip): Sets an IP address on an interface.
         addInterface(interface_id, interface_type): Adds a new interface to the device.
         configureInterfaceDescription(interface_id, description): Configures the description of an interface.
+        cloneToOSPFDevice(): Clones the router to an `OSPFDevice` object for use in OSPF configuration dialogs.
+        getRoutingTable(): Retrieves the routing table from the device based on its operating system.
+        _showRoutingTable(): Displays the routing table in a dialog window by retrieving it and converting it to an XML tree.
         discardChanges(): Discards all pending changes on the device.
         commitChanges(confirmed=False, confirm_timeout=None): Commits all pending changes on the device.
         cancelCommit(): Cancels a confirmed commit operation.
@@ -139,6 +142,7 @@ class Device(QGraphicsPixmapItem):
         getDeviceInstance(device_id): Retrieves a device instance by its ID.
         getAllDevicesInstancesKeys(): Retrieves all device instance keys.
         getAllDevicesInstances(): Retrieves all device instances.
+
     """
     
     _registry = {} # Used to store device instances
@@ -486,6 +490,7 @@ class Device(QGraphicsPixmapItem):
                 utils.addPendingChange(self, f"Add interface: {interface_id}", rpc_reply, filter)
                 utils.printRpc(rpc_reply, "Add Interface", self)
                 self.interfaces[interface_id] = {
+                    "flag": "uncommited",
                     "subinterfaces": {}
                 }
 
@@ -518,6 +523,60 @@ class Device(QGraphicsPixmapItem):
             utils.printGeneral(traceback.format_exc())
             QMessageBox.critical(None, "Error", f"Error editing description: {e}")
             return False
+
+    # ---------- OSPF FUNCTIONS ----------
+    def cloneToOSPFDevice(self) -> "OSPFDevice":
+        """
+        Clones the device to an OSPFDevice object, which is used in the OSPF configuration dialog.
+        The cloned device is used to display the device in the OSPF configuration dialog, without affecting the original device.
+        After the OSPF configuration is done, the cloned device is deleted. 
+        Must be externally checked, if the device is_ospf_capable == True, before calling this method.
+        """
+        return OSPFDevice(self)
+    
+    # ---------- ROUTING TABLE FUNCTIONS ---------- 
+    def getRoutingTable(self) -> ET.Element:
+        """
+        Retrieves the routing table from the device based on its operating system.
+        Returns:
+            rpc_reply: The routing table information.
+        """
+
+        try:
+            if self.device_parameters["device_params"] == "iosxe":
+                rpc_filter = IetfRouting_Get_GetRoutingState_Filter()
+                rpc_reply = self.mngr.get(str(rpc_filter))
+            elif self.device_parameters["device_params"] == "junos":
+                rpc_payload = JunosRpcRoute_Dispatch_GetRoutingInformation_Filter()
+                rpc_reply = self.mngr.dispatch(rpc_payload.__ele__())
+            
+            utils.printRpc(rpc_reply, "Get Routing Table", self)
+            return (rpc_reply)
+        except Exception as e:
+            utils.printGeneral(f"Error getting routing table: {e}")
+            utils.printGeneral(traceback.format_exc())
+
+    def _showRoutingTable(self) -> None:
+        """
+        Displays the routing table in a dialog window.
+        This method retrieves the routing table using the `getRoutingTable` method,
+        converts it to an XML tree using the `helper.convertToEtree` function, and
+        then displays it in a `RoutingTableDialog` window.
+        """
+
+        routing_table = self.getRoutingTable()
+
+        if routing_table is None:
+            routingTableDialog = RoutingTableDialog(None, self)
+            routingTableDialog.exec()
+            return
+
+        if self.device_parameters["device_params"] == "iosxe":
+            routingTableDialog = RoutingTableDialog(utils.convertToEtree(routing_table, "iosxe"), self)
+        elif self.device_parameters["device_params"] == "junos":
+            routingTableDialog = RoutingTableDialog(utils.convertToEtree(routing_table, "junos"), self)
+
+        routingTableDialog.exec()
 
     # ---------- CANDIDATE DATASTORE MANIPULATION FUNCTIONS ----------
     def discardChanges(self) -> bool:
@@ -658,14 +717,6 @@ class Router(Device):
     Methods:
         __init__(device_parameters, x=0, y=0):
             Initializes a `Router` instance with the given parameters and sets up the router icon.
-        _getContextMenuItems():
-            Retrieves router-specific context menu items, including an option to show the routing table.
-        cloneToOSPFDevice():
-            Clones the router to an `OSPFDevice` object for use in OSPF configuration dialogs.
-        getRoutingTable():
-            Retrieves the routing table from the device based on its operating system.
-        _showRoutingTable():
-            Displays the routing table in a dialog window by retrieving it and converting it to an XML tree.
     """
 
     _device_type = "rt"
@@ -695,58 +746,6 @@ class Router(Device):
         items.append(show_routing_table_action)
 
         return items
-
-    def cloneToOSPFDevice(self) -> "OSPFDevice":
-        """
-        Clones the device to an OSPFDevice object, which is used in the OSPF configuration dialog.
-        The cloned device is used to display the device in the OSPF configuration dialog, without affecting the original device.
-        After the OSPF configuration is done, the cloned device is deleted.
-        """
-        return OSPFDevice(self)
-    
-    # ---------- ROUTING TABLE FUNCTIONS ---------- 
-    def getRoutingTable(self) -> ET.Element:
-        """
-        Retrieves the routing table from the device based on its operating system.
-        Returns:
-            rpc_reply: The routing table information.
-        """
-
-        try:
-            if self.device_parameters["device_params"] == "iosxe":
-                rpc_filter = IetfRouting_Get_GetRoutingState_Filter()
-                rpc_reply = self.mngr.get(str(rpc_filter))
-            elif self.device_parameters["device_params"] == "junos":
-                rpc_payload = JunosRpcRoute_Dispatch_GetRoutingInformation_Filter()
-                rpc_reply = self.mngr.dispatch(rpc_payload.__ele__())
-            
-            utils.printRpc(rpc_reply, "Get Routing Table", self)
-            return (rpc_reply)
-        except Exception as e:
-            utils.printGeneral(f"Error getting routing table: {e}")
-            utils.printGeneral(traceback.format_exc())
-
-    def _showRoutingTable(self) -> None:
-        """
-        Displays the routing table in a dialog window.
-        This method retrieves the routing table using the `getRoutingTable` method,
-        converts it to an XML tree using the `helper.convertToEtree` function, and
-        then displays it in a `RoutingTableDialog` window.
-        """
-
-        routing_table = self.getRoutingTable()
-
-        if routing_table is None:
-            routingTableDialog = RoutingTableDialog(None, self)
-            routingTableDialog.exec()
-            return
-
-        if self.device_parameters["device_params"] == "iosxe":
-            routingTableDialog = RoutingTableDialog(utils.convertToEtree(routing_table, "iosxe"), self)
-        elif self.device_parameters["device_params"] == "junos":
-            routingTableDialog = RoutingTableDialog(utils.convertToEtree(routing_table, "junos"), self)
-
-        routingTableDialog.exec()
 
 
 class Switch(Device):
@@ -788,6 +787,49 @@ class Switch(Device):
         self.setPixmap(QPixmap.fromImage(switch_icon_img))
 
         self.vlans = self.getVlans()
+
+    def _getContextMenuItems(self) -> list:
+        """
+        Switch-specific context menu items.
+        """
+
+        items = super()._getContextMenuItems()
+
+        # Enable L3 functions
+        enable_l3_functions_item = QAction("Enable L3 functions")
+        enable_l3_functions_item.triggered.connect(self.enableL3Functions)
+        enable_l3_functions_item.setToolTip("Enabled IP routing on the switch. The switch must support it.")
+        items.append(enable_l3_functions_item)
+
+        if self.is_ospf_capable:
+            # Show routing table
+            show_routing_table_action = QAction("Show routing table")
+            show_routing_table_action.triggered.connect(self._showRoutingTable)
+            show_routing_table_action.setToolTip("Shows the routing table of the device.")
+            items.append(show_routing_table_action)
+
+        return items
+
+    def enableL3Functions(self) -> bool:
+        """
+        Enables L3 functions on the switch by configuring IP routing. Sets the
+        `is_ospf_capable` attribute to True, which enables OSPF configuration and allows
+        showing the routing table.
+        This method is called from the context menu of the switch device.
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+
+        try:
+            rpc_reply, filter = vlan.enableL3FunctionsWithNetconf(self)
+            utils.addPendingChange(self, f"Enable L3 functions", rpc_reply, filter)
+            utils.printRpc(rpc_reply, "Enable L3 functions", self)
+            self.is_ospf_capable = True
+            return True
+        except Exception as e:
+            utils.printGeneral(f"Error enabling L3 functions: {e}")
+            utils.printGeneral(traceback.format_exc())
+            return False
 
     def getVlans(self) -> dict:
         """
