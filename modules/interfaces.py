@@ -160,28 +160,36 @@ def extractVlanDataFromInterface(interface_element) -> dict:
             the network interface.
     Returns:
         dict: A dictionary containing VLAN data with the following keys:
-            - "switchport_mode" (str or None): The switchport mode of the interface
-              ("access", "trunk", or None if not specified).
+            - "port_mode" (str or None): The (switch)port mode of the interface
+              ("access", "trunk", "router-port" or None if not specified).
             - "vlan" (str, list, or None): The VLAN(s) associated with the interface.
               For "access" mode, this is a single VLAN ID as a string. For "trunk" mode,
               this is a list of VLAN IDs as strings. If no VLAN is specified, this is None.
     """
 
     vlan_data = {}
-    vlan_element = interface_element.find('../ethernet/switched-vlan/config')
-    if vlan_element is not None:
-        interface_mode = vlan_element.find('interface-mode')
-        if interface_mode is not None:
-            vlan_data["switchport_mode"] = interface_mode.text.lower()
-            if vlan_data["switchport_mode"] == "access":
-                vlan = vlan_element.find('access-vlan')
-                vlan_data["vlan"] = vlan.text if vlan is not None else None
-            elif vlan_data["switchport_mode"] == "trunk":
-                vlans = vlan_element.findall('trunk-vlans')
-                vlan_data["vlan"] = [vlan.text for vlan in vlans] if vlans is not None else None
-    else:
-        vlan_data["switchport_mode"] = None
-        vlan_data["vlan"] = None
+
+    # Check if the interface is a routed port (not a switchport)
+    switchport_state_element = interface_element.find('../ethernet/config/switchport')
+    if switchport_state_element is not None:
+        switchport_state = switchport_state_element.text
+        if switchport_state is not None and switchport_state == "false":
+            vlan_data["port_mode"] = "routed-port"
+        else: # if not a routed port, check for VLAN configuration
+            vlan_element = interface_element.find('../ethernet/switched-vlan/config')
+            if vlan_element is not None:
+                interface_mode = vlan_element.find('interface-mode')
+                if interface_mode is not None:
+                    vlan_data["port_mode"] = interface_mode.text.lower()
+                    if vlan_data["port_mode"] == "access":
+                        vlan = vlan_element.find('access-vlan')
+                        vlan_data["vlan"] = vlan.text if vlan is not None else None
+                    elif vlan_data["port_mode"] == "trunk":
+                        vlans = vlan_element.findall('trunk-vlans')
+                        vlan_data["vlan"] = [vlan.text for vlan in vlans] if vlans is not None else None
+            else:
+                vlan_data["port_mode"] = None
+                vlan_data["vlan"] = None
 
     return vlan_data
 
@@ -228,7 +236,6 @@ def setIpWithNetconf(device, interface_element, subinterface_index, new_ip) -> t
     try:
         # FILTER
         filter = OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(interface_element, subinterface_index, new_ip)
-        
         # RPC
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         return(rpc_reply, filter)
@@ -322,6 +329,8 @@ class OpenconfigInterfaces_Editconfig_EditIpaddress_Filter(EditconfigFilter):
         interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
         if "loopback" in self.interface.lower() or "lo" in self.interface.lower():
             self.interface_type = "ianaift:softwareLoopback" # Loopback
+        elif "vlan" in self.interface.lower():
+            self.interface_type = "ianaift:l3ipvlan" # L3 VLAN
         else:
             self.interface_type = "ianaift:ethernetCsmacd" # Default
         interface_type_element.text = self.interface_type
@@ -388,6 +397,8 @@ class OpenconfigInterfaces_Editconfig_AddInterface_Filter(EditconfigFilter):
         interface_type_element = self.filter_xml.find(".//ns:type", self.namespaces)
         if interface_type == "Loopback":
             interface_type_element.text = "ianaift:softwareLoopback"
+        elif interface_type == "Vlan":
+            interface_type_element.text = "ianaift:l3ipvlan"
 
 
 class OpenconfigInterfaces_Editconfig_EditDescription_Filter(EditconfigFilter):
@@ -916,7 +927,7 @@ class AddInterfaceDialog(QDialog):
         if self.device.device_parameters['device_params'] == "junos":
             QMessageBox.information(self, "Information", "Juniper devices support only one loopback interface - lo0, which may already be present on the device. Procced with caution.")
 
-        self.ui.interface_type_combobox.addItems(["Loopback"])
+        self.ui.interface_type_combobox.addItems(["Loopback", "Vlan"])
 
     @Slot()
     def changePlaceholderInterfaceName(self):
@@ -928,6 +939,12 @@ class AddInterfaceDialog(QDialog):
                 self.ui.interface_name_input.setPlaceholderText("lo0")
             elif self.device.device_parameters['device_params'] == "iosxe":
                 self.ui.interface_name_input.setPlaceholderText("Loopback0")
+        elif interface_type == "Vlan":
+            if self.device.device_parameters['device_params'] == "iosxe":
+                self.ui.interface_name_input.setPlaceholderText("Vlan1")
+            else:
+                QMessageBox.warning(self, "Warning", "Vlan interfaces are not supported on this device.")
+                self.ui.interface_name_input.setPlaceholderText("-")
         else:
             self.ui.interface_name_input.setPlaceholderText("-")
 
@@ -937,23 +954,31 @@ class AddInterfaceDialog(QDialog):
         interface_name = self.ui.interface_name_input.text()
         interface_type = self.ui.interface_type_combobox.currentText()
 
-        if not interface_type == "Loopback":
-            QMessageBox.warning(self, "Warning", "Select a valid interface type.")
-            return
-        
-        if self.device.device_parameters['device_params'] == "junos":
-            if self.checkValidInterfaceName(interface_name, "lo"):
-                self.device.addInterface(interface_name, interface_type)
-                self.accept()
+        if interface_type == "Loopback":
+            if self.device.device_parameters['device_params'] == "junos":
+                if self.checkValidInterfaceName(interface_name, "lo"):
+                    self.device.addInterface(interface_name, interface_type)
+                    self.accept()
+                else:
+                    QMessageBox.warning(self, "Warning", "Invalid interface name!")
+                    return
+            if self.device.device_parameters['device_params'] == "iosxe":
+                if self.checkValidInterfaceName(interface_name, "Loopback"):
+                    self.device.addInterface(interface_name, interface_type)
+                    self.accept()
+                else:
+                    QMessageBox.warning(self, "Warning", "Invalid interface name!")
+                    return
+        elif interface_type == "Vlan":
+            if self.device.device_parameters['device_params'] == "iosxe":
+                if self.checkValidInterfaceName(interface_name, "Vlan"):
+                    self.device.addInterface(interface_name, interface_type)
+                    self.accept()
+                else:
+                    QMessageBox.warning(self, "Warning", "Invalid interface name!")
+                    return
             else:
-                QMessageBox.warning(self, "Warning", "Invalid interface name!")
-                return
-        if self.device.device_parameters['device_params'] == "iosxe":
-            if self.checkValidInterfaceName(interface_name, "Loopback"):
-                self.device.addInterface(interface_name, interface_type)
-                self.accept()
-            else:
-                QMessageBox.warning(self, "Warning", "Invalid interface name!")
+                QMessageBox.warning(self, "Warning", "Vlan interfaces are not supported on this device.")
                 return
 
     def checkValidInterfaceName(self, name, checked_name):

@@ -166,6 +166,18 @@ def addVlanWithNetconf(device, vlan_id, vlan_name) -> tuple:
     if device.device_parameters['device_params'] == 'junos':
         raise NotImplementedError("Junos VLANs not implemented")
 
+def enableL3FunctionsWithNetconf(device) -> tuple:
+    if device.device_parameters['device_params'] == 'iosxe':
+        # FILTER
+        filter = CiscoIOSXENative_EditConfig_Enablel3Functions_Filter()
+
+        # RPC
+        rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
+        return(rpc_reply, filter)
+
+    if device.device_parameters['device_params'] == 'junos':
+        raise NotImplementedError("Junos VLANs not implemented")
+
 
 # ---------- FILTERS: ----------
 class CiscoIOSXEVlan_Get_GetVlanList_Filter(GetFilter):
@@ -186,23 +198,29 @@ class OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(EditconfigFi
         interface_element = ET.SubElement(interfaces_element, "interface")
         name_element = ET.SubElement(interface_element, "name").text = interface_name
         ethernet_element = ET.SubElement(interface_element, "ethernet", xmlns="http://openconfig.net/yang/interfaces/ethernet")
+        ethernet_config_element = ET.SubElement(ethernet_element, "config")
+        ethernet_switchport_element = ET.SubElement(ethernet_config_element, "switchport", xmlns="http://cisco.com/ns/yang/cisco-xe-openconfig-if-ethernet-ext")
         switched_vlan_element = ET.SubElement(ethernet_element, "switched-vlan", xmlns="http://openconfig.net/yang/vlan")
         if delete:
             switched_vlan_element.set("operation", "delete")
             return
         
         # This will only be executed, if the operation is not "delete"
-        config_element = ET.SubElement(switched_vlan_element, "config")
-        interface_mode_element = ET.SubElement(config_element, "interface-mode")
-        if interface_data["vlan_data"]["switchport_mode"] == "access":
-            interface_mode_element.text = "ACCESS"
-            access_vlan_element = ET.SubElement(config_element, "access-vlan")
-            access_vlan_element.text = interface_data["vlan_data"]["vlan"].strip()
-        elif interface_data["vlan_data"]["switchport_mode"] == "trunk":
-            interface_mode_element.text = "TRUNK"
-            for vlan in interface_data["vlan_data"]["vlan"].split(", "):
-                trunk_vlan_element = ET.SubElement(config_element, "trunk-vlans")
-                trunk_vlan_element.text = vlan.strip()
+        if interface_data["vlan_data"]["port_mode"] == "routed-port": # If the port is set to routed port, disable switchport
+            ethernet_switchport_element.text = "false"
+        else: # If the port is set to access or trunk, enable switchport and configure the VLANs
+            ethernet_switchport_element.text = "true"
+            config_element = ET.SubElement(switched_vlan_element, "config")
+            interface_mode_element = ET.SubElement(config_element, "interface-mode")
+            if interface_data["vlan_data"]["port_mode"] == "access":
+                interface_mode_element.text = "ACCESS"
+                access_vlan_element = ET.SubElement(config_element, "access-vlan")
+                access_vlan_element.text = interface_data["vlan_data"]["vlan"].strip()
+            elif interface_data["vlan_data"]["port_mode"] == "trunk":
+                interface_mode_element.text = "TRUNK"
+                for vlan in interface_data["vlan_data"]["vlan"].split(", "):
+                    trunk_vlan_element = ET.SubElement(config_element, "trunk-vlans")
+                    trunk_vlan_element.text = vlan.strip()
 
 
 class CiscoIOSXEVlan_EditConfig_AddVlan_Filter(EditconfigFilter):
@@ -218,13 +236,18 @@ class CiscoIOSXEVlan_EditConfig_AddVlan_Filter(EditconfigFilter):
             self.filter_xml.find(".//native:vlan/vlan:vlan-list/vlan:name", self.namespaces).text = vlan_name
 
 
+class CiscoIOSXENative_EditConfig_Enablel3Functions_Filter(EditconfigFilter):
+    def __init__(self):
+        self.filter_xml = ET.parse(VLAN_YANG_DIR + "Cisco-IOS-XE-native_editconfig_enable-l3-functions.xml")
+
+
 # ---------- QT: ----------
 class EditVlansDialog(QDialog):
     """
     EditVlansDialog is a dialog for editing VLAN configurations on network devices.
     This class provides a graphical interface for managing VLANs and their associated interfaces
     on multiple devices. Users can add new VLANs, modify VLAN configurations, and update interface
-    settings such as switchport mode and VLAN assignments.
+    settings such as port mode and VLAN assignments.
     Attributes:
         devices (list): A list of device objects to be edited.
         edited_devices (dict): A dictionary containing deep copies of device interfaces for editing.
@@ -240,8 +263,8 @@ class EditVlansDialog(QDialog):
             Adds a new VLAN entry to the VLAN list table in the current device tab.
         _createVlanInterfacesTable(device):
             Creates a table widget to display the interface configurations for a device.
-        switchportModeChanged(device, row, switchport_mode_item):
-            Handles changes to the switchport mode of an interface and updates the corresponding data.
+        portModeChanged(device, row, port_mode_item):
+            Handles changes to the port mode of an interface and updates the corresponding data.
         vlanChanged(device, row, vlan_item):
             Handles changes to the VLAN assignment of an interface and updates the corresponding data.
         addVlan(device, vlan_id, vlan_name):
@@ -381,7 +404,7 @@ class EditVlansDialog(QDialog):
                                                         'Admin state',
                                                         'Operational state',
                                                         'Description',
-                                                        'Switchport mode',
+                                                        'Port mode',
                                                         'VLAN/s'])
         vlan_interface_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
@@ -417,57 +440,66 @@ class EditVlansDialog(QDialog):
                 description_item.setBackground(QBrush(QColor(bg_color)))
                 description_item.setToolTip(tooltip)
                 vlan_interface_table.setItem(row, 3, description_item)
-                # Switchport mode
-                switchport_mode = interface_data["vlan_data"].get('switchport_mode', None)
-                switchport_mode_item = QComboBox()
-                switchport_mode_item.activated.connect(lambda index, row=row, switchport_item=switchport_mode_item: self.switchportModeChanged(device, row, switchport_item))
-                switchport_mode_item.addItems(["access", "trunk", " "])
-                if switchport_mode == None:
-                    switchport_mode_item.setCurrentText(" ")
+                # port mode
+                port_mode = interface_data["vlan_data"].get('port_mode', None)
+                port_mode_item = QComboBox()
+                port_mode_item.activated.connect(lambda index, row=row, port_item=port_mode_item: self.portModeChanged(device, row, port_item))
+                port_mode_item.addItems(["access", "trunk", "routed-port", " "])
+                if port_mode == None:
+                    port_mode_item.setCurrentText(" ")
                 else:
-                    switchport_mode_item.setCurrentText(switchport_mode)
-                vlan_interface_table.setCellWidget(row, 4, switchport_mode_item)
+                    port_mode_item.setCurrentText(port_mode)
+                vlan_interface_table.setCellWidget(row, 4, port_mode_item)
                 # VLANs
                 vlan = interface_data["vlan_data"].get('vlan', None)
                 vlan_item = QLineEdit()
                 vlan_item.editingFinished.connect(lambda row=row, vlan_item=vlan_item: self.vlanChanged(device, row, vlan_item))
-                if switchport_mode == None:
+                if port_mode == None:
                     vlan = ""
                     vlan_item.setEnabled(False)
-                elif switchport_mode == "access":
+                elif port_mode == "routed-port":
+                    vlan = ""
+                    vlan_item.setEnabled(False)
+                elif port_mode == "access":
                     vlan = vlan
                     vlan_item.setEnabled(True)
-                elif switchport_mode == "trunk":
+                elif port_mode == "trunk":
                     vlan = ", ".join(vlan)
                     vlan_item.setEnabled(True)
+                elif port_mode == "routed-port":
+                    vlan = ""
+                    vlan_item.setEnabled(False)
                 vlan_item.setText(vlan)
                 vlan_interface_table.setCellWidget(row, 5, vlan_item)
 
         return(vlan_interface_table)
 
-    def switchportModeChanged(self, device, row, switchport_mode_item) -> None:
+    def portModeChanged(self, device, row, port_mode_item) -> None:
         """
-        Handles events when the switchport mode of an interface is changed in the dialog table by the user.
+        Handles events when the port mode of an interface is changed in the dialog table by the user.
         Updates the corresponding data in the edited_devices dictionary.
         Args:
             device (Device): The network device for which the interface configuration is being edited.
             row (int): The row index of the interface in the table.
-            switchport_mode_item (QComboBox): The combobox widget containing the switchport mode options.
+            port_mode_item (QComboBox): The combobox widget containing the port mode options.
         """
         interface_item = self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).item(row, 0)
         interface = interface_item.text()
-        old_mode = device.interfaces[interface]['vlan_data'].get('switchport_mode', None)
-        new_mode = switchport_mode_item.currentText()
+        old_mode = device.interfaces[interface]['vlan_data'].get('port_mode', None)
+        new_mode = port_mode_item.currentText()
 
         if old_mode == new_mode:
             return
         
         if new_mode == "access" or new_mode == "trunk":
             self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setEnabled(True)
-            self.edited_devices[device.id][interface]['vlan_data']['switchport_mode'] = new_mode
+            self.edited_devices[device.id][interface]['vlan_data']['port_mode'] = new_mode
+        elif new_mode == "routed-port":
+            self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setEnabled(False)
+            self.edited_devices[device.id][interface]['vlan_data']['port_mode'] = new_mode
         else:
             self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setEnabled(False)
-            self.edited_devices[device.id][interface]['vlan_data']['switchport_mode'] = None
+            self.edited_devices[device.id][interface]['vlan_data']['port_mode'] = None
         self.edited_devices[device.id][interface]['flag'] = "uncommited"
         self.edited_devices[device.id][interface]['vlan_data']['vlan'] = "" # when changing mode, clear the VLANs number/s field
         self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).cellWidget(row, 5).setText(" ") # when changing mode, clear the VLANs number/s field
@@ -524,12 +556,13 @@ class EditVlansDialog(QDialog):
             if not uncommited_interfaces:
                 continue
             for interface, data in uncommited_interfaces.items():
-                if data['vlan_data']['switchport_mode'] == "" or data['vlan_data']['switchport_mode'] == None:
-                    QMessageBox.warning(self, "Error", f"Device {device.hostname} - Interface {interface} has an empty switchport mode.")
+                if data['vlan_data']['port_mode'] == "" or data['vlan_data']['port_mode'] == None:
+                    QMessageBox.warning(self, "Error", f"Device {device.hostname} - Interface {interface} has an empty port mode.")
                     return
-                if data['vlan_data']['vlan'] == "" or data['vlan_data']['vlan'] == None:
-                    QMessageBox.warning(self, "Error", f"Device {device.hostname} - Interface {interface} has an empty VLAN number/s.")
-                    return
+                if data['vlan_data']['port_mode'] == "access" and data['vlan_data']['vlan']:
+                    if data['vlan_data']['vlan'] == "" or data['vlan_data']['vlan'] == None:
+                        QMessageBox.warning(self, "Error", f"Device {device.hostname} - Interface {interface} has an empty VLAN number/s.")
+                        return
 
             device.deleteInterfaceVlan(uncommited_interfaces)
             device.setInterfaceVlan(uncommited_interfaces)
