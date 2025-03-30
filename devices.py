@@ -289,34 +289,34 @@ class Device(QGraphicsPixmapItem):
         items.append(disconnect_action)
 
         # Show NETCONF capabilites
-        show_netconf_capabilities_action = QAction("Show NETCONF Capabilities")
+        show_netconf_capabilities_action = QAction("Show NETCONF capabilities")
         show_netconf_capabilities_action.triggered.connect(self._showNetconfCapabilitiesDialog)
         show_netconf_capabilities_action.setToolTip("Shows the NETCONF capabilities of the device.")
         items.append(show_netconf_capabilities_action)
 
-        # Show interfaces
-        show_interfaces_action = QAction("Edit Interfaces")
+        # Edit interfaces
+        show_interfaces_action = QAction("Edit interfaces")
         show_interfaces_action.triggered.connect(self._showDeviceInterfacesDialog)
         show_interfaces_action.setToolTip("Shows the configuration dialog for the device interfaces.")
         items.append(show_interfaces_action)
 
         # Edit Hostname
-        edit_hostname_action = QAction("Edit Hostname")
+        edit_hostname_action = QAction("Edit hostname")
         edit_hostname_action.triggered.connect(self._showHostnameDialog)
         edit_hostname_action.setToolTip("Shows the configuration dialog for the hostname of the device.")
         items.append(edit_hostname_action)
-
-        # Show runnning configuration
-        show_running_config_action = QAction("Show Running Configuration")
-        show_running_config_action.triggered.connect(self._showRunningConfig)
-        show_running_config_action.setToolTip("Shows the running configuration of the device (in native YANG model).")
-        items.append(show_running_config_action)
 
         # Discard all pending changes
         discard_changes_action = QAction("Discard all pending changes from candidate datastore")
         discard_changes_action.triggered.connect(self.discardChanges)
         discard_changes_action.setToolTip("Discards all changes uploaded to the candidate datastore of the device.")
         items.append(discard_changes_action)
+
+        # Show runnning configuration
+        show_running_config_action = QAction("Show running configuration")
+        show_running_config_action.triggered.connect(self._showRunningConfig)
+        show_running_config_action.setToolTip("Shows the running configuration of the device (in native YANG model).")
+        items.append(show_running_config_action)
 
         return(items)
 
