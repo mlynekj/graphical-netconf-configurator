@@ -40,7 +40,7 @@ from PySide6.QtGui import (
 from PySide6.QtCore import QTimer
 
 # QtCreator
-from ui.ui_routingtabledialog import Ui_RoutingTableDialog
+from ui.ui_xmldatadialog import Ui_XMLDataDialog
 
 # ---------- HELPER FUNCTIONS: ----------
 def addRouter(device_parameters, scene, class_type) -> "Router":
@@ -306,6 +306,12 @@ class Device(QGraphicsPixmapItem):
         edit_hostname_action.setToolTip("Shows the configuration dialog for the hostname of the device.")
         items.append(edit_hostname_action)
 
+        # Show runnning configuration
+        show_running_config_action = QAction("Show Running Configuration")
+        show_running_config_action.triggered.connect(self._showRunningConfig)
+        show_running_config_action.setToolTip("Shows the running configuration of the device (in native YANG model).")
+        items.append(show_running_config_action)
+
         # Discard all pending changes
         discard_changes_action = QAction("Discard all pending changes from candidate datastore")
         discard_changes_action.triggered.connect(self.discardChanges)
@@ -567,16 +573,54 @@ class Device(QGraphicsPixmapItem):
         routing_table = self.getRoutingTable()
 
         if routing_table is None:
-            routingTableDialog = RoutingTableDialog(None, self)
-            routingTableDialog.exec()
+            routing_table_dialog = ShowRoutingTableDialog(None, self)
+            routing_table_dialog.exec()
             return
 
         if self.device_parameters["device_params"] == "iosxe":
-            routingTableDialog = RoutingTableDialog(utils.convertToEtree(routing_table, "iosxe"), self)
+            routing_table_dialog = ShowRoutingTableDialog(utils.convertToEtree(routing_table, "iosxe"), self)
         elif self.device_parameters["device_params"] == "junos":
-            routingTableDialog = RoutingTableDialog(utils.convertToEtree(routing_table, "junos"), self)
+            routing_table_dialog = ShowRoutingTableDialog(utils.convertToEtree(routing_table, "junos"), self)
 
-        routingTableDialog.exec()
+        routing_table_dialog.exec()
+
+    # ---------- RUNNING CONFIGARATION FUNCTIONS ----------
+    def getRunningConfig(self) -> ET.Element:
+        """
+        Retrieves the running-configuration from the device.
+        Returns:
+            rpc_reply: The running config information.
+        """
+
+        try:
+            rpc_reply = self.mngr.get_config(source="running")
+            utils.printRpc(rpc_reply, "Get Running-Configuration", self)
+            return (rpc_reply)
+        except Exception as e:
+            utils.printGeneral(f"Error getting running-config: {e}")
+            utils.printGeneral(traceback.format_exc())
+
+    def _showRunningConfig(self) -> None:
+        """
+        Displays the routing table in a dialog window.
+        This method retrieves the routing table using the `getRoutingTable` method,
+        converts it to an XML tree using the `helper.convertToEtree` function, and
+        then displays it in a `RoutingTableDialog` window.
+        """
+
+        running_config = self.getRunningConfig()
+
+        if running_config is None:
+            running_config_dialog = ShowRunningConfigDialog(None, self)
+            running_config_dialog.exec()
+            return
+
+        if self.device_parameters["device_params"] == "iosxe":
+            running_config_dialog = ShowRoutingTableDialog(utils.convertToEtree(running_config, "iosxe"), self)
+        elif self.device_parameters["device_params"] == "junos":
+            running_config_dialog = ShowRoutingTableDialog(utils.convertToEtree(running_config, "junos"), self)
+
+        running_config_dialog.exec()
 
     # ---------- CANDIDATE DATASTORE MANIPULATION FUNCTIONS ----------
     def discardChanges(self) -> bool:
@@ -1410,36 +1454,48 @@ class AddDeviceDialog(QDialog):
             utils.printGeneral(traceback.format_exc())
     
 
-class RoutingTableDialog(QDialog):
+class ShowXMLDialog(QDialog):
     """
-    A dialog for displaying the routing table of a router (instance of class Router).
+    A dialog for displaying general XML data in a tree form.
     """
 
-    def __init__(self, routing_table, router):
+    def __init__(self, data, device, data_type = "XML Data"):
         """
-        Initializes the RoutingTableDialog.
+        Initializes the Dialog.
         Args:
-            routing_table: The routing table XML data (XML root element, specifically).
-            router (Router): The router object for which to display the routing table.
+            data: The XML data (XML root element, specifically).
+            device (Device): The device object for which to display the data.
         Sets up the UI elements and connects the buttons to their respective functions.
         """
     
         super().__init__()
 
-        self.routing_table = routing_table
+        self.xml_data = data
 
-        self.ui = Ui_RoutingTableDialog()
+        self.ui = Ui_XMLDataDialog()
         self.ui.setupUi(self)
 
         # Setup UI elements
-        self.ui.header.setText(f"Routing table for device: {router.id}")
-        self.ui.collapse_button.clicked.connect(self.ui.routing_table_tree.collapseAll)
-        self.ui.expand_button.clicked.connect(self.ui.routing_table_tree.expandAll)
-        self.ui.refresh_button.clicked.connect(lambda: self._refreshRoutingTable(router))
+        self.ui.header.setText(f"{data_type} for device: {device.id}")
+        self.ui.collapse_button.clicked.connect(self.ui.data_tree.collapseAll)
+        self.ui.expand_button.clicked.connect(self.ui.data_tree.expandAll)
         self.ui.close_button_box.rejected.connect(self.reject)
+        self.ui.refresh_button.setEnabled(False)
+        # Fill the QTreeWidget with the data, takes the XML root element and the QTreeWidget as arguments
+        utils.populateTreeWidget(self.ui.data_tree, self.xml_data)
 
-        # Fill the QTreeWidget with the routing table data, takes the XML root element and the QTreeWidget as arguments
-        utils.populateTreeWidget(self.ui.routing_table_tree, self.routing_table)
+class ShowRoutingTableDialog(ShowXMLDialog):
+    def __init__(self, data, device, data_type = "Routing Table"):
+        """
+        Initializes the dialog for showing the routing table.
+        Args:
+            data: The XML data (XML root element, specifically).
+            device (Device): The device object for which to display the data.
+            data_type (str): The type of data being displayed (default is "Routing Table").
+        """
+        super().__init__(data, device, data_type)
+        self.ui.refresh_button.setEnabled(True)
+        self.ui.refresh_button.clicked.connect(lambda: self._refreshRoutingTable(device))
 
     def _refreshRoutingTable(self, router):
         """
@@ -1454,4 +1510,31 @@ class RoutingTableDialog(QDialog):
         elif router.device_parameters["device_params"] == "junos":
             routing_table_etree = utils.convertToEtree(routing_table, "junos")
 
-        utils.populateTreeWidget(self.ui.routing_table_tree, routing_table_etree)
+        utils.populateTreeWidget(self.ui.data_tree, routing_table_etree)
+
+class ShowRunningConfigDialog(ShowXMLDialog):
+    def __init__(self, data, device, data_type = "Running Configuration"):
+        """
+        Initializes the dialog for showing the running configuration.
+        Args:
+            data: The XML data (XML root element, specifically).
+            device (Device): The device object for which to display the data.
+            data_type (str): The type of data being displayed (default is "Running Configuration").
+        """
+        super().__init__(data, device, data_type)
+        self.ui.refresh_button.setEnabled(True)
+        self.ui.refresh_button.clicked.connect(lambda: self._refreshRunningConfig(device))
+
+    def _refreshRunningConfig(self, device):
+        """
+        Refreshes the running configuration of the selected device. This method is called when the user clicks the "Refresh" button in the running configuration dialog.
+        Args:
+            device (Device): The device for which to refresh the running configuration.
+        """
+
+        running_config = device.getRunningConfig()
+        if device.device_parameters["device_params"] == "iosxe":
+            running_config_etree = utils.convertToEtree(running_config, "iosxe")
+        elif device.device_parameters["device_params"] == "junos":
+            running_config_etree = utils.convertToEtree(running_config, "junos")
+        utils.populateTreeWidget(self.ui.data_tree, running_config_etree)

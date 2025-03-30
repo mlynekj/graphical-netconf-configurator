@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>RoutingTableDialog</class>
- <widget class="QDialog" name="RoutingTableDialog">
+ <class>XMLDataDialog</class>
+ <widget class="QDialog" name="XMLDataDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -19,7 +19,7 @@
      <item alignment="Qt::AlignmentFlag::AlignLeft">
       <widget class="QLabel" name="header">
        <property name="text">
-        <string>routing_table</string>
+        <string>xml_data</string>
        </property>
       </widget>
      </item>
@@ -69,7 +69,7 @@
     </layout>
    </item>
    <item>
-    <widget class="QTreeWidget" name="routing_table_tree">
+    <widget class="QTreeWidget" name="data_tree">
      <column>
       <property name="text">
        <string>Element</string>
