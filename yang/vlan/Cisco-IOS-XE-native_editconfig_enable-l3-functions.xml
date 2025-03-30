@@ -1,0 +1,9 @@
+<config>
+	<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+		<ip>
+			<routing-conf>
+				<routing>true</routing>
+			</routing-conf>
+		</ip>
+	</native>
+</config>
