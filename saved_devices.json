@@ -1,36 +1,14 @@
 {
     "devices": [
         {
-            "type": "IOSXERouter",
-            "ip_address": "172.16.10.83:830",
+            "type": "IOSXESwitch",
+            "ip_address": "172.16.10.71:830",
             "username": "jakub",
             "password": "cisco",
             "vendor": "iosxe",
             "location": {
-                "x": -43.0,
-                "y": -186.0
-            }
-        },
-        {
-            "type": "IOSXERouter",
-            "ip_address": "172.16.10.82:830",
-            "username": "jakub",
-            "password": "cisco",
-            "vendor": "iosxe",
-            "location": {
-                "x": -214.0,
-                "y": -74.0
-            }
-        },
-        {
-            "type": "IOSXERouter",
-            "ip_address": "172.16.10.81:830",
-            "username": "jakub",
-            "password": "cisco",
-            "vendor": "iosxe",
-            "location": {
-                "x": -35.0,
-                "y": 56.0
+                "x": 0.0,
+                "y": 0.0
             }
         }
     ]

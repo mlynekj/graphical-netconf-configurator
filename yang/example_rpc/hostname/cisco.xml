@@ -1,0 +1,5 @@
+<config>
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <hostname>Novy_hostname</hostname>
+  </native>
+</config>

@@ -1,0 +1,7 @@
+<config>
+  <system xmlns="http://openconfig.net/yang/system">
+    <config>
+      <hostname>Novy_hostname</hostname>
+    </config>
+  </system>
+</config>
