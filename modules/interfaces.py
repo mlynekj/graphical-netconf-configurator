@@ -3,6 +3,7 @@
 import ipaddress
 from lxml import etree as ET
 from ncclient import operations
+from natsort import natsorted
 
 # Custom modules
 import utils
@@ -118,8 +119,9 @@ def getInterfacesWithNetconf(device) -> tuple:
             if hasattr(device, "is_vlan_capable") and device.is_vlan_capable:
                 vlan_data = extractVlanDataFromInterface(interface_element)
                 interfaces[name]["vlan_data"] = vlan_data
-
-    return(interfaces, rpc_reply)
+            
+            sorted_interfaces = {key: interfaces[key] for key in natsorted(interfaces)}
+    return(sorted_interfaces, rpc_reply)
 
 def extractIPDataFromSubinterface(subinterface_element, version="ipv4") -> list[dict]:
     """
