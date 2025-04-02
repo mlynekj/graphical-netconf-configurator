@@ -120,7 +120,7 @@ def getInterfacesWithNetconf(device) -> tuple:
                 vlan_data = extractVlanDataFromInterface(interface_element)
                 interfaces[name]["vlan_data"] = vlan_data
             
-            sorted_interfaces = {key: interfaces[key] for key in natsorted(interfaces)}
+    sorted_interfaces = {key: interfaces[key] for key in natsorted(interfaces)} # sort the interfaces by name
     return(sorted_interfaces, rpc_reply)
 
 def extractIPDataFromSubinterface(subinterface_element, version="ipv4") -> list[dict]:

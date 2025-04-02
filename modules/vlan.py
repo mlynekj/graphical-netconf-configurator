@@ -96,7 +96,7 @@ def deleteInterfaceVlanWithNetconf(device, interfaces: dict) -> tuple:
     if device.device_parameters['device_params'] == 'iosxe':
         # FILTER
         filter = OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(interfaces, delete=True)
-
+        print(filter)
         # RPC
         rpc_reply = device.mngr.edit_config(str(filter), target=CONFIGURATION_TARGET_DATASTORE)
         #rpc_reply = ""
@@ -198,27 +198,27 @@ class OpenconfigInterfaces_EditConfig_ConfigureInterfaceVlan_Filter(EditconfigFi
         interface_element = ET.SubElement(interfaces_element, "interface")
         name_element = ET.SubElement(interface_element, "name").text = interface_name
         ethernet_element = ET.SubElement(interface_element, "ethernet", xmlns="http://openconfig.net/yang/interfaces/ethernet")
+        if delete:
+            ethernet_element.set("operation", "delete")
+            return
+
+        # This will only be executed, if the operation is not "delete"
         ethernet_config_element = ET.SubElement(ethernet_element, "config")
         ethernet_switchport_element = ET.SubElement(ethernet_config_element, "switchport", xmlns="http://cisco.com/ns/yang/cisco-xe-openconfig-if-ethernet-ext")
-        switched_vlan_element = ET.SubElement(ethernet_element, "switched-vlan", xmlns="http://openconfig.net/yang/vlan")
-        if delete:
-            switched_vlan_element.set("operation", "delete")
-            return
-        
-        # This will only be executed, if the operation is not "delete"
         if interface_data["vlan_data"]["port_mode"] == "routed-port": # If the port is set to routed port, disable switchport
             ethernet_switchport_element.text = "false"
         else: # If the port is set to access or trunk, enable switchport and configure the VLANs
+            switched_vlan_element = ET.SubElement(ethernet_element, "switched-vlan", xmlns="http://openconfig.net/yang/vlan")
             ethernet_switchport_element.text = "true"
             config_element = ET.SubElement(switched_vlan_element, "config")
             interface_mode_element = ET.SubElement(config_element, "interface-mode")
             if interface_data["vlan_data"]["port_mode"] == "access":
                 interface_mode_element.text = "ACCESS"
                 access_vlan_element = ET.SubElement(config_element, "access-vlan")
-                access_vlan_element.text = interface_data["vlan_data"]["vlan"].strip()
+                access_vlan_element.text = interface_data["vlan_data"]["vlan"][0]
             elif interface_data["vlan_data"]["port_mode"] == "trunk":
                 interface_mode_element.text = "TRUNK"
-                for vlan in interface_data["vlan_data"]["vlan"].split(", "):
+                for vlan in interface_data["vlan_data"]["vlan"]:
                     trunk_vlan_element = ET.SubElement(config_element, "trunk-vlans")
                     trunk_vlan_element.text = vlan.strip()
 
@@ -451,25 +451,22 @@ class EditVlansDialog(QDialog):
                     port_mode_item.setCurrentText(port_mode)
                 vlan_interface_table.setCellWidget(row, 4, port_mode_item)
                 # VLANs
-                vlan = interface_data["vlan_data"].get('vlan', None)
+                vlan_from_dict = interface_data["vlan_data"].get('vlan', None)
                 vlan_item = QLineEdit()
                 vlan_item.editingFinished.connect(lambda row=row, vlan_item=vlan_item: self.vlanChanged(device, row, vlan_item))
                 if port_mode == None:
-                    vlan = ""
+                    vlan_text = ""
                     vlan_item.setEnabled(False)
                 elif port_mode == "routed-port":
-                    vlan = ""
+                    vlan_text = ""
                     vlan_item.setEnabled(False)
                 elif port_mode == "access":
-                    vlan = vlan
+                    vlan_text = vlan_from_dict
                     vlan_item.setEnabled(True)
                 elif port_mode == "trunk":
-                    vlan = ", ".join(vlan)
+                    vlan_text = ",".join(vlan_from_dict)
                     vlan_item.setEnabled(True)
-                elif port_mode == "routed-port":
-                    vlan = ""
-                    vlan_item.setEnabled(False)
-                vlan_item.setText(vlan)
+                vlan_item.setText(vlan_text)
                 vlan_interface_table.setCellWidget(row, 5, vlan_item)
 
         return(vlan_interface_table)
@@ -517,12 +514,13 @@ class EditVlansDialog(QDialog):
         interface_item = self.ui.devices_tab_widget.currentWidget().findChild(QTableWidget).item(row, 0)
         interface = interface_item.text()
         old_vlans = device.interfaces[interface]['vlan_data'].get('vlan', None)
-        new_vlans = vlan_item.text()
+        new_vlans = vlan_item.text().strip()
 
         if old_vlans == new_vlans:
             return
 
-        self.edited_devices[device.id][interface]['vlan_data']['vlan'] = new_vlans
+        new_vlans_list = new_vlans.split(",")
+        self.edited_devices[device.id][interface]['vlan_data']['vlan'] = new_vlans_list
         self.edited_devices[device.id][interface]['flag'] = "uncommited"
 
     def addVlan(self, device, vlan_id, vlan_name) -> None:
@@ -555,17 +553,36 @@ class EditVlansDialog(QDialog):
             uncommited_interfaces = {k: v for k, v in self.edited_devices[device.id].items() if v['flag'] == "uncommited"}
             if not uncommited_interfaces:
                 continue
+
+            interfaces_to_delete = {}
+            interfaces_to_set = {}
             for interface, data in uncommited_interfaces.items():
-                if data['vlan_data']['port_mode'] == "" or data['vlan_data']['port_mode'] == None:
-                    QMessageBox.warning(self, "Error", f"Device {device.hostname} - Interface {interface} has an empty port mode.")
-                    return
-                if data['vlan_data']['port_mode'] == "access" and data['vlan_data']['vlan']:
+                if data['vlan_data']['port_mode'] == "" or data['vlan_data']['port_mode'] == None: # if the port mode is empty, delete the VLAN configuration
+                    interfaces_to_delete[interface] = data
+
+                if data['vlan_data']['port_mode'] == "access": # if the port mode is access, the VLAN number must be set
                     if data['vlan_data']['vlan'] == "" or data['vlan_data']['vlan'] == None:
                         QMessageBox.warning(self, "Error", f"Device {device.hostname} - Interface {interface} has an empty VLAN number/s.")
                         return
+                    else:
+                        interfaces_to_delete[interface] = data
+                        interfaces_to_set[interface] = data
+                elif data['vlan_data']['port_mode'] == "trunk": # if the port mode is trunk, the VLAN number/s is optionall
+                    interfaces_to_delete[interface] = data
+                    interfaces_to_set[interface] = data
+                elif data['vlan_data']['port_mode'] == "routed-port":
+                    interfaces_to_delete[interface] = data
+                    interfaces_to_set[interface] = data
 
-            device.deleteInterfaceVlan(uncommited_interfaces)
-            device.setInterfaceVlan(uncommited_interfaces)
+            if interfaces_to_delete:
+                result_delete = device.deleteInterfaceVlan(interfaces_to_delete)
+            
+            if interfaces_to_set:
+                result_set = device.setInterfaceVlan(interfaces_to_set)
+            
+            if result_delete is False or result_set is False:
+                QMessageBox.critical(self, "Error", f"Failed to apply changes to device {device.hostname}.")
+                continue
 
             device.interfaces = copy.deepcopy(self.edited_devices[device.id]) # Copy the temporary dictionary to the device's interfaces dictionary
             

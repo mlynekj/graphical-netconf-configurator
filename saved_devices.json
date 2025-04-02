@@ -1,25 +1,14 @@
 {
     "devices": [
         {
-            "type": "JUNOSFirewall",
-            "ip_address": "172.16.10.85:830",
-            "username": "root",
-            "password": "Juniper123",
-            "vendor": "junos",
-            "location": {
-                "x": 98.0,
-                "y": -156.0
-            }
-        },
-        {
-            "type": "IOSXERouter",
-            "ip_address": "172.16.10.81:830",
+            "type": "IOSXESwitch",
+            "ip_address": "172.16.10.71:830",
             "username": "jakub",
             "password": "cisco",
             "vendor": "iosxe",
             "location": {
-                "x": 64.0,
-                "y": 22.0
+                "x": 0.0,
+                "y": 0.0
             }
         }
     ]
