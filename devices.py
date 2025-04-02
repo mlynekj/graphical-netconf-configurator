@@ -616,9 +616,9 @@ class Device(QGraphicsPixmapItem):
             return
 
         if self.device_parameters["device_params"] == "iosxe":
-            running_config_dialog = ShowRoutingTableDialog(utils.convertToEtree(running_config, "iosxe"), self)
+            running_config_dialog = ShowRunningConfigDialog(utils.convertToEtree(running_config, "iosxe"), self)
         elif self.device_parameters["device_params"] == "junos":
-            running_config_dialog = ShowRoutingTableDialog(utils.convertToEtree(running_config, "junos"), self)
+            running_config_dialog = ShowRunningConfigDialog(utils.convertToEtree(running_config, "junos"), self)
 
         running_config_dialog.exec()
 
@@ -1470,6 +1470,9 @@ class ShowXMLDialog(QDialog):
     
         super().__init__()
 
+        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        self.setWindowIcon(QIcon(gnc_icon))
+
         self.xml_data = data
 
         self.ui = Ui_XMLDataDialog()
@@ -1494,6 +1497,7 @@ class ShowRoutingTableDialog(ShowXMLDialog):
             data_type (str): The type of data being displayed (default is "Routing Table").
         """
         super().__init__(data, device, data_type)
+        self.setWindowTitle("Routing Table")
         self.ui.refresh_button.setEnabled(True)
         self.ui.refresh_button.clicked.connect(lambda: self._refreshRoutingTable(device))
 
@@ -1522,6 +1526,7 @@ class ShowRunningConfigDialog(ShowXMLDialog):
             data_type (str): The type of data being displayed (default is "Running Configuration").
         """
         super().__init__(data, device, data_type)
+        self.setWindowTitle("Running Configuration")
         self.ui.refresh_button.setEnabled(True)
         self.ui.refresh_button.clicked.connect(lambda: self._refreshRunningConfig(device))
 
