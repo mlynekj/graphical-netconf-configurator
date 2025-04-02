@@ -576,13 +576,15 @@ class EditVlansDialog(QDialog):
 
             if interfaces_to_delete:
                 result_delete = device.deleteInterfaceVlan(interfaces_to_delete)
+                if result_delete is False:
+                    QMessageBox.critical(self, "Error", f"Failed to delete VLAN configuration on device {device.hostname}.")
+                    continue
             
             if interfaces_to_set:
                 result_set = device.setInterfaceVlan(interfaces_to_set)
-            
-            if result_delete is False or result_set is False:
-                QMessageBox.critical(self, "Error", f"Failed to apply changes to device {device.hostname}.")
-                continue
+                if result_set is False:
+                    QMessageBox.critical(self, "Error", f"Failed to set VLAN configuration on device {device.hostname}.")
+                    continue
 
             device.interfaces = copy.deepcopy(self.edited_devices[device.id]) # Copy the temporary dictionary to the device's interfaces dictionary
             
