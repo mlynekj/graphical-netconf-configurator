@@ -1,11 +1,12 @@
 # ---------- IMPORTS: ----------
 # Standard library
+import os
 import ipaddress
 from lxml import etree as ET
 
 # Custom modules
 from yang.filters import EditconfigFilter
-from definitions import CONFIGURATION_TARGET_DATASTORE, ROUTING_YANG_DIR
+from definitions import ROOT_DIR, CONFIGURATION_TARGET_DATASTORE, ROUTING_YANG_DIR
 
 # Qt
 from PySide6.QtWidgets import (
@@ -241,7 +242,7 @@ class OSPFDialog(QDialog):
     def __init__(self, scene=None) -> None:
         super().__init__()
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
 
         self.selected_device = None
@@ -449,7 +450,7 @@ class AddOSPFNetworkDialog(QDialog):
     def __init__(self, device) -> None:
         super().__init__()
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
 
         self.device = device

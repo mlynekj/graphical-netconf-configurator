@@ -1,5 +1,6 @@
 # ---------- IMPORTS: ----------
 # Standard Library
+import os
 from ncclient import manager, transport, operations
 from ncclient.operations import RaiseMode
 from lxml import etree as ET
@@ -7,7 +8,7 @@ from lxml import etree as ET
 # Custom modules
 import utils
 from yang.filters import DispatchFilter
-from definitions import SYSTEM_YANG_DIR
+from definitions import ROOT_DIR, SYSTEM_YANG_DIR
 
 # Qt
 from PySide6.QtWidgets import (
@@ -23,7 +24,7 @@ from PySide6.QtWidgets import (
     QStyle,
     QMessageBox)
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
 
 # ---------- OPERATIONS: ----------
 def establishNetconfConnection(device_parameters) -> manager:
@@ -159,6 +160,9 @@ class NetconfCapabilitiesDialog(QDialog):
 
     def __init__(self, device) -> "NetconfCapabilitiesDialog":
         super().__init__()
+
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
+        self.setWindowIcon(QIcon(gnc_icon))
 
         self.setWindowTitle("Device Capabilities")
         self.setGeometry(

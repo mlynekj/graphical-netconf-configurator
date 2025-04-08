@@ -1,5 +1,6 @@
 # ---------- IMPORTS: ----------
 # Standard library
+import os
 import ipaddress
 from lxml import etree as ET
 from ncclient import operations
@@ -8,7 +9,7 @@ from natsort import natsorted
 # Custom modules
 import utils
 from yang.filters import GetFilter, EditconfigFilter
-from definitions import INTERFACES_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
+from definitions import ROOT_DIR, INTERFACES_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
 # Qt
 from PySide6.QtWidgets import (
@@ -441,7 +442,7 @@ class DeviceInterfacesDialog(QDialog):
         self.ui = Ui_Interfaces()
         self.ui.setupUi(self)
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
         self.setWindowTitle("Device Interfaces")
         self.ui.close_button_box.button(QDialogButtonBox.Close).clicked.connect(self.close)
@@ -601,7 +602,7 @@ class EditInterfaceDialog(QDialog):
         self.ui = Ui_edit_interface_dialog()
         self.ui.setupUi(self)
         self.setWindowTitle(f"Edit interface: {interface_id}")
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
 
         self.instance = instance
@@ -809,7 +810,7 @@ class EditSubinterfaceDialog(QDialog):
         self.subinterface_id = subinterface_id
         self.old_ip = ip if ip is not None else None
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
 
         self.layout = QVBoxLayout()
@@ -919,7 +920,7 @@ class AddInterfaceDialog(QDialog):
         self.ui = Ui_add_interface_dialog()
         self.ui.setupUi(self)
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
         self.setWindowTitle("Add new interface")
         self.ui.ok_cancel_button_box.button(QDialogButtonBox.Ok).clicked.connect(self.confirmAdd)

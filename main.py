@@ -1,6 +1,7 @@
 # ---------- IMPORTS: ----------
 # Standard library
 import sys
+import os
 import json
 import time
 import traceback
@@ -16,7 +17,7 @@ import utils
 import modules.ospf as ospf
 import modules.security as security
 import modules.vlan as vlan
-from definitions import STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
+from definitions import ROOT_DIR, STDOUT_TO_CONSOLE, STDERR_TO_CONSOLE, DARK_MODE
 
 # Qt
 from PySide6.QtWidgets import (
@@ -53,7 +54,6 @@ from ui.ui_pendingchangedetailsdialog import Ui_PendingChangeDetailsDialog
 
 
 sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
-
 
 # ---------- QT CLASSES----------
 class MainView(QGraphicsView):
@@ -143,7 +143,7 @@ class MainView(QGraphicsView):
         """Loads custom cursors for different modes defined in the CURSOR_MODES dictionary."""
 
         self.cursors = {
-            mode: QCursor(QPixmap(cursor_path)) if cursor_path else None
+            mode: QCursor(QPixmap(os.path.join(ROOT_DIR, cursor_path))) if cursor_path else None
             for mode, cursor_path in self.CURSOR_MODES.items()
         }
 
@@ -303,7 +303,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("GNC - Graphical NETCONF configurator")
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
         self.view = MainView()
         self.setCentralWidget(self.view)
@@ -338,27 +338,27 @@ class MainWindow(QMainWindow):
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
         # "Add a device" button
-        plus_icon_img = QIcon(QPixmap("graphics/icons/plus.png")) # https://www.freepik.com/icon/add_1082378#fromView=family&page=1&position=1&uuid=d639dba2-0441-47bb-a400-3b47c2034665
+        plus_icon_img = QIcon(QPixmap(os.path.join(ROOT_DIR, "graphics/icons/plus.png"))) # https://www.freepik.com/icon/add_1082378#fromView=family&page=1&position=1&uuid=d639dba2-0441-47bb-a400-3b47c2034665
         action_connectToDevice = QAction(plus_icon_img, "Connect to a device", self)
         action_connectToDevice.triggered.connect(self._showDeviceConnectionDialog)
         self.toolbar.addAction(action_connectToDevice)
 
         # "Cable edit mode" button
-        cable_mode_img = QIcon(QPixmap("graphics/icons/cable_mode.png")) # https://www.freepik.com/icon/ethernet_9693285
+        cable_mode_img = QIcon(QPixmap(os.path.join(ROOT_DIR, "graphics/icons/cable_mode.png"))) # https://www.freepik.com/icon/ethernet_9693285
         action_cableEditMode = QAction(cable_mode_img, "Cable edit mode", self)
         action_cableEditMode.setCheckable(True)
         action_cableEditMode.triggered.connect(self._toggleCableMode)
         self.toolbar.addAction(action_cableEditMode)
 
         # "Save devices to file" button
-        save_device_img = QIcon(QPixmap("graphics/icons/save.png")) # https://www.freepik.com/icon/floppy-disk_12153581#fromView=search&page=1&position=71&uuid=fc4114bf-cd3d-45c7-8ce4-1daf851f9308
+        save_device_img = QIcon(QPixmap(os.path.join(ROOT_DIR, "graphics/icons/save.png"))) # https://www.freepik.com/icon/floppy-disk_12153581#fromView=search&page=1&position=71&uuid=fc4114bf-cd3d-45c7-8ce4-1daf851f9308
         action_saveDevices = QAction(save_device_img, "Save devices to file", self)
         action_saveDevices.setToolTip("Save devices to a JSON file \"saved_devices.json\"")
         action_saveDevices.triggered.connect(self._saveDevicesToFile)
         self.toolbar.addAction(action_saveDevices)
 
         # "Load devices from file" button
-        load_devices_img = QIcon(QPixmap("graphics/icons/load.png")) # https://www.freepik.com/icon/file-upload_12153583#fromView=resource_detail&position=0
+        load_devices_img = QIcon(QPixmap(os.path.join(ROOT_DIR, "graphics/icons/load.png"))) # https://www.freepik.com/icon/file-upload_12153583#fromView=resource_detail&position=0
         action_loadDevices = QAction(load_devices_img, "Load devices from file", self)
         action_loadDevices.setToolTip("Load devices from a JSON file \"saved_devices.json\"")
         action_loadDevices.triggered.connect(self._loadDevicesFromFile)
@@ -451,7 +451,6 @@ class MainWindow(QMainWindow):
 
         except FileNotFoundError:
             QMessageBox.warning(self, "File not found", "File \"saved_devices.json\" not found.", QMessageBox.Ok)
-            utils.printGeneral(traceback.format_exc())
         except Exception as e:
             QMessageBox.warning(self, "Error", f"An error occured while loading devices from file: {e}", QMessageBox.Ok)
             utils.printGeneral(traceback.format_exc())
@@ -939,7 +938,7 @@ class PendingChangeDetailsDialog(QDialog):
         self.ui = Ui_PendingChangeDetailsDialog()
         self.ui.setupUi(self)
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
         self.setWindowTitle(f"{device_id} - {change_name}")
 

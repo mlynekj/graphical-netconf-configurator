@@ -1,12 +1,13 @@
 # ---------- IMPORTS: ----------
 # Standard library
+import os
 from lxml import etree as ET
 import ipaddress
 
 # Custom modules
 import utils
 from yang.filters import EditconfigFilter, DispatchFilter
-from definitions import SECURITY_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
+from definitions import ROOT_DIR, SECURITY_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
 # QT
 from PySide6.QtWidgets import (
@@ -444,10 +445,10 @@ class IPSECDialog(QDialog):
         # Set up the UI
         self.ui = Ui_IPSECDialog()
         self.ui.setupUi(self)
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
         self.ipsec_scene = QGraphicsScene()
-        self.ipsec_scheme_background = QPixmap("graphics/ipsec_scheme.png")
+        self.ipsec_scheme_background = QPixmap(os.path.join(ROOT_DIR, "graphics/ipsec_scheme.png"))
         self.ipsec_scene.addPixmap(self.ipsec_scheme_background)
         self._fillIPSECScene()
         self._fillAdvancedTab()

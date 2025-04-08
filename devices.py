@@ -1,5 +1,6 @@
 # ---------- IMPORTS: ----------
 # Standard library
+import os
 import traceback
 import ipaddress
 from lxml import etree as ET
@@ -14,7 +15,7 @@ import modules.security as security
 import modules.vlan as vlan
 from signals import signal_manager
 from yang.filters import DispatchFilter, GetFilter
-from definitions import ROUTING_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
+from definitions import ROOT_DIR, ROUTING_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
 # Qt
 from PySide6.QtWidgets import (
@@ -173,7 +174,7 @@ class Device(QGraphicsPixmapItem):
             raise ConnectionError(f"Error establishing NETCONF connection: {e}")
 
         # ICON + CANVAS PLACEMENT
-        device_icon_img = QImage("graphics/devices/general.png")
+        device_icon_img = QImage(os.path.join(ROOT_DIR, "graphics/devices/general.png"))
         self.setPixmap(QPixmap.fromImage(device_icon_img))
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
@@ -773,7 +774,7 @@ class Router(Device):
         super().__init__(device_parameters, x, y)
 
         # ICON
-        router_icon_img = QImage("graphics/devices/router.png")
+        router_icon_img = QImage(os.path.join(ROOT_DIR, "graphics/devices/router.png"))
         self.setPixmap(QPixmap.fromImage(router_icon_img))
 
     def _getContextMenuItems(self) -> list:
@@ -827,7 +828,7 @@ class Switch(Device):
         super().__init__(device_parameters, x, y)
 
         # ICON
-        switch_icon_img = QImage("graphics/devices/switch.png")
+        switch_icon_img = QImage(os.path.join(ROOT_DIR, "graphics/devices/switch.png"))
         self.setPixmap(QPixmap.fromImage(switch_icon_img))
 
         self.vlans = self.getVlans()
@@ -964,7 +965,7 @@ class Firewall(Router):
         super().__init__(device_parameters, x, y)
 
         # ICON
-        firewall_icon_img = QImage("graphics/devices/firewall.png")
+        firewall_icon_img = QImage(os.path.join(ROOT_DIR, "graphics/devices/firewall.png"))
         self.setPixmap(QPixmap.fromImage(firewall_icon_img))
 
 
@@ -1366,7 +1367,7 @@ class AddDeviceDialog(QDialog):
     def __init__(self, view) -> "AddDeviceDialog":
         super().__init__()
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
 
         self.view = view
@@ -1470,7 +1471,7 @@ class ShowXMLDialog(QDialog):
     
         super().__init__()
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
 
         self.xml_data = data

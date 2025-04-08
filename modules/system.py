@@ -1,11 +1,12 @@
 # ---------- IMPORTS: ----------
 # Standard library
+import os
 from lxml import etree as ET
 
 # Custom modules
 import utils as utils
 from yang.filters import GetFilter, EditconfigFilter
-from definitions import SYSTEM_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
+from definitions import ROOT_DIR, SYSTEM_YANG_DIR, CONFIGURATION_TARGET_DATASTORE
 
 # Qt
 from PySide6.QtWidgets import (
@@ -126,7 +127,7 @@ class HostnameDialog(QDialog):
         self.device = device
         self.old_hostname = self.device.hostname
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
         self.setWindowTitle(f"Edit hostname: {self.old_hostname}")
         self.setGeometry(

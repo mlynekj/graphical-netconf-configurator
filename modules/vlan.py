@@ -1,11 +1,12 @@
 # ---------- IMPORTS: ----------
 # Standard library 
+import os
 from lxml import etree as ET
 import copy
 
 # Custom modules
 import utils
-from definitions import CONFIGURATION_TARGET_DATASTORE, VLAN_YANG_DIR
+from definitions import ROOT_DIR, CONFIGURATION_TARGET_DATASTORE, VLAN_YANG_DIR
 from yang.filters import EditconfigFilter, GetFilter
 
 # Qt
@@ -282,7 +283,7 @@ class EditVlansDialog(QDialog):
         self.devices = devices
         self.edited_devices = {}
 
-        gnc_icon = QPixmap("graphics/icons/gnc.png")
+        gnc_icon = QPixmap(os.path.join(ROOT_DIR, "graphics/icons/gnc.png"))
         self.setWindowIcon(QIcon(gnc_icon))
 
         self.ui = Ui_edit_vlans_dialog()
