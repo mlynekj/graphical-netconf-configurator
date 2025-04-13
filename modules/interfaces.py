@@ -178,21 +178,21 @@ def extractVlanDataFromInterface(interface_element) -> dict:
         switchport_state = switchport_state_element.text
         if switchport_state is not None and switchport_state == "false":
             vlan_data["port_mode"] = "routed-port"
-        else: # if not a routed port, check for VLAN configuration
-            vlan_element = interface_element.find('../ethernet/switched-vlan/config')
-            if vlan_element is not None:
-                interface_mode = vlan_element.find('interface-mode')
-                if interface_mode is not None:
-                    vlan_data["port_mode"] = interface_mode.text.lower()
-                    if vlan_data["port_mode"] == "access":
-                        vlan = vlan_element.find('access-vlan')
-                        vlan_data["vlan"] = vlan.text if vlan is not None else None
-                    elif vlan_data["port_mode"] == "trunk":
-                        vlans = vlan_element.findall('trunk-vlans')
-                        vlan_data["vlan"] = [vlan.text for vlan in vlans] if vlans is not None else None
-            else:
-                vlan_data["port_mode"] = None
-                vlan_data["vlan"] = None
+    else: # if not a routed port, check for VLAN configuration
+        vlan_element = interface_element.find('../ethernet/switched-vlan/config')
+        if vlan_element is not None:
+            interface_mode = vlan_element.find('interface-mode')
+            if interface_mode is not None:
+                vlan_data["port_mode"] = interface_mode.text.lower()
+                if vlan_data["port_mode"] == "access":
+                    vlan = vlan_element.find('access-vlan')
+                    vlan_data["vlan"] = vlan.text if vlan is not None else None
+                elif vlan_data["port_mode"] == "trunk":
+                    vlans = vlan_element.findall('trunk-vlans')
+                    vlan_data["vlan"] = [vlan.text for vlan in vlans] if vlans is not None else None
+        else:
+            vlan_data["port_mode"] = None
+            vlan_data["vlan"] = None
 
     return vlan_data
 

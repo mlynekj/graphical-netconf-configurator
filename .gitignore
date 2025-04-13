@@ -170,3 +170,4 @@ _test.py
 *.bkp
 
 saved_devices.json
+/executable
