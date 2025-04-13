@@ -44,31 +44,31 @@ from PySide6.QtCore import QTimer
 from ui.ui_xmldatadialog import Ui_XMLDataDialog
 
 # ---------- HELPER FUNCTIONS: ----------
-def addRouter(device_parameters, scene, class_type) -> "Router":
+def addRouter(device_parameters, scene, class_type, x=0, y=0) -> "Router":
     """Creates a router object and adds it to the scene."""
 
     if class_type == "IOSXERouter":
-        router = IOSXERouter(device_parameters)
+        router = IOSXERouter(device_parameters, x, y)
     elif class_type == "JUNOSRouter":
-        router = JUNOSRouter(device_parameters)
+        router = JUNOSRouter(device_parameters, x, y)
 
     scene.addItem(router)
     return(router)
 
-def addFirewall(device_parameters, scene, class_type) -> "Firewall":
+def addFirewall(device_parameters, scene, class_type, x=0, y=0) -> "Firewall":
     """Creates a firewall object and adds it to the scene."""
 
     if class_type == "JUNOSFirewall":
-        firewall = JUNOSFirewall(device_parameters)
+        firewall = JUNOSFirewall(device_parameters, x, y)
 
     scene.addItem(firewall)
     return(firewall)
 
-def addSwitch(device_parameters, scene, class_type) -> "Switch":
+def addSwitch(device_parameters, scene, class_type, x=0, y=0) -> "Switch":
     """Creates a switch object and adds it to the scene."""
 
     if class_type == "IOSXESwitch":
-        switch = IOSXESwitch(device_parameters)
+        switch = IOSXESwitch(device_parameters, x, y)
 
     scene.addItem(switch)
     return(switch)
@@ -196,6 +196,7 @@ class Device(QGraphicsPixmapItem):
         # DEVICE INFORMATION
         self.netconf_capabilities = self.getNetconfCapabilities()
         self.interfaces = self.getInterfaces() # Documented in doc/interfaces_dictionary.md
+        print(self.interfaces)
         self.hostname = self.getHostname()
 
         # LABEL (Hostname)

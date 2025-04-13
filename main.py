@@ -52,9 +52,6 @@ from PySide6.QtCore import Qt, QRectF
 # QtCreator
 from ui.ui_pendingchangedetailsdialog import Ui_PendingChangeDetailsDialog
 
-
-sys.argv += ['-platform', 'windows:darkmode=2'] if DARK_MODE else ['-platform', 'windows:darkmode=1']
-
 # ---------- QT CLASSES----------
 class MainView(QGraphicsView):
     CURSOR_MODES = {
@@ -469,11 +466,11 @@ class MainWindow(QMainWindow):
                     return
         
         if "Router" in device_type:
-            addRouter(device_parameters, self.view.scene, device_type)
+            addRouter(device_parameters, self.view.scene, device_type, x, y)
         elif "Switch" in device_type:
-            addSwitch(device_parameters, self.view.scene, device_type)
+            addSwitch(device_parameters, self.view.scene, device_type, x, y)
         elif "Firewall" in device_type:
-            addFirewall(device_parameters, self.view.scene, device_type)
+            addFirewall(device_parameters, self.view.scene, device_type, x, y)
 
 
 class ConsoleWidget(QDockWidget):
