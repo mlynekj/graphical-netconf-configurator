@@ -1,14 +1,91 @@
 {
     "devices": [
         {
-            "type": "IOSXESwitch",
-            "ip_address": "172.16.10.71:830",
+            "type": "IOSXERouter",
+            "ip_address": "172.16.10.211:830",
             "username": "jakub",
             "password": "cisco",
             "vendor": "iosxe",
             "location": {
-                "x": 0.0,
-                "y": 0.0
+                "x": -647.0,
+                "y": -152.0
+            }
+        },
+        {
+            "type": "IOSXERouter",
+            "ip_address": "172.16.10.204:830",
+            "username": "jakub",
+            "password": "cisco",
+            "vendor": "iosxe",
+            "location": {
+                "x": -418.0,
+                "y": 13.0
+            }
+        },
+        {
+            "type": "JUNOSRouter",
+            "ip_address": "172.16.10.201:830",
+            "username": "root",
+            "password": "Juniper123",
+            "vendor": "junos",
+            "location": {
+                "x": -253.0,
+                "y": -141.0
+            }
+        },
+        {
+            "type": "JUNOSRouter",
+            "ip_address": "172.16.10.203:830",
+            "username": "root",
+            "password": "Juniper123",
+            "vendor": "junos",
+            "location": {
+                "x": -259.0,
+                "y": 175.0
+            }
+        },
+        {
+            "type": "JUNOSRouter",
+            "ip_address": "172.16.10.202:830",
+            "username": "root",
+            "password": "Juniper123",
+            "vendor": "junos",
+            "location": {
+                "x": -89.0,
+                "y": 25.0
+            }
+        },
+        {
+            "type": "IOSXERouter",
+            "ip_address": "172.16.10.221:830",
+            "username": "jakub",
+            "password": "cisco",
+            "vendor": "iosxe",
+            "location": {
+                "x": 133.0,
+                "y": -132.0
+            }
+        },
+        {
+            "type": "JUNOSFirewall",
+            "ip_address": "172.16.10.212:830",
+            "username": "root",
+            "password": "Juniper123",
+            "vendor": "junos",
+            "location": {
+                "x": -653.0,
+                "y": 171.0
+            }
+        },
+        {
+            "type": "JUNOSFirewall",
+            "ip_address": "172.16.10.222:830",
+            "username": "root",
+            "password": "Juniper123",
+            "vendor": "junos",
+            "location": {
+                "x": 166.0,
+                "y": 182.0
             }
         }
     ]

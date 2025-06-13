@@ -1,8 +1,29 @@
 # GNC - Graphical NETCONF Configurator
 
+This tool is a graphical network configuration tool built with graphical visualization in mind. This tool is meant to be used with Cisco or Juniper Devices, but further extension is possible and encouraged.
+
+Currently the tool supports:
+
+- Configuring **IP addresses** on various interfaces
+- Configuraing **hostname** of the device
+- Batch configuration of **OSPF** routing protocol
+- **IPsec tunnel** configuration, with PSK authentication method
+- **VLAN** configuration on switched interfaces, with the ability to switch the interface to L3 mode, for Inter-VLAN on an L3 switch
+
+## Example usage
+
+### IP addresses
+
+### OSPF
+
+### IPsec
+
+### VLAN
+
+
 ## Installation and launching
 
-This application was tested for python 3.13.2. Other versions may work, but are not guaranteed to.
+This application was tested for Python 3.13.2. Other versions may work, but are not guaranteed to.
 
 ### Manually
 
