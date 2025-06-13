@@ -1,6 +1,6 @@
 # GNC - Graphical NETCONF Configurator
 
-This tool, called GNC, is a graphical network configuration tool built with graphical visualization in mind. It was built as a part of my diploma thesis at VŠB-TUO called "*Advanced Tools for automatic configuration of network devices using NETCONF*".
+This tool, called GNC, is a graphical network configuration tool built with graphical visualization in mind. It was built as a part of my diploma thesis at VŠB-TUO called "*Advanced Tools for automatic configuration of network devices using NETCONF*" (*TODO: Add link*).
 It allows to configure network devices using the NETCONF protocol, while allowing to visaulize the topology in a graphical way. Topology visualization is done by connecting the devices on the canvas using cables on the specified interfaces. If the interface has an IP address assigned, it will be shown as well.
 
 ![cable](https://github.com/user-attachments/assets/e94b7d48-af66-4771-bae5-6a5dd52fb6ee)
@@ -45,8 +45,11 @@ https://github.com/user-attachments/assets/87ace63f-56c9-45f9-a7bc-5b73d428e2a2
 
 ### IPsec
 
+*TODO: Add video*
+
 ### VLAN
 
+*TODO: Add video*
 
 ## Installation and launching
 
