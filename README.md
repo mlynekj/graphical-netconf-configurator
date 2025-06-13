@@ -41,6 +41,8 @@ https://github.com/user-attachments/assets/31fc0f2d-5c39-4015-8d44-9b45f7cc9c94
 
 ### OSPF
 
+https://github.com/user-attachments/assets/87ace63f-56c9-45f9-a7bc-5b73d428e2a2
+
 ### IPsec
 
 ### VLAN
